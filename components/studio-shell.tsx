@@ -1,0 +1,182 @@
+"use client";
+
+import { useState } from "react";
+
+const tabs = ["Model", "Design", "Simulate", "Analyze"] as const;
+
+type Theme = "light" | "dark";
+type Tab = (typeof tabs)[number];
+
+function WindMark() {
+  return (
+    <svg aria-hidden="true" className="h-8 w-8 text-accent" fill="none" viewBox="0 0 32 32">
+      <path
+        d="M4 11.5h13.5c3.3 0 5.5-1.8 5.5-4.1C23 5.1 21.4 4 19.3 4c-1.8 0-3.2.8-4 2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2.4"
+      />
+      <path
+        d="M4 16h19.2c3.1 0 4.8 1.4 4.8 3.6 0 2.2-1.9 3.9-4.4 3.9-1.6 0-3-.6-3.8-1.8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2.4"
+      />
+      <path
+        d="M4 20.5h9.2c2.8 0 4.5 1.4 4.5 3.8 0 2.1-1.7 3.7-4.1 3.7-1.3 0-2.5-.5-3.2-1.4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2.4"
+      />
+    </svg>
+  );
+}
+
+function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+  const nextTheme = theme === "light" ? "dark" : "light";
+
+  return (
+    <button
+      aria-label={`Switch to ${nextTheme} theme`}
+      aria-pressed={theme === "dark"}
+      className="inline-flex min-h-10 items-center gap-2 rounded-full border border-line bg-canvas-raised px-3 text-sm font-medium text-ink shadow-sm hover:border-accent"
+      onClick={onToggle}
+      type="button"
+    >
+      <span aria-hidden="true" className="text-base leading-none">
+        {theme === "light" ? "☼" : "◐"}
+      </span>
+      <span className="capitalize">{theme}</span>
+    </button>
+  );
+}
+
+function TabPreview({ tab }: { tab: Tab }) {
+  const messages: Record<Tab, { eyebrow: string; title: string; body: string }> = {
+    Model: {
+      eyebrow: "Start with what you believe",
+      title: "Describe the buyers before you price them.",
+      body: "Segments, willingness to pay, feature value, and evidence provenance will live here.",
+    },
+    Design: {
+      eyebrow: "Build a menu",
+      title: "Turn value into tiers and fences.",
+      body: "The packaging canvas will let buyers self-select across tiers, free plans, and add-ons.",
+    },
+    Simulate: {
+      eyebrow: "Run the wind tunnel",
+      title: "Watch assumptions become outcomes.",
+      body: "The closed-form engine, conversion, revenue, and value waterfall land in the next phase.",
+    },
+    Analyze: {
+      eyebrow: "Validate what matters",
+      title: "Find the assumptions worth testing first.",
+      body: "Uncertainty, price sensitivity, and the decision record will make the trade-offs inspectable.",
+    },
+  };
+
+  const message = messages[tab];
+
+  return (
+    <section
+      aria-labelledby="workbench-title"
+      className="grid min-h-[28rem] place-items-center px-6 py-14 text-center sm:px-12"
+    >
+      <div className="max-w-xl">
+        <p className="text-sm font-semibold tracking-[0.16em] text-accent uppercase">
+          {message.eyebrow}
+        </p>
+        <h1
+          id="workbench-title"
+          className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-ink sm:text-5xl"
+        >
+          {message.title}
+        </h1>
+        <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-muted">{message.body}</p>
+        <div className="mt-10 rounded-2xl border border-dashed border-line bg-canvas px-5 py-4 text-left shadow-sm">
+          <p className="text-sm font-medium text-ink">P0 shell</p>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            Navigation, themes, accessibility, static export, and test gates are in place. The
+            decision engine is intentionally not connected yet.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function StudioShell({ version }: { version: string }) {
+  const [activeTab, setActiveTab] = useState<Tab>("Model");
+  const [theme, setTheme] = useState<Theme>("light");
+
+  const toggleTheme = () => {
+    const nextTheme: Theme = theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = nextTheme;
+    setTheme(nextTheme);
+  };
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
+      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
+        <div className="flex items-center gap-3">
+          <WindMark />
+          <div>
+            <p className="text-lg font-semibold tracking-[-0.03em] text-ink">Wind Tunnel</p>
+            <p className="text-xs text-muted">Pricing & packaging studio</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-amber-soft px-3 py-2 text-xs font-semibold tracking-[0.08em] text-amber uppercase">
+            Seed · 240715
+          </span>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+        </div>
+      </header>
+
+      <section className="mt-5 flex flex-1 flex-col overflow-hidden rounded-3xl border border-line bg-canvas-raised shadow-[var(--shadow)]">
+        <nav
+          aria-label="Studio sections"
+          className="overflow-x-auto border-b border-line px-2 pt-2"
+        >
+          <div aria-label="Wind Tunnel sections" className="flex min-w-max gap-1" role="tablist">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  aria-controls="workbench-panel"
+                  aria-selected={isActive}
+                  className={`rounded-t-xl px-4 py-3 text-sm font-semibold ${
+                    isActive
+                      ? "bg-accent-soft text-accent-strong"
+                      : "text-muted hover:bg-canvas hover:text-ink"
+                  }`}
+                  id={`${tab.toLowerCase()}-tab`}
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  role="tab"
+                  type="button"
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+        <div
+          aria-labelledby={`${activeTab.toLowerCase()}-tab`}
+          className="flex flex-1"
+          id="workbench-panel"
+          role="tabpanel"
+          tabIndex={0}
+        >
+          <TabPreview tab={activeTab} />
+        </div>
+      </section>
+
+      <footer className="flex flex-wrap items-center justify-between gap-2 px-2 pt-4 text-xs text-muted">
+        <p>Private by design · No accounts · No telemetry</p>
+        <p>Wind Tunnel v{version}</p>
+      </footer>
+    </main>
+  );
+}

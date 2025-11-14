@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P0 scaffold in progress (v0.1.0).** The build plan is complete and owner-approved. The static shell, local checks, and CI configuration land as a sequence of reviewable commits; it is not deployed, and the pricing engine has not started. One recorded owner policy choice (offer-tie attribution) gates P1.
+> **Status: P0 static shell in progress (v0.1.1).** The build plan is complete and owner-approved. The static shell, local checks, and CI configuration land as a sequence of reviewable commits; it is not deployed, and the pricing engine has not started. One recorded owner policy choice (offer-tie attribution) gates P1.
 
 ## The idea
 
@@ -85,5 +85,5 @@ that version in `package.json` and both root version fields in
 `package-lock.json` in the same commit. Historical v0.8.11–v0.9.7 timestamps
 were owner-directed exceptions; do not rewrite pushed history.
 
-* **Base Format Version:** 0.1.0
-* **Portfolio Version:** v0.1.0_2025-11-15_01:44:11 (IST)
+* **Base Format Version:** 0.1.1
+* **Portfolio Version:** v0.1.1_2025-11-15_02:22:05 (IST)

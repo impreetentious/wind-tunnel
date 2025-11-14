@@ -1,15 +1,21 @@
 {
   "name": "wind-tunnel",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A client-side SaaS pricing and packaging decision studio.",
   "scripts": {
     "dev": "next dev",
+    "build": "npm run privacy && next build && npm run bundle-size",
     "start": "node scripts/serve-static.mjs",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "format": "prettier --write . --ignore-unknown",
+    "format:check": "prettier --check . --ignore-unknown",
+    "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
     "privacy": "node scripts/check-runtime-privacy.mjs",
+    "bundle-size": "node scripts/check-bundle-size.mjs",
     "spec-coverage": "node scripts/spec-coverage.mjs"
   },
   "dependencies": {
