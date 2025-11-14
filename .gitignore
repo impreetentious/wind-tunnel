@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# tests & coverage
+coverage/
+test-results/
+playwright-report/
+
+# deploy
+.vercel
+
+# environment & local overrides
+.env
+.env.*
+*.local
+
+# editors & OS
+.DS_Store
+.idea/
+.vscode/
+*.log
