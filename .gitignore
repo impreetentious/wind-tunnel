@@ -21,6 +21,7 @@ playwright-report/
 .env
 .env.*
 *.local
+.claude/settings.local.json
 
 # editors & OS
 .DS_Store
