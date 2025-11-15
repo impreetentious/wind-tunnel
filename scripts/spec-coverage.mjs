@@ -4,7 +4,7 @@ import { join } from "node:path";
 const root = process.cwd();
 const spec = await readFile(join(root, "docs", "MODEL-SPEC.md"), "utf8");
 const sections = [...spec.matchAll(/^### §(4\.\d+) /gm)].map((match) => match[1]);
-const requiredSections = new Set(["4.1", "4.2"]);
+const requiredSections = new Set(["4.1", "4.2", "4.3", "4.4", "4.5"]);
 const ignoredDirectories = new Set([
   ".git",
   ".next",
@@ -39,7 +39,7 @@ for (const test of tests) {
 console.log("MODEL-SPEC coverage");
 for (const section of sections) {
   const count = citations.get(section) ?? 0;
-  const requirement = requiredSections.has(section) ? "required in P1" : "future phase";
+  const requirement = requiredSections.has(section) ? "required through P2" : "future phase";
   console.log(`§${section}: ${count} test citation(s) — ${requirement}`);
 }
 
@@ -48,7 +48,7 @@ const missingRequired = [...requiredSections].filter(
 );
 if (missingRequired.length > 0) {
   console.error(
-    `Missing required P1 spec coverage: ${missingRequired.map((section) => `§${section}`).join(", ")}`,
+    `Missing required P2 spec coverage: ${missingRequired.map((section) => `§${section}`).join(", ")}`,
   );
   process.exitCode = 1;
 }
