@@ -13,7 +13,7 @@ describe("StudioShell", () => {
     render(<StudioShell version="0.1.0" />);
 
     expect(screen.getByRole("tab", { name: "Model", selected: true })).toBeVisible();
-    expect(screen.getAllByRole("tab")).toHaveLength(4);
+    expect(screen.getAllByRole("tab")).toHaveLength(5);
     expect(screen.getByText("Wind Tunnel v0.1.0")).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to dark theme" }));
@@ -29,5 +29,17 @@ describe("StudioShell", () => {
 
     expect(screen.getByRole("tab", { name: "Simulate", selected: true })).toBeVisible();
     expect(screen.getByText("Watch assumptions become outcomes.")).toBeVisible();
+  });
+
+  it("surfaces validation errors while importing a complete scenario", () => {
+    render(<StudioShell version="0.4.0" />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Share" }));
+    fireEvent.change(screen.getByLabelText("Import complete scenario JSON"), {
+      target: { value: "{broken" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import JSON" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent("This is not valid scenario JSON.");
   });
 });
