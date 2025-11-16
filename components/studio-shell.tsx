@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+import {
+  attachScenarioAutosave,
+  restoreScenarioFromStorage,
+  scenarioStore,
+  useScenarioStore,
+} from "@/lib/state/scenario-store";
+import type { ScenarioSettings } from "@/lib/state/schemas";
 
 const tabs = ["Model", "Design", "Simulate", "Analyze"] as const;
 
-type Theme = "light" | "dark";
+type EffectiveTheme = "light" | "dark";
 type Tab = (typeof tabs)[number];
 
 function WindMark() {
@@ -32,19 +40,34 @@ function WindMark() {
   );
 }
 
-function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
-  const nextTheme = theme === "light" ? "dark" : "light";
+function ThemeToggle({
+  theme,
+  effectiveTheme,
+  onChange,
+}: {
+  theme: ScenarioSettings["theme"];
+  effectiveTheme: EffectiveTheme;
+  onChange: (theme: ScenarioSettings["theme"]) => void;
+}) {
+  const nextTheme: ScenarioSettings["theme"] =
+    theme === "system"
+      ? effectiveTheme === "light"
+        ? "dark"
+        : "light"
+      : theme === "dark"
+        ? "light"
+        : "system";
 
   return (
     <button
       aria-label={`Switch to ${nextTheme} theme`}
-      aria-pressed={theme === "dark"}
+      aria-pressed={effectiveTheme === "dark"}
       className="inline-flex min-h-10 items-center gap-2 rounded-full border border-line bg-canvas-raised px-3 text-sm font-medium text-ink shadow-sm hover:border-accent"
-      onClick={onToggle}
+      onClick={() => onChange(nextTheme)}
       type="button"
     >
       <span aria-hidden="true" className="text-base leading-none">
-        {theme === "light" ? "☼" : "◐"}
+        {effectiveTheme === "light" ? "☼" : "◐"}
       </span>
       <span className="capitalize">{theme}</span>
     </button>
@@ -94,10 +117,10 @@ function TabPreview({ tab }: { tab: Tab }) {
         </h1>
         <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-muted">{message.body}</p>
         <div className="mt-10 rounded-2xl border border-dashed border-line bg-canvas px-5 py-4 text-left shadow-sm">
-          <p className="text-sm font-medium text-ink">P0 shell</p>
+          <p className="text-sm font-medium text-ink">P3 scenario foundation</p>
           <p className="mt-1 text-sm leading-6 text-muted">
-            Navigation, themes, accessibility, static export, and test gates are in place. The
-            decision engine is intentionally not connected yet.
+            Versioned scenario data, local autosave, undo, complete JSON transfer, and compact share
+            links are ready for the model and design surfaces.
           </p>
         </div>
       </div>
@@ -105,15 +128,36 @@ function TabPreview({ tab }: { tab: Tab }) {
   );
 }
 
+function readSystemTheme(): EffectiveTheme {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export function StudioShell({ version }: { version: string }) {
   const [activeTab, setActiveTab] = useState<Tab>("Model");
-  const [theme, setTheme] = useState<Theme>("light");
+  const settings = useScenarioStore((state) => state.scenario.settings);
+  const message = useScenarioStore((state) => state.message);
+  const setSettings = useScenarioStore((state) => state.setSettings);
+  const setMessage = useScenarioStore((state) => state.setMessage);
+  const [systemTheme, setSystemTheme] = useState<EffectiveTheme>("light");
+  const effectiveTheme = settings.theme === "system" ? systemTheme : settings.theme;
 
-  const toggleTheme = () => {
-    const nextTheme: Theme = theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = nextTheme;
-    setTheme(nextTheme);
-  };
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const syncSystemTheme = () => setSystemTheme(readSystemTheme());
+    syncSystemTheme();
+    media?.addEventListener?.("change", syncSystemTheme);
+    return () => media?.removeEventListener?.("change", syncSystemTheme);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = effectiveTheme;
+  }, [effectiveTheme]);
+
+  useEffect(() => {
+    restoreScenarioFromStorage(scenarioStore, window.localStorage);
+    return attachScenarioAutosave(scenarioStore, window.localStorage);
+  }, []);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 py-4 sm:px-6 lg:px-8">
@@ -122,16 +166,37 @@ export function StudioShell({ version }: { version: string }) {
           <WindMark />
           <div>
             <p className="text-lg font-semibold tracking-[-0.03em] text-ink">Wind Tunnel</p>
-            <p className="text-xs text-muted">Pricing & packaging studio</p>
+            <p className="text-xs text-muted">Pricing &amp; packaging studio</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <span className="rounded-full bg-amber-soft px-3 py-2 text-xs font-semibold tracking-[0.08em] text-amber uppercase">
-            Seed · 240715
+            Seed · {settings.seed}
           </span>
-          <ThemeToggle theme={theme} onToggle={toggleTheme} />
+          <ThemeToggle
+            effectiveTheme={effectiveTheme}
+            onChange={(theme) => setSettings({ theme })}
+            theme={settings.theme}
+          />
         </div>
       </header>
+
+      {message ? (
+        <div
+          className="mt-4 flex items-start justify-between gap-4 rounded-xl border border-amber bg-amber-soft px-4 py-3 text-sm text-ink"
+          role="alert"
+        >
+          <p>{message}</p>
+          <button
+            aria-label="Dismiss message"
+            className="text-sm font-semibold text-amber hover:text-ink"
+            onClick={() => setMessage(null)}
+            type="button"
+          >
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       <section className="mt-5 flex flex-1 flex-col overflow-hidden rounded-3xl border border-line bg-canvas-raised shadow-[var(--shadow)]">
         <nav
