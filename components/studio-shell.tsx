@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { ModelSurface } from "@/components/model-surface";
 import {
   decodeShareHash,
   encodeShareHash,
@@ -81,16 +82,11 @@ function ThemeToggle({
   );
 }
 
-function TabPreview({ tab }: { tab: Exclude<Tab, "Share"> }) {
+function TabPreview({ tab }: { tab: Exclude<Tab, "Share" | "Model"> }) {
   const messages: Record<
-    Exclude<Tab, "Share">,
+    Exclude<Tab, "Share" | "Model">,
     { eyebrow: string; title: string; body: string }
   > = {
-    Model: {
-      eyebrow: "Start with what you believe",
-      title: "Describe the buyers before you price them.",
-      body: "Segments, willingness to pay, feature value, and evidence provenance will live here.",
-    },
     Design: {
       eyebrow: "Build a menu",
       title: "Turn value into tiers and fences.",
@@ -389,7 +385,13 @@ export function StudioShell({ version }: { version: string }) {
           role="tabpanel"
           tabIndex={0}
         >
-          {activeTab === "Share" ? <SharePanel /> : <TabPreview tab={activeTab} />}
+          {activeTab === "Model" ? (
+            <ModelSurface />
+          ) : activeTab === "Share" ? (
+            <SharePanel />
+          ) : (
+            <TabPreview tab={activeTab} />
+          )}
         </div>
       </section>
 

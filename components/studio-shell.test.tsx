@@ -1,7 +1,14 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { createBlankScenario, scenarioStore } from "@/lib/state/scenario-store";
 import { StudioShell } from "./studio-shell";
+
+beforeEach(() => {
+  scenarioStore.getState().replaceScenario(createBlankScenario());
+  scenarioStore.temporal.getState().clear();
+  window.localStorage.clear();
+});
 
 afterEach(() => {
   cleanup();
@@ -29,6 +36,43 @@ describe("StudioShell", () => {
 
     expect(screen.getByRole("tab", { name: "Simulate", selected: true })).toBeVisible();
     expect(screen.getByText("Watch assumptions become outcomes.")).toBeVisible();
+  });
+
+  it("loads a template, updates live KPIs, and supports matrix arrow navigation", () => {
+    render(<StudioShell version="0.5.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    expect(screen.getByRole("heading", { name: "Make the assumptions visible" })).toBeVisible();
+
+    const potentialLabel = screen.getByText("Potential value");
+    const before = potentialLabel.nextElementSibling?.textContent;
+    fireEvent.change(
+      screen.getByLabelText("Growing teams account-level WTP confidence band P50 (USD)"),
+      { target: { value: "250" } },
+    );
+    expect(potentialLabel.nextElementSibling).not.toHaveTextContent(before ?? "");
+
+    const firstCell = screen.getByLabelText("Shared workspaces value for Growing teams");
+    firstCell.focus();
+    fireEvent.keyDown(firstCell, { key: "ArrowRight" });
+    expect(
+      screen.getByLabelText("Shared workspaces value for Scaling organisations"),
+    ).toHaveFocus();
+  });
+
+  it("keeps model confidence bands P50-centred with inline validation", () => {
+    render(<StudioShell version="0.5.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    const p10 = screen.getByLabelText("Growing teams account-level WTP confidence band P10 (USD)");
+    fireEvent.change(p10, { target: { value: "26" } });
+    expect(screen.getByText("P10 cannot be greater than P50 (or P90).")).toBeVisible();
+
+    fireEvent.change(p10, { target: { value: "25" } });
+    expect(p10).toHaveValue(25);
+    expect(
+      screen.getByLabelText("Growing teams account-level WTP confidence band P90 (USD)"),
+    ).toHaveValue(25);
   });
 
   it("surfaces validation errors while importing a complete scenario", () => {
