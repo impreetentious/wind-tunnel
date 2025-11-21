@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { DesignSurface } from "@/components/design-surface";
 import { ModelSurface } from "@/components/model-surface";
 import {
   decodeShareHash,
@@ -387,6 +388,8 @@ export function StudioShell({ version }: { version: string }) {
         >
           {activeTab === "Model" ? (
             <ModelSurface />
+          ) : activeTab === "Design" ? (
+            <DesignSurface />
           ) : activeTab === "Share" ? (
             <SharePanel />
           ) : (

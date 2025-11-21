@@ -75,6 +75,24 @@ describe("StudioShell", () => {
     ).toHaveValue(25);
   });
 
+  it("edits an active design and keeps an alternative in the scenario", () => {
+    render(<StudioShell version="0.6.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Design" }));
+
+    expect(screen.getByRole("heading", { name: "Turn value into tiers and fences" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate active" }));
+    fireEvent.change(screen.getByLabelText("Active design name"), {
+      target: { value: "Price test" },
+    });
+    fireEvent.change(screen.getByLabelText("Team price"), { target: { value: "18" } });
+
+    expect(screen.getByLabelText("Active design name")).toHaveValue("Price test");
+    expect(screen.getByLabelText("Team price")).toHaveValue(18);
+    expect(screen.getByRole("list", { name: "Scenario designs" })).toHaveTextContent("Price test");
+  });
+
   it("surfaces validation errors while importing a complete scenario", () => {
     render(<StudioShell version="0.4.0" />);
 
