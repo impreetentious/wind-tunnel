@@ -46,3 +46,46 @@ test("the static shell is accessible, private, and theme-aware", async ({ page }
 
   expect(unexpectedRequests).toEqual([]);
 });
+
+test("the Design workbench builds a three-tier menu from blank and clears its linter", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Start a blank model" }).click();
+
+  await page.getByRole("button", { name: "Add feature" }).click();
+  await page.getByRole("button", { name: "Add feature" }).click();
+  await page.getByRole("button", { name: "Add feature" }).click();
+  await page.getByRole("button", { name: "Add segment" }).click();
+  await page.getByRole("button", { name: "Add segment" }).click();
+
+  await page.getByRole("tab", { name: "Design" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Turn value into tiers and fences" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Add paid tier" }).click();
+  await page.getByRole("button", { name: "Add paid tier" }).click();
+  await page.getByRole("button", { name: "Add paid tier" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Fence carries no screening information" }).first(),
+  ).toBeVisible();
+
+  await page.getByRole("spinbutton", { name: "Tier 1 price", exact: true }).fill("5");
+  await page.getByRole("spinbutton", { name: "Tier 2 price", exact: true }).fill("20");
+  await page.getByRole("spinbutton", { name: "Tier 3 price", exact: true }).fill("40");
+
+  for (const label of [
+    "Feature 1 included in Tier 1",
+    "Feature 1 included in Tier 2",
+    "Feature 1 included in Tier 3",
+    "Feature 2 included in Tier 2",
+    "Feature 2 included in Tier 3",
+    "Feature 3 included in Tier 3",
+  ]) {
+    await page.getByLabel(label).check();
+  }
+
+  await expect(page.getByText("No deterministic issues are firing.")).toBeVisible();
+  await expectNoSeriousAxeViolations(page);
+});
