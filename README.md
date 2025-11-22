@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P6a locally verified; handoff pending (current committed version v0.7.1).** The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math and economics have a tested pure-engine contract, scenarios persist locally and share safely, and the Model, Design, and live Simulate workbenches make buyer assumptions and packaging consequences inspectable.
+> **Status: P7a in progress (latest committed version v0.8.0).** The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math and economics have a tested pure-engine contract, scenarios persist locally and share safely, and the Model, Design, and live Simulate workbenches make buyer assumptions and packaging consequences inspectable.
 
 ## The idea
 
@@ -39,8 +39,8 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 | P3      | Scenarios: persistence, import/export, share-by-URL, templates           | P3 locally complete |
 | P4      | Model surface: segments, bands, value matrix, templates                  | P4 locally complete |
 | P5      | Design surface + design linter                                           | Locally complete    |
-| P6a     | **v1.0 core:** live wind-tunnel reveal                                   | Locally verified    |
-| P7a–P7b | **v1.0 core:** Monte Carlo + tornado and Van Westendorp                  | —                   |
+| P6a     | **v1.0 core:** live wind-tunnel reveal                                   | Locally complete    |
+| P7a–P7b | **v1.0 core:** Monte Carlo + tornado and Van Westendorp                  | P7a in progress     |
 | P8      | **v1.0 core:** Pricing Decision Record export                            | —                   |
 | P9      | **v1.0 core:** hardening, accessibility & performance audit → **v1.0.0** | —                   |
 | P6b/P8b | **v1.1 extensions:** mechanism + A/B and pricing-page mock               | Deferred until v1.0 |
@@ -86,5 +86,5 @@ that version in `package.json` and both root version fields in
 `package-lock.json` in the same commit. Historical v0.8.11–v0.9.7 timestamps
 were owner-directed exceptions; do not rewrite pushed history.
 
-- **Base Format Version:** 0.7.1
-- **Portfolio Version:** v0.7.1_2025-11-22_21:26:34 (IST)
+- **Base Format Version:** 0.8.0
+- **Portfolio Version:** v0.8.0_2025-11-22_21:45:02 (IST)

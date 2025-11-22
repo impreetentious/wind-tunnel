@@ -183,3 +183,96 @@ export interface TierPriceSweep {
   /** True when the expansion cap left the best result at the search boundary. */
   bestInSearchedRange: boolean;
 }
+
+/** One P10/P50/P90 assumption band sampled by the uncertainty engine. */
+export interface MonteCarloBand {
+  p10: number;
+  p50: number;
+  p90: number;
+}
+
+export interface MonteCarloParameter {
+  id: string;
+  label: string;
+  band: MonteCarloBand;
+}
+
+export interface MonteCarloDesign {
+  id: string;
+  label: string;
+}
+
+/** A deterministic random-number generator injected into the pure engine. */
+export type SeededRandom = () => number;
+export type SeededRandomFactory = (seed: number) => SeededRandom;
+
+/**
+ * The state layer provides this bridge so Monte Carlo remains independent of
+ * persisted scenario data while still evaluating the closed-form simulator.
+ */
+export type MonteCarloEvaluator = (
+  designId: string,
+  parameterValues: Readonly<Record<string, number>>,
+) => number;
+
+export interface MonteCarloInput {
+  seed: number;
+  drawCount: number;
+  parameters: readonly MonteCarloParameter[];
+  designs: readonly MonteCarloDesign[];
+  /** The design used for one-at-a-time tornado sensitivity analysis. */
+  referenceDesignId: string;
+  evaluate: MonteCarloEvaluator;
+  randomFactory?: SeededRandomFactory;
+}
+
+export interface MonteCarloDraw {
+  index: number;
+  parameterValues: Readonly<Record<string, number>>;
+  mrrByDesign: Readonly<Record<string, number>>;
+}
+
+export interface MonteCarloPercentiles {
+  p10: number;
+  p50: number;
+  p90: number;
+  mean: number;
+}
+
+export interface MonteCarloDistribution {
+  designId: string;
+  label: string;
+  mrr: readonly number[];
+  percentiles: MonteCarloPercentiles;
+}
+
+export interface MonteCarloComparison {
+  referenceDesignId: string;
+  challengerDesignId: string;
+  referenceWins: number;
+  challengerWins: number;
+  ties: number;
+  /** Challenger wins divided by all paired draws; ties are not wins. */
+  challengerWinRate: number;
+}
+
+export interface MonteCarloTornadoDriver {
+  parameterId: string;
+  label: string;
+  baseMrr: number;
+  lowMrr: number;
+  highMrr: number;
+  lowDelta: number;
+  highDelta: number;
+  /** The bar sort key: max(|low delta|, |high delta|). */
+  maximumAbsoluteDelta: number;
+}
+
+export interface MonteCarloResult {
+  seed: number;
+  drawCount: number;
+  draws: readonly MonteCarloDraw[];
+  distributions: readonly MonteCarloDistribution[];
+  comparisons: readonly MonteCarloComparison[];
+  tornado: readonly MonteCarloTornadoDriver[];
+}
