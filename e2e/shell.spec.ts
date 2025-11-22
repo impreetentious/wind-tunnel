@@ -193,3 +193,38 @@ test("each warmed template simulation renders within the 16ms P6a interaction bu
     expect(durationMilliseconds).toBeLessThan(16);
   }
 });
+
+test("uncertainty draws are seeded, paired, and rendered within the P7a budget", async ({
+  page,
+}) => {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Performance.enable");
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).nth(2).click();
+  await page.getByLabel("Mid-market teams account-level WTP confidence band P10 (USD)").fill("300");
+
+  const before = await browserTaskDuration(session);
+  await page.getByRole("tab", { name: "Analyze" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Stress-test the assumptions behind this menu" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("tornado-chart")).toBeVisible();
+  await page.evaluate(
+    () => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())),
+  );
+  const durationMilliseconds = ((await browserTaskDuration(session)) - before) * 1_000;
+  expect(durationMilliseconds).toBeLessThan(150);
+
+  const seed = page.getByLabel("Simulation seed");
+  await seed.fill("42");
+  const firstP50 = await page.getByTestId("monte-carlo-p50").textContent();
+  await seed.fill("42");
+  await expect(page.getByTestId("monte-carlo-p50")).toHaveText(firstP50 ?? "");
+  await seed.fill("43");
+  await expect(page.getByTestId("monte-carlo-p50")).not.toHaveText(firstP50 ?? "");
+
+  await page.getByRole("button", { name: "View tornado as table" }).click();
+  await expect(page.getByRole("table", { name: "Tornado sensitivity table" })).toBeVisible();
+  await expectNoSeriousAxeViolations(page);
+});

@@ -140,6 +140,29 @@ describe("StudioShell", () => {
     ).not.toBe(dotLayout);
   });
 
+  it("runs deterministic uncertainty draws and exposes a tornado table", () => {
+    render(<StudioShell version="0.8.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[2]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Stress-test the assumptions behind this menu" }),
+    ).toBeVisible();
+    expect(screen.getByTestId("tornado-chart")).toBeVisible();
+    const seed = screen.getByLabelText("Simulation seed");
+
+    fireEvent.change(seed, { target: { value: "42" } });
+    const seededP50 = screen.getByTestId("monte-carlo-p50").textContent;
+    fireEvent.change(seed, { target: { value: "42" } });
+    expect(screen.getByTestId("monte-carlo-p50")).toHaveTextContent(seededP50 ?? "");
+    fireEvent.change(seed, { target: { value: "43" } });
+    expect(screen.getByTestId("monte-carlo-p50")).not.toHaveTextContent(seededP50 ?? "");
+
+    fireEvent.click(screen.getByRole("button", { name: "View tornado as table" }));
+    expect(screen.getByRole("table", { name: "Tornado sensitivity table" })).toBeVisible();
+  });
+
   it("surfaces validation errors while importing a complete scenario", () => {
     render(<StudioShell version="0.4.0" />);
 
