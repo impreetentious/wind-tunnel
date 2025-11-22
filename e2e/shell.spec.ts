@@ -11,6 +11,13 @@ async function expectNoSeriousAxeViolations(page: import("@playwright/test").Pag
   expect(seriousOrCritical).toEqual([]);
 }
 
+async function browserTaskDuration(
+  session: Awaited<ReturnType<import("@playwright/test").BrowserContext["newCDPSession"]>>,
+) {
+  const result = await session.send("Performance.getMetrics");
+  return result.metrics.find((metric) => metric.name === "TaskDuration")?.value ?? 0;
+}
+
 test("the static shell is accessible, private, and theme-aware", async ({ page }) => {
   const unexpectedRequests: string[] = [];
 
@@ -88,4 +95,101 @@ test("the Design workbench builds a three-tier menu from blank and clears its li
 
   await expect(page.getByText("No deterministic issues are firing.")).toBeVisible();
   await expectNoSeriousAxeViolations(page);
+});
+
+test("the wind tunnel re-sorts buyers, reconciles chart tables, and respects reduced motion", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).nth(2).click();
+  await page.getByRole("tab", { name: "Simulate" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Reveal the menu's economic consequences" }),
+  ).toBeVisible();
+  const beforeMrr = await page
+    .getByText("MRR", { exact: true })
+    .locator("xpath=following-sibling::*")
+    .textContent();
+  const beforeDots = await page
+    .locator('[data-testid="buyer-dot"]')
+    .evaluateAll((dots) =>
+      dots.map((dot) => `${dot.getAttribute("cx")}:${dot.getAttribute("cy")}`).join("|"),
+    );
+  const choiceShare = await page
+    .locator('[data-testid^="buyer-selection-share-"]')
+    .first()
+    .textContent();
+  const revenue = await page.getByTestId("waterfall-value-Revenue").textContent();
+
+  await page.getByRole("button", { name: "View buyer selection as table" }).click();
+  await expect(page.getByRole("table", { name: "Buyer selection table" })).toContainText(
+    choiceShare ?? "",
+  );
+  await page.getByRole("button", { name: "Show buyer selection chart" }).click();
+  await page.getByRole("button", { name: "View value waterfall as table" }).click();
+  await expect(page.getByRole("table", { name: "Value waterfall table" })).toContainText(
+    revenue ?? "",
+  );
+  await page.getByRole("button", { name: "Show value waterfall chart" }).click();
+
+  await page.getByRole("tab", { name: "Design" }).click();
+  await page.getByRole("spinbutton", { name: "Enterprise price" }).fill("1000");
+  await page.getByRole("tab", { name: "Simulate" }).click();
+
+  await expect(
+    page.getByText("MRR", { exact: true }).locator("xpath=following-sibling::*"),
+  ).not.toHaveText(beforeMrr ?? "");
+  await expect
+    .poll(() =>
+      page
+        .locator('[data-testid="buyer-dot"]')
+        .evaluateAll((dots) =>
+          dots.map((dot) => `${dot.getAttribute("cx")}:${dot.getAttribute("cy")}`).join("|"),
+        ),
+    )
+    .not.toBe(beforeDots);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect(page.locator('[data-testid="buyer-dot"]').first()).toHaveCSS(
+    "transition-duration",
+    /(?:0\.01ms|1e-05s)/,
+  );
+  await expectNoSeriousAxeViolations(page);
+
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expectNoSeriousAxeViolations(page);
+});
+
+test("each warmed template simulation renders within the 16ms P6a interaction budget", async ({
+  page,
+}) => {
+  const session = await page.context().newCDPSession(page);
+  await session.send("Performance.enable");
+
+  for (const templateIndex of [0, 1, 2]) {
+    await page.goto("/");
+    await page.evaluate(() => window.localStorage.clear());
+    await page.reload();
+    await page.getByRole("button", { name: "Use this template" }).nth(templateIndex).click();
+
+    await page.getByRole("tab", { name: "Simulate" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Reveal the menu's economic consequences" }),
+    ).toBeVisible();
+    await page.getByRole("tab", { name: "Design" }).click();
+
+    const before = await browserTaskDuration(session);
+    await page.getByRole("tab", { name: "Simulate" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Reveal the menu's economic consequences" }),
+    ).toBeVisible();
+    await page.evaluate(
+      () => new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())),
+    );
+    const durationMilliseconds = ((await browserTaskDuration(session)) - before) * 1_000;
+
+    expect(durationMilliseconds).toBeLessThan(16);
+  }
 });

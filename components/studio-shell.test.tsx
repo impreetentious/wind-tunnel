@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createBlankScenario, scenarioStore } from "@/lib/state/scenario-store";
@@ -35,7 +35,7 @@ describe("StudioShell", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Simulate" }));
 
     expect(screen.getByRole("tab", { name: "Simulate", selected: true })).toBeVisible();
-    expect(screen.getByText("Watch assumptions become outcomes.")).toBeVisible();
+    expect(screen.getByText("Give buyers something to choose.")).toBeVisible();
   });
 
   it("loads a template, updates live KPIs, and supports matrix arrow navigation", () => {
@@ -91,6 +91,53 @@ describe("StudioShell", () => {
     expect(screen.getByLabelText("Active design name")).toHaveValue("Price test");
     expect(screen.getByLabelText("Team price")).toHaveValue(18);
     expect(screen.getByRole("list", { name: "Scenario designs" })).toHaveTextContent("Price test");
+  });
+
+  it("reveals live buyer sorting and matching chart tables after a price change", () => {
+    render(<StudioShell version="0.7.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[2]);
+    fireEvent.click(screen.getByRole("tab", { name: "Simulate" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Reveal the menu's economic consequences" }),
+    ).toBeVisible();
+    const liveKpis = screen.getByLabelText("Live simulation KPIs");
+    const mrr = within(liveKpis).getByText("MRR").nextElementSibling;
+    const beforeMrr = mrr?.textContent;
+    const dotLayout = screen
+      .getAllByTestId("buyer-dot")
+      .map((dot) => `${dot.getAttribute("cx")}:${dot.getAttribute("cy")}`)
+      .join("|");
+    const beforeChoiceShare = document.querySelector(
+      '[data-testid^="buyer-selection-share-"]',
+    )?.textContent;
+    const revenue = screen.getByTestId("waterfall-value-Revenue").textContent;
+
+    fireEvent.click(screen.getByRole("button", { name: "View buyer selection as table" }));
+    expect(screen.getByRole("table", { name: "Buyer selection table" })).toHaveTextContent(
+      beforeChoiceShare ?? "",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show buyer selection chart" }));
+    fireEvent.click(screen.getByRole("button", { name: "View value waterfall as table" }));
+    expect(screen.getByRole("table", { name: "Value waterfall table" })).toHaveTextContent(
+      revenue ?? "",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show value waterfall chart" }));
+
+    fireEvent.click(screen.getByRole("tab", { name: "Design" }));
+    fireEvent.change(screen.getByLabelText("Enterprise price"), { target: { value: "1000" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Simulate" }));
+
+    expect(
+      within(screen.getByLabelText("Live simulation KPIs")).getByText("MRR").nextElementSibling,
+    ).not.toHaveTextContent(beforeMrr ?? "");
+    expect(
+      screen
+        .getAllByTestId("buyer-dot")
+        .map((dot) => `${dot.getAttribute("cx")}:${dot.getAttribute("cy")}`)
+        .join("|"),
+    ).not.toBe(dotLayout);
   });
 
   it("surfaces validation errors while importing a complete scenario", () => {

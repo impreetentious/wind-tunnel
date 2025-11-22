@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DesignSurface } from "@/components/design-surface";
 import { ModelSurface } from "@/components/model-surface";
+import { WindTunnelSurface } from "@/components/wind-tunnel-surface";
 import {
   decodeShareHash,
   encodeShareHash,
@@ -390,6 +391,8 @@ export function StudioShell({ version }: { version: string }) {
             <ModelSurface />
           ) : activeTab === "Design" ? (
             <DesignSurface />
+          ) : activeTab === "Simulate" ? (
+            <WindTunnelSurface />
           ) : activeTab === "Share" ? (
             <SharePanel />
           ) : (
