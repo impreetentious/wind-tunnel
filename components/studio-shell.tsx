@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DesignSurface } from "@/components/design-surface";
 import { ModelSurface } from "@/components/model-surface";
+import { UncertaintySurface } from "@/components/uncertainty-surface";
 import { WindTunnelSurface } from "@/components/wind-tunnel-surface";
 import {
   decodeShareHash,
@@ -81,58 +82,6 @@ function ThemeToggle({
       </span>
       <span className="capitalize">{theme}</span>
     </button>
-  );
-}
-
-function TabPreview({ tab }: { tab: Exclude<Tab, "Share" | "Model"> }) {
-  const messages: Record<
-    Exclude<Tab, "Share" | "Model">,
-    { eyebrow: string; title: string; body: string }
-  > = {
-    Design: {
-      eyebrow: "Build a menu",
-      title: "Turn value into tiers and fences.",
-      body: "The packaging canvas will let buyers self-select across tiers, free plans, and add-ons.",
-    },
-    Simulate: {
-      eyebrow: "Run the wind tunnel",
-      title: "Watch assumptions become outcomes.",
-      body: "The closed-form engine, conversion, revenue, and value waterfall land in the next phase.",
-    },
-    Analyze: {
-      eyebrow: "Validate what matters",
-      title: "Find the assumptions worth testing first.",
-      body: "Uncertainty, price sensitivity, and the decision record will make the trade-offs inspectable.",
-    },
-  };
-
-  const message = messages[tab];
-
-  return (
-    <section
-      aria-labelledby="workbench-title"
-      className="grid min-h-[28rem] place-items-center px-6 py-14 text-center sm:px-12"
-    >
-      <div className="max-w-xl">
-        <p className="text-sm font-semibold tracking-[0.16em] text-accent uppercase">
-          {message.eyebrow}
-        </p>
-        <h1
-          id="workbench-title"
-          className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-ink sm:text-5xl"
-        >
-          {message.title}
-        </h1>
-        <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-muted">{message.body}</p>
-        <div className="mt-10 rounded-2xl border border-dashed border-line bg-canvas px-5 py-4 text-left shadow-sm">
-          <p className="text-sm font-medium text-ink">P3 scenario foundation</p>
-          <p className="mt-1 text-sm leading-6 text-muted">
-            Versioned scenario data, local autosave, undo, complete JSON transfer, and compact share
-            links are ready for the model and design surfaces.
-          </p>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -393,11 +342,11 @@ export function StudioShell({ version }: { version: string }) {
             <DesignSurface />
           ) : activeTab === "Simulate" ? (
             <WindTunnelSurface />
+          ) : activeTab === "Analyze" ? (
+            <UncertaintySurface />
           ) : activeTab === "Share" ? (
             <SharePanel />
-          ) : (
-            <TabPreview tab={activeTab} />
-          )}
+          ) : null}
         </div>
       </section>
 

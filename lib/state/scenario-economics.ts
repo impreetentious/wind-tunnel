@@ -1,8 +1,11 @@
 import { simulateEconomics } from "@/lib/engine/economics";
+import { runMonteCarlo } from "@/lib/engine/montecarlo";
 import { expandOffers } from "@/lib/engine/offers";
 import type {
   EconomicsInput,
   EconomicsReadout,
+  MonteCarloBand,
+  MonteCarloResult,
   OfferExpansionInput,
   PriceSweepSegmentInput,
   TierPriceSweepInput,
@@ -11,6 +14,27 @@ import type {
 import type { Scenario } from "./schemas";
 
 type ScenarioDesign = Scenario["designs"][number];
+type ScenarioSegment = Scenario["model"]["segments"][number];
+
+export interface ScenarioUncertaintyParameter {
+  id: string;
+  label: string;
+  dimension: "prospect-count" | "willingness-to-pay";
+  segmentId: string;
+  band: MonteCarloBand;
+  provenance: ScenarioSegment["provenance"]["prospectCount"];
+}
+
+function uncertaintyParameterId(
+  segmentId: string,
+  dimension: ScenarioUncertaintyParameter["dimension"],
+) {
+  return `${segmentId}:${dimension}`;
+}
+
+function constantBand(value: number) {
+  return { p10: value, p50: value, p90: value };
+}
 
 function offerExpansionForSegment(
   scenario: Scenario,
@@ -65,6 +89,86 @@ export function simulateScenarioDesign(
 ): EconomicsReadout | null {
   const input = economicsInputForDesign(scenario, design);
   return input ? simulateEconomics(input) : null;
+}
+
+/** Maps durable model bands to the uncertainty engine without leaking Zod types into it. */
+export function uncertaintyParametersForScenario(
+  scenario: Scenario,
+): readonly ScenarioUncertaintyParameter[] {
+  return scenario.model.segments.flatMap((segment) => [
+    {
+      id: uncertaintyParameterId(segment.id, "prospect-count"),
+      label: `${segment.name} prospects`,
+      dimension: "prospect-count" as const,
+      segmentId: segment.id,
+      band: segment.prospectBand,
+      provenance: segment.provenance.prospectCount,
+    },
+    {
+      id: uncertaintyParameterId(segment.id, "willingness-to-pay"),
+      label: `${segment.name} WTP`,
+      dimension: "willingness-to-pay" as const,
+      segmentId: segment.id,
+      band: segment.wtpBand,
+      provenance: segment.provenance.willingnessToPay,
+    },
+  ]);
+}
+
+function scenarioWithSampledAssumptions(
+  scenario: Scenario,
+  parameterValues: Readonly<Record<string, number>>,
+): Scenario {
+  return {
+    ...scenario,
+    model: {
+      ...scenario.model,
+      segments: scenario.model.segments.map((segment) => {
+        const prospectCount =
+          parameterValues[uncertaintyParameterId(segment.id, "prospect-count")] ??
+          segment.prospectBand.p50;
+        const willingnessToPay =
+          parameterValues[uncertaintyParameterId(segment.id, "willingness-to-pay")] ??
+          segment.wtpBand.p50;
+        return {
+          ...segment,
+          prospectBand: constantBand(prospectCount),
+          wtpBand: constantBand(willingnessToPay),
+        };
+      }),
+    },
+  };
+}
+
+/**
+ * Runs the pure seeded uncertainty engine through the existing state-to-engine
+ * adapter. Each design sees the exact same indexed assumption draws.
+ */
+export function runScenarioMonteCarlo(
+  scenario: Scenario,
+  drawCount: number,
+): MonteCarloResult | null {
+  if (scenario.model.segments.length === 0) return null;
+  const parameters = uncertaintyParametersForScenario(scenario);
+  let previousValues: Readonly<Record<string, number>> | undefined;
+  let sampledScenario = scenario;
+
+  return runMonteCarlo({
+    seed: scenario.settings.seed,
+    drawCount,
+    parameters,
+    designs: scenario.designs.map((design) => ({ id: design.id, label: design.name })),
+    referenceDesignId: scenario.activeDesignId,
+    evaluate: (designId, parameterValues) => {
+      if (parameterValues !== previousValues) {
+        sampledScenario = scenarioWithSampledAssumptions(scenario, parameterValues);
+        previousValues = parameterValues;
+      }
+      const design = sampledScenario.designs.find((candidate) => candidate.id === designId);
+      if (!design) throw new RangeError(`Unknown scenario design “${designId}”.`);
+      return simulateScenarioDesign(sampledScenario, design)?.mrr ?? 0;
+    },
+  });
 }
 
 /**
