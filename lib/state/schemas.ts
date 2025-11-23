@@ -116,12 +116,24 @@ const jsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
   ]),
 );
 
-/**
- * Research records are deliberately opaque until their own later-phase
- * schemas land. They are still constrained to JSON so export stays durable.
- */
+const researchPrice = z.number().finite().min(0);
+
+/** Durable PSM records retain both valid and monotonicity-violating rows. */
+export const vanWestendorpResponseSchema = z.strictObject({
+  tooCheap: researchPrice,
+  cheap: researchPrice,
+  expensive: researchPrice,
+  tooExpensive: researchPrice,
+});
+
+export const vanWestendorpStudySchema = z.strictObject({
+  source: z.enum(["survey", "illustrative"]),
+  responses: z.array(vanWestendorpResponseSchema).max(1_000),
+});
+
+/** Future research records remain JSON-only until their own phases land. */
 export const researchArtifactsSchema = z.strictObject({
-  vanWestendorp: jsonValueSchema.optional(),
+  vanWestendorp: vanWestendorpStudySchema.optional(),
   conjoint: jsonValueSchema.optional(),
   maxDiff: jsonValueSchema.optional(),
 });
@@ -280,6 +292,7 @@ export const sharePayloadSchema = z.strictObject({
 export type Scenario = z.infer<typeof scenarioSchema>;
 export type SharePayload = z.infer<typeof sharePayloadSchema>;
 export type ScenarioSettings = z.infer<typeof settingsSchema>;
+export type VanWestendorpStudy = z.infer<typeof vanWestendorpStudySchema>;
 
 export function formatValidationIssues(issues: readonly z.core.$ZodIssue[]) {
   const first = issues[0];

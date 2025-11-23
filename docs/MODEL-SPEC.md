@@ -140,11 +140,33 @@ textbook cases, regime nesting, and deterministic ties.
 
 ### §4.7 Van Westendorp price sensitivity meter
 
-Validate respondent prices, construct the four cumulative curves, linearly
-interpolate their crossings (PMC, PME, OPP, IDP), and report undefined rather
-than invent a crossing. Illustrative model-generated curves must be labeled as
-such. T-VW-01…04 validate construction, crossings, bad inputs, and no-crossing
-states.
+The survey-first PSM takes one respondent quadruple
+`(too cheap ≤ cheap ≤ expensive ≤ too expensive)`. Non-finite, negative, or
+order-violating quadruples are reported and excluded; they are never repaired
+or silently re-ordered. On the union grid of valid response prices, construct:
+
+```text
+too cheap      = share(response.tooCheap ≥ price)
+cheap          = share(response.cheap ≥ price)
+expensive      = share(response.expensive ≤ price)
+too expensive  = share(response.tooExpensive ≤ price)
+not cheap      = 1 − cheap
+not expensive  = 1 − expensive
+```
+
+Crossings use piecewise-linear interpolation on that grid:
+
+```text
+PMC = too cheap × not cheap        PME = too expensive × not expensive
+IPP = cheap × expensive            OPP = too cheap × too expensive
+acceptable range = [PMC, PME] when the points are defined and ordered
+```
+
+An absent or degenerate crossing is reported as undefined for the data, never
+estimated. The PSM display may use model-generated illustrative responses only
+when they are persistently marked and visibly labeled “simulated — not
+evidence.” T-VW-01…04 validate exclusions, symmetric construction,
+hand-computed interpolation, and undefined states.
 
 ### §4.8 Monte Carlo uncertainty
 

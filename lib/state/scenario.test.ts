@@ -109,13 +109,18 @@ describe("P3 scenario schema and codecs", () => {
     }
 
     const scenario = cloneTemplate();
-    scenario.research = { vanWestendorp: { respondents: [{ id: "respondent-1", tooCheap: 4 }] } };
+    scenario.research = {
+      vanWestendorp: {
+        source: "survey",
+        responses: [{ tooCheap: 4, cheap: 6, expensive: 10, tooExpensive: 15 }],
+      },
+    };
     const fullExport = exportScenario(scenario);
-    expect(fullExport).toContain("respondent-1");
+    expect(fullExport).toContain("tooExpensive");
 
     const compactExport = encodeShareHash(scenario);
     expect(compactExport.ok).toBe(true);
-    if (compactExport.ok) expect(compactExport.value).not.toContain("respondent-1");
+    if (compactExport.ok) expect(compactExport.value).not.toContain("tooExpensive");
   });
 });
 
