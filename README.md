@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P7b in progress (latest committed version v0.8.3).** The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math and economics have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, live Simulate, and uncertainty workbenches make buyer assumptions and packaging consequences inspectable.
+> **Status: P7b acceptance pending (latest committed version v0.8.4).** The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math, economics, and Van Westendorp PSM have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, and Research workbenches make assumptions and evidence inspectable.
 
 ## The idea
 
@@ -16,7 +16,7 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 - **Design** — now available: editable tiers, feature fences, free tier, add-ons, flat or per-seat pricing, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, and directional behavioral considerations without inventing numeric effects.
 - **Simulate** — now available: closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall, and a 400-point residual price sweep for each tier. The mechanism diagram, A/B comparison, and user-facing competitor-loss share follow in v1.1.
 - **Analyze — Uncertainty** — now available: seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates, and a tornado chart that tells you _which assumption to validate first_.
-- **Analyze — Research** — P7b is in progress: v1.0 adds survey-first Van Westendorp PSM; the v1.1 extensions add Choice-Based Conjoint, MaxDiff-lite, and bundling economics.
+- **Analyze — Research** — P7b acceptance is pending: survey-first Van Westendorp PSM supports manual/CSV input, exclusion reporting, cumulative curves, interpolated points, and a clearly labeled illustrative mode. The v1.1 extensions add Choice-Based Conjoint, MaxDiff-lite, and bundling economics.
 - **Analyze — Positioning** — v1.0 builds and tests competitor alternatives as a core engine/linter path; user-facing competitor entry, loss-share readouts, and the segment-scoped map arrive together in v1.1.
 - **Communicate** — v1.0 ships the exportable Pricing Decision Record; the pricing-page mock follows in v1.1.
 
@@ -41,7 +41,7 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 | P5      | Design surface + design linter                                           | Locally complete    |
 | P6a     | **v1.0 core:** live wind-tunnel reveal                                   | Locally complete    |
 | P7a     | **v1.0 core:** Monte Carlo + tornado                                     | Locally complete    |
-| P7b     | **v1.0 core:** Van Westendorp                                            | In progress         |
+| P7b     | **v1.0 core:** Van Westendorp                                            | Acceptance pending  |
 | P8      | **v1.0 core:** Pricing Decision Record export                            | —                   |
 | P9      | **v1.0 core:** hardening, accessibility & performance audit → **v1.0.0** | —                   |
 | P6b/P8b | **v1.1 extensions:** mechanism + A/B and pricing-page mock               | Deferred until v1.0 |
@@ -87,5 +87,5 @@ that version in `package.json` and both root version fields in
 `package-lock.json` in the same commit. Historical v0.8.11–v0.9.7 timestamps
 were owner-directed exceptions; do not rewrite pushed history.
 
-- **Base Format Version:** 0.8.3
-- **Portfolio Version:** v0.8.3_2025-11-23_23:44:09 (IST)
+- **Base Format Version:** 0.8.4
+- **Portfolio Version:** v0.8.4_2025-11-24_00:13:46 (IST)
