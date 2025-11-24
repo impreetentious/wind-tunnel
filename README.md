@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P8 Decision Record adapter locally committed (latest committed version v0.9.0). The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math, economics, and Van Westendorp PSM have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, and Research workbenches make assumptions and evidence inspectable.**
+> **Status: P8 Decision Record surface + Share foundation locally committed (latest committed version v0.9.1). The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math, economics, and Van Westendorp PSM have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, and Research workbenches make assumptions and evidence inspectable.**
 
 ## The idea
 
@@ -87,5 +87,5 @@ that version in `package.json` and both root version fields in
 `package-lock.json` in the same commit. Historical v0.8.11–v0.9.7 timestamps
 were owner-directed exceptions; do not rewrite pushed history.
 
-- **Base Format Version:** 0.9.0
-- **Portfolio Version:** v0.9.0_2025-11-24_22:50:01 (IST)
+- **Base Format Version:** 0.9.1
+- **Portfolio Version:** v0.9.1_2025-11-25_01:03:53 (IST)
