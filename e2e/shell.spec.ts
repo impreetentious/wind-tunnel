@@ -228,3 +228,51 @@ test("uncertainty draws are seeded, paired, and rendered within the P7a budget",
   await expect(page.getByRole("table", { name: "Tornado sensitivity table" })).toBeVisible();
   await expectNoSeriousAxeViolations(page);
 });
+
+test("Van Westendorp validates fielded input, interpolates the demo points, and preserves undefined crossings", async ({
+  page,
+}) => {
+  const demoCsv = `too cheap,cheap,expensive,too expensive
+10,20,40,60
+15,25,45,65
+20,30,50,70
+25,35,55,75
+30,40,60,80`;
+
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Analyze" }).click();
+  await page.getByRole("tab", { name: "Research" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Measure price perception with fielded responses" }),
+  ).toBeVisible();
+
+  const csv = page.getByLabel("Van Westendorp survey CSV");
+  await csv.fill(demoCsv);
+  await page.getByRole("button", { name: "Analyze pasted responses" }).click();
+  await expect(
+    page
+      .getByRole("heading", { name: "Point of marginal cheapness (PMC)" })
+      .locator("xpath=following-sibling::*"),
+  ).toHaveText("$27.5");
+  await expect(
+    page
+      .getByRole("heading", { name: "Point of marginal expensiveness (PME)" })
+      .locator("xpath=following-sibling::*"),
+  ).toHaveText("$57.5");
+  await expect(page.getByText("0 excluded", { exact: true })).toBeVisible();
+
+  await csv.fill(`${demoCsv}\n20,15,45,65`);
+  await page.getByRole("button", { name: "Analyze pasted responses" }).click();
+  await expect(page.getByText("1 excluded", { exact: true })).toBeVisible();
+
+  await csv.fill(`too cheap,cheap,expensive,too expensive
+10,10,10,10
+10,10,10,10`);
+  await page.getByRole("button", { name: "Analyze pasted responses" }).click();
+  await expect(
+    page
+      .getByRole("heading", { name: "Point of marginal cheapness (PMC)" })
+      .locator("xpath=following-sibling::*"),
+  ).toHaveText("Undefined for this data");
+  await expectNoSeriousAxeViolations(page);
+});

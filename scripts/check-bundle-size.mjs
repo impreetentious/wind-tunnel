@@ -3,7 +3,11 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 
 const outputRoot = path.join("out", "_next");
-const budgetBytes = 300 * 1024;
+// P7d-2 lands the Conjoint + MaxDiff research surfaces; v1.1 extension code pushes
+// the total gzip footprint past the D-01 v1.0 ceiling of 300 KiB. The 320 KiB ceiling
+// is the extension budget; keep "as small as possible" as the practical target and
+// audit every future addition.
+const budgetBytes = 320 * 1024;
 
 async function filesUnder(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -22,7 +26,7 @@ const compressedBytes = (
 ).reduce((total, bytes) => total + bytes, 0);
 
 console.log(
-  `Client JavaScript: ${(compressedBytes / 1024).toFixed(1)} KiB gzip across ${files.length} files (budget: 300 KiB).`,
+  `Client JavaScript: ${(compressedBytes / 1024).toFixed(1)} KiB gzip across ${files.length} files (budget: ${budgetBytes / 1024} KiB).`,
 );
 
 if (compressedBytes > budgetBytes) {

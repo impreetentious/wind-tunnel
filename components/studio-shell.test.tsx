@@ -163,6 +163,41 @@ describe("StudioShell", () => {
     expect(screen.getByRole("table", { name: "Tornado sensitivity table" })).toBeVisible();
   });
 
+  it("analyzes Van Westendorp survey input, exposes exclusions, and never invents degenerate crossings", () => {
+    render(<StudioShell version="0.8.4" />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Research" }));
+    expect(
+      screen.getByRole("heading", { name: "Measure price perception with fielded responses" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Load demo CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze pasted responses" }));
+    const pmc = screen.getByRole("heading", {
+      name: "Point of marginal cheapness (PMC)",
+    }).parentElement;
+    expect(pmc).toHaveTextContent("$27.5");
+
+    fireEvent.change(screen.getByLabelText("Van Westendorp survey CSV"), {
+      target: {
+        value: "too cheap,cheap,expensive,too expensive\n10,20,40,60\n20,15,45,65",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Analyze pasted responses" }));
+    expect(screen.getByText("1 excluded")).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText("Van Westendorp survey CSV"), {
+      target: {
+        value: "too cheap,cheap,expensive,too expensive\n10,10,10,10\n10,10,10,10",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Analyze pasted responses" }));
+    expect(
+      screen.getByRole("heading", { name: "Point of marginal cheapness (PMC)" }).parentElement,
+    ).toHaveTextContent("Undefined for this data");
+  });
+
   it("surfaces validation errors while importing a complete scenario", () => {
     render(<StudioShell version="0.4.0" />);
 
