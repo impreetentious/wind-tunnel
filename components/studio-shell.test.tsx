@@ -202,11 +202,29 @@ describe("StudioShell", () => {
     render(<StudioShell version="0.4.0" />);
 
     fireEvent.click(screen.getByRole("tab", { name: "Share" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Scenario transfer" }));
     fireEvent.change(screen.getByLabelText("Import complete scenario JSON"), {
       target: { value: "{broken" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Import JSON" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("This is not valid scenario JSON.");
+  });
+
+  it("generates a traceable Pricing Decision Record from the current scenario", () => {
+    render(<StudioShell version="0.9.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Share" }));
+    expect(screen.getByRole("tab", { name: "Decision Record", selected: true })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Generate current record" }));
+
+    const record = screen.getByTestId("decision-record-document");
+    expect(within(record).getByRole("heading", { name: "PLG collaboration tool" })).toBeVisible();
+    expect(within(record).getByText("Assumptions and provenance")).toBeVisible();
+    expect(within(record).getByText("Validation priorities")).toBeVisible();
+    expect(within(record).getByText("Alternatives considered")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Download Markdown" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Print / Save PDF" })).toBeVisible();
   });
 });
