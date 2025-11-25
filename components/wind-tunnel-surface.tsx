@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { DesignCompareSurface, MechanismSurface } from "@/components/simulation-extensions";
+import { handleHorizontalTabKey } from "@/components/tab-keyboard";
 import { sweepTierPrice } from "@/lib/engine/economics";
 import type {
   EconomicsReadout,
@@ -18,6 +20,8 @@ const DOT_COUNT = 20;
 const EPSILON = 1e-12;
 
 type ChartMode = "chart" | "table";
+type SimulationView = "overview" | "mechanism" | "compare";
+const simulationViews = ["overview", "mechanism", "compare"] as const;
 
 const dotColors = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#e69f00", "#56b4e9"];
 const waterfallColors = ["#0072b2", "#009e73", "#e69f00", "#d55e00", "#cc79a7"];
@@ -440,7 +444,7 @@ function ValueWaterfall({ readout, currency }: { readout: EconomicsReadout; curr
                   <rect
                     fill={waterfallColors[index % waterfallColors.length]}
                     height="24"
-                    rx="index === 0 || index === visibleTerms.length - 1 ? 2 : 0"
+                    rx={index === 0 || index === visibleTerms.length - 1 ? 2 : 0}
                     width={Math.max(width, 0)}
                     x={x}
                     y="24"
@@ -696,6 +700,7 @@ function EmptySimulation() {
 export function WindTunnelSurface() {
   const scenario = useScenarioStore((state) => state.scenario);
   const design = activeDesign(scenario);
+  const [view, setView] = useState<SimulationView>("overview");
   const [sweptTierId, setSweptTierId] = useState(design.tiers[0]?.id ?? "");
   const readout = useMemo(() => simulateScenarioDesign(scenario, design), [scenario, design]);
   const selectedTierId = design.tiers.some((tier) => tier.id === sweptTierId)
@@ -765,47 +770,100 @@ export function WindTunnelSurface() {
         {announcement}
       </p>
 
-      <div className="mt-7 space-y-6">
-        <KpiHeader currency={scenario.settings.currency} readout={readout} />
-        <BuyerDots
-          currency={scenario.settings.currency}
-          readout={readout}
-          segmentNames={segmentNames}
-        />
-        <ValueWaterfall currency={scenario.settings.currency} readout={readout} />
-        <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-line bg-canvas-raised p-4">
-          <div>
-            <p className="text-sm font-semibold text-ink">
-              Inspect each tier&apos;s price response
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              Every tier has its own 400-point residual-demand sweep.
-            </p>
-          </div>
-          <label className="text-sm font-medium text-ink">
-            Tier to sweep
-            <select
-              aria-label="Tier to sweep"
-              className="ml-2 min-h-10 rounded-lg border border-line bg-canvas px-3 text-sm text-ink"
-              onChange={(event) => setSweptTierId(event.target.value)}
-              value={selectedTierId}
-            >
-              {design.tiers.map((tier) => (
-                <option key={tier.id} value={tier.id}>
-                  {tier.name}
-                </option>
-              ))}
-            </select>
-          </label>
+      <nav aria-label="Simulation workbenches" className="mt-6 border-b border-line">
+        <div className="flex gap-2 overflow-x-auto" role="tablist">
+          {(
+            [
+              ["overview", "Core reveal"],
+              ["mechanism", "Mechanism"],
+              ["compare", "Compare designs"],
+            ] as const
+          ).map(([id, label]) => {
+            const selected = view === id;
+            return (
+              <button
+                aria-controls="simulation-view"
+                aria-selected={selected}
+                className={`min-w-max rounded-t-lg px-4 py-2 text-sm font-semibold ${
+                  selected ? "bg-accent-soft text-accent-strong" : "text-muted hover:text-ink"
+                }`}
+                id={`simulation-${id}-tab`}
+                key={id}
+                onClick={() => setView(id)}
+                onKeyDown={(event) =>
+                  handleHorizontalTabKey(
+                    event,
+                    simulationViews,
+                    view,
+                    setView,
+                    (candidate) => `simulation-${candidate}-tab`,
+                  )
+                }
+                role="tab"
+                tabIndex={selected ? 0 : -1}
+                type="button"
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
-        {sweep ? (
-          <PriceSweepPanel
-            currency={scenario.settings.currency}
-            sweep={sweep}
-            tierName={sweepTier?.name ?? "Selected tier"}
-          />
+      </nav>
+
+      <div
+        aria-labelledby={`simulation-${view}-tab`}
+        className="mt-7"
+        id="simulation-view"
+        role="tabpanel"
+      >
+        {view === "overview" ? (
+          <div className="space-y-6">
+            <KpiHeader currency={scenario.settings.currency} readout={readout} />
+            <BuyerDots
+              currency={scenario.settings.currency}
+              readout={readout}
+              segmentNames={segmentNames}
+            />
+            <ValueWaterfall currency={scenario.settings.currency} readout={readout} />
+            <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-line bg-canvas-raised p-4">
+              <div>
+                <p className="text-sm font-semibold text-ink">
+                  Inspect each tier&apos;s price response
+                </p>
+                <p className="mt-1 text-sm text-muted">
+                  Every tier has its own 400-point residual-demand sweep.
+                </p>
+              </div>
+              <label className="text-sm font-medium text-ink">
+                Tier to sweep
+                <select
+                  aria-label="Tier to sweep"
+                  className="ml-2 min-h-10 rounded-lg border border-line bg-canvas px-3 text-sm text-ink"
+                  onChange={(event) => setSweptTierId(event.target.value)}
+                  value={selectedTierId}
+                >
+                  {design.tiers.map((tier) => (
+                    <option key={tier.id} value={tier.id}>
+                      {tier.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {sweep ? (
+              <PriceSweepPanel
+                currency={scenario.settings.currency}
+                sweep={sweep}
+                tierName={sweepTier?.name ?? "Selected tier"}
+              />
+            ) : (
+              <PriceSweepLoading />
+            )}
+          </div>
+        ) : view === "mechanism" ? (
+          <MechanismSurface scenario={scenario} />
         ) : (
-          <PriceSweepLoading />
+          <DesignCompareSurface scenario={scenario} />
         )}
       </div>
     </section>

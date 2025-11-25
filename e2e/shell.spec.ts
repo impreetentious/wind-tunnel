@@ -66,7 +66,7 @@ test("the Design workbench builds a three-tier menu from blank and clears its li
   await page.getByRole("button", { name: "Add segment" }).click();
   await page.getByRole("button", { name: "Add segment" }).click();
 
-  await page.getByRole("tab", { name: "Design" }).click();
+  await page.getByRole("tab", { name: "Design", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Turn value into tiers and fences" }),
   ).toBeVisible();
@@ -133,7 +133,7 @@ test("the wind tunnel re-sorts buyers, reconciles chart tables, and respects red
   );
   await page.getByRole("button", { name: "Show value waterfall chart" }).click();
 
-  await page.getByRole("tab", { name: "Design" }).click();
+  await page.getByRole("tab", { name: "Design", exact: true }).click();
   await page.getByRole("spinbutton", { name: "Enterprise price" }).fill("1000");
   await page.getByRole("tab", { name: "Simulate" }).click();
 
@@ -178,7 +178,7 @@ test("each warmed template simulation renders within the 16ms P6a interaction bu
     await expect(
       page.getByRole("heading", { name: "Reveal the menu's economic consequences" }),
     ).toBeVisible();
-    await page.getByRole("tab", { name: "Design" }).click();
+    await page.getByRole("tab", { name: "Design", exact: true }).click();
 
     const before = await browserTaskDuration(session);
     await page.getByRole("tab", { name: "Simulate" }).click();

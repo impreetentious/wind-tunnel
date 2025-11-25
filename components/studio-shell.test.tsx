@@ -38,6 +38,24 @@ describe("StudioShell", () => {
     expect(screen.getByText("Give buyers something to choose.")).toBeVisible();
   });
 
+  it("implements roving keyboard focus across studio and nested tabs", () => {
+    render(<StudioShell version="1.0.0" />);
+
+    const model = screen.getByRole("tab", { name: "Model" });
+    model.focus();
+    fireEvent.keyDown(model, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Design", selected: true })).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Design" }), { key: "End" });
+    expect(screen.getByRole("tab", { name: "Share", selected: true })).toHaveFocus();
+    const record = screen.getByRole("tab", { name: "Decision Record" });
+    record.focus();
+    fireEvent.keyDown(record, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Pricing page", selected: true })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Pricing page" }), { key: "End" });
+    expect(screen.getByRole("tab", { name: "Scenario transfer", selected: true })).toHaveFocus();
+  });
+
   it("loads a template, updates live KPIs, and supports matrix arrow navigation", () => {
     render(<StudioShell version="0.5.0" />);
 
@@ -226,5 +244,19 @@ describe("StudioShell", () => {
     expect(within(record).getByText("Alternatives considered")).toBeVisible();
     expect(screen.getByRole("button", { name: "Download Markdown" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Print / Save PDF" })).toBeVisible();
+  });
+
+  it("renders the active design as a theme-aware pricing-page mock", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[1]);
+    fireEvent.click(screen.getByRole("tab", { name: "Share" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Pricing page" }));
+
+    const mock = screen.getByTestId("pricing-page-mock");
+    expect(within(mock).getByText("Build")).toBeVisible();
+    expect(within(mock).getByText("Scale")).toBeVisible();
+    expect(within(mock).getAllByText("API request capacity")).toHaveLength(2);
+    expect(within(mock).getByText("Extended observability")).toBeVisible();
   });
 });

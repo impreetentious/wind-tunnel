@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P8b Pricing page mock locally committed (latest committed version v0.10.0). The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math, economics, Van Westendorp PSM, and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research, and Share workbenches make assumptions, evidence, and decisions inspectable.**
+> **Status: P6b Mechanism view + A/B compare extensions locally committed (latest committed version v0.11.0). The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math, economics, Van Westendorp PSM, and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research, and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, and pricing-page previews inspectable.**
 
 ## The idea
 
@@ -87,5 +87,5 @@ that version in `package.json` and both root version fields in
 `package-lock.json` in the same commit. Historical v0.8.11–v0.9.7 timestamps
 were owner-directed exceptions; do not rewrite pushed history.
 
-- **Base Format Version:** 0.10.0
-- **Portfolio Version:** v0.10.0_2025-11-25_02:30:07 (IST)
+- **Base Format Version:** 0.11.0
+- **Portfolio Version:** v0.11.0_2025-11-26_02:54:19 (IST)
