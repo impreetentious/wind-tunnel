@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { activeDesign } from "@/lib/state/design-editing";
+import { simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { createBlankScenario, scenarioStore } from "@/lib/state/scenario-store";
 import { StudioShell } from "./studio-shell";
 
@@ -156,6 +158,46 @@ describe("StudioShell", () => {
         .map((dot) => `${dot.getAttribute("cx")}:${dot.getAttribute("cy")}`)
         .join("|"),
     ).not.toBe(dotLayout);
+  });
+
+  it("renders exact envelope breakpoints in the mechanism view", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[2]);
+    const scenario = scenarioStore.getState().scenario;
+    const result = simulateScenarioDesign(scenario, activeDesign(scenario));
+    const breakpoint = result?.segments[0].selection.active
+      .map((interval) => interval.lower)
+      .find((value) => Number.isFinite(value) && value > 0);
+    expect(breakpoint).toBeDefined();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Simulate" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Mechanism" }));
+    expect(screen.getByTestId("mechanism-chart")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "View mechanism as table" }));
+    expect(screen.getByRole("table", { name: "Mechanism envelope table" })).toHaveTextContent(
+      breakpoint?.toFixed(6) ?? "",
+    );
+  });
+
+  it("compares design deltas and promotes a challenger", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[1]);
+    fireEvent.click(screen.getByRole("tab", { name: "Design" }));
+    fireEvent.click(screen.getByRole("button", { name: "Duplicate active" }));
+    fireEvent.change(screen.getByLabelText("Active design name"), {
+      target: { value: "Lower scale price" },
+    });
+    fireEvent.change(screen.getByLabelText("Scale price"), { target: { value: "149" } });
+    const copiedDesignId = scenarioStore.getState().scenario.activeDesignId;
+
+    fireEvent.click(screen.getByRole("tab", { name: "Simulate" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Compare designs" }));
+    expect(screen.getByRole("table", { name: "Design KPI comparison" })).toBeVisible();
+    expect(screen.getByTestId("compare-delta-mrr")).not.toHaveTextContent("$0.0");
+    fireEvent.click(screen.getByRole("button", { name: "Promote Baseline packaging to active" }));
+    expect(scenarioStore.getState().scenario.activeDesignId).not.toBe(copiedDesignId);
   });
 
   it("runs deterministic uncertainty draws and exposes a tornado table", () => {
