@@ -258,6 +258,25 @@ describe("StudioShell", () => {
     ).toHaveTextContent("Undefined for this data");
   });
 
+  it("reproduces the canonical bundling verdict through the Research workbench", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[1]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Research" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Bundling" }));
+    expect(
+      screen.getByRole("heading", { name: "Compare separate, bundled, and mixed offers" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show canonical teaching fixture" }));
+    expect(
+      screen.getByRole("heading", { name: "Pure bundle leads on the searched prices" }),
+    ).toBeVisible();
+    expect(screen.getByTestId("bundling-verdict")).toHaveTextContent("$20.0 modeled revenue");
+    expect(screen.getByTestId("bundling-verdict")).toHaveTextContent("$2.0 above pure components");
+  });
+
   it("surfaces validation errors while importing a complete scenario", () => {
     render(<StudioShell version="0.4.0" />);
 

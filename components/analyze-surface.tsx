@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 
+import { handleHorizontalTabKey } from "./tab-keyboard";
+import { ResearchSurface } from "./research-surface";
 import { UncertaintySurface } from "./uncertainty-surface";
-import { VanWestendorpSurface } from "./van-westendorp-surface";
 
 type AnalyzeView = "uncertainty" | "research";
+const analyzeViews = ["uncertainty", "research"] as const;
 
 export function AnalyzeSurface() {
   const [view, setView] = useState<AnalyzeView>("uncertainty");
@@ -31,7 +33,17 @@ export function AnalyzeSurface() {
                 id={`analyze-${id}-tab`}
                 key={id}
                 onClick={() => setView(id)}
+                onKeyDown={(event) =>
+                  handleHorizontalTabKey(
+                    event,
+                    analyzeViews,
+                    view,
+                    setView,
+                    (candidate) => `analyze-${candidate}-tab`,
+                  )
+                }
                 role="tab"
+                tabIndex={selected ? 0 : -1}
                 type="button"
               >
                 {label}
@@ -46,7 +58,7 @@ export function AnalyzeSurface() {
         id="analyze-view"
         role="tabpanel"
       >
-        {view === "uncertainty" ? <UncertaintySurface /> : <VanWestendorpSurface />}
+        {view === "uncertainty" ? <UncertaintySurface /> : <ResearchSurface />}
       </div>
     </section>
   );

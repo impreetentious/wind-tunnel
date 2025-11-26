@@ -276,3 +276,22 @@ test("Van Westendorp validates fielded input, interpolates the demo points, and 
   ).toHaveText("Undefined for this data");
   await expectNoSeriousAxeViolations(page);
 });
+
+test("the canonical bundling fixture reports bundle-beats-components without overclaiming", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).nth(1).click();
+  await page.getByRole("tab", { name: "Analyze" }).click();
+  await page.getByRole("tab", { name: "Research" }).click();
+  await page.getByRole("tab", { name: "Bundling" }).click();
+  await page.getByRole("button", { name: "Show canonical teaching fixture" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Pure bundle leads on the searched prices" }),
+  ).toBeVisible();
+  await expect(page.getByTestId("bundling-verdict")).toContainText("$20.0 modeled revenue");
+  await expect(page.getByTestId("bundling-verdict")).toContainText("$2.0 above pure components");
+  await expect(page.getByText(/not a continuous global optimum/)).toBeVisible();
+  await expectNoSeriousAxeViolations(page);
+});
