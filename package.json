@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "private": true,
   "description": "A client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -44,7 +44,7 @@
     "prettier": "3.6.2",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
-    "vitest": "4.0.9"
+    "vitest": "4.0.10"
   },
   "overrides": {
     "postcss": "8.5.6"

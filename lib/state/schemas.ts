@@ -105,17 +105,6 @@ export const competitorSchema = z.strictObject({
   valueBySegment: z.record(identifierSchema, nonNegativeNumber),
 });
 
-const jsonValueSchema: z.ZodType<unknown> = z.lazy(() =>
-  z.union([
-    z.string(),
-    z.number().finite(),
-    z.boolean(),
-    z.null(),
-    z.array(jsonValueSchema),
-    z.record(z.string(), jsonValueSchema),
-  ]),
-);
-
 const researchPrice = z.number().finite().min(0);
 
 /** Durable PSM records retain both valid and monotonicity-violating rows. */
@@ -131,11 +120,66 @@ export const vanWestendorpStudySchema = z.strictObject({
   responses: z.array(vanWestendorpResponseSchema).max(1_000),
 });
 
-/** Future research records remain JSON-only until their own phases land. */
+/** Durable Conjoint records persist the full study needed to re-run the pooled MNL estimator. */
+export const conjointAttributeSchema = z.strictObject({
+  id: identifierSchema,
+  name: labelSchema,
+  levels: z.array(labelSchema).min(2).max(4),
+});
+
+export const conjointAlternativeSchema = z.strictObject({
+  id: identifierSchema,
+  levels: z.record(identifierSchema, labelSchema).optional(),
+  price: z.number().finite().min(0).optional(),
+  none: z.literal(true).optional(),
+});
+
+export const conjointTaskSchema = z.strictObject({
+  id: identifierSchema,
+  alternatives: z.array(conjointAlternativeSchema).min(2).max(5),
+});
+
+export const conjointObservationSchema = z.strictObject({
+  respondentId: identifierSchema,
+  taskId: identifierSchema,
+  chosenAlternativeId: identifierSchema,
+});
+
+export const conjointStudySchema = z.strictObject({
+  attributes: z.array(conjointAttributeSchema).min(1).max(5),
+  tasks: z.array(conjointTaskSchema).min(1).max(30),
+  observations: z.array(conjointObservationSchema).max(50_000),
+  numericPrice: z.boolean(),
+});
+
+/** Durable MaxDiff records persist item labels, tasks, and best-worst picks. */
+export const maxDiffItemSchema = z.strictObject({
+  id: identifierSchema,
+  name: labelSchema,
+});
+
+export const maxDiffTaskSchema = z.strictObject({
+  id: identifierSchema,
+  itemIds: z.array(identifierSchema).min(3).max(5),
+});
+
+export const maxDiffResponseSchema = z.strictObject({
+  respondentId: identifierSchema,
+  taskId: identifierSchema,
+  bestItemId: identifierSchema,
+  worstItemId: identifierSchema,
+});
+
+export const maxDiffStudySchema = z.strictObject({
+  items: z.array(maxDiffItemSchema).min(2).max(20),
+  tasks: z.array(maxDiffTaskSchema).min(1).max(30),
+  responses: z.array(maxDiffResponseSchema).max(50_000),
+});
+
 export const researchArtifactsSchema = z.strictObject({
   vanWestendorp: vanWestendorpStudySchema.optional(),
-  conjoint: jsonValueSchema.optional(),
-  maxDiff: jsonValueSchema.optional(),
+  conjoint: conjointStudySchema.optional(),
+  maxDiff: maxDiffStudySchema.optional(),
 });
 
 export const settingsSchema = z.strictObject({
@@ -293,6 +337,8 @@ export type Scenario = z.infer<typeof scenarioSchema>;
 export type SharePayload = z.infer<typeof sharePayloadSchema>;
 export type ScenarioSettings = z.infer<typeof settingsSchema>;
 export type VanWestendorpStudy = z.infer<typeof vanWestendorpStudySchema>;
+export type ConjointStudyRecord = z.infer<typeof conjointStudySchema>;
+export type MaxDiffStudyRecord = z.infer<typeof maxDiffStudySchema>;
 
 export function formatValidationIssues(issues: readonly z.core.$ZodIssue[]) {
   const first = issues[0];
