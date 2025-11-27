@@ -3,7 +3,36 @@ import { expect, test } from "@playwright/test";
 
 const baseUrl = "http://127.0.0.1:4173";
 
+/**
+ * Theme switches run a colour transition, so `--ink` updates on the root before the
+ * painted colours catch up. axe sampling mid-fade can pair a pre-switch foreground with
+ * a post-switch background and report a contrast failure that no user ever sees (WebKit
+ * reproduces this reliably; Chromium happens to sample a self-consistent pair). Waiting
+ * for in-flight transitions keeps the audit deterministic across engines without
+ * weakening it.
+ */
+async function waitForTransitionsToSettle(page: import("@playwright/test").Page) {
+  // Poll rather than await once: a transition triggered by the click that precedes this
+  // call may not have registered yet, and an empty getAnimations() would resolve early.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(async () => {
+          const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+          await frame();
+          await Promise.all(
+            document.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
+          );
+          await frame();
+          return document.getAnimations().length;
+        }),
+      { timeout: 5000 },
+    )
+    .toBe(0);
+}
+
 async function expectNoSeriousAxeViolations(page: import("@playwright/test").Page) {
+  await waitForTransitionsToSettle(page);
   const accessibility = await new AxeBuilder({ page }).analyze();
   const seriousOrCritical = accessibility.violations.filter((violation) =>
     ["serious", "critical"].includes(violation.impact ?? ""),
@@ -16,6 +45,14 @@ async function browserTaskDuration(
 ) {
   const result = await session.send("Performance.getMetrics");
   return result.metrics.find((metric) => metric.name === "TaskDuration")?.value ?? 0;
+}
+
+/** Parses a computed transition-duration ("0.01ms" | "1e-05s" | "0.00001s") into seconds. */
+function durationSeconds(value: string) {
+  const first = value.split(",")[0].trim();
+  const numeric = Number.parseFloat(first);
+  if (!Number.isFinite(numeric)) return Number.POSITIVE_INFINITY;
+  return first.endsWith("ms") ? numeric / 1000 : numeric;
 }
 
 async function readDownload(download: import("@playwright/test").Download) {
@@ -157,11 +194,18 @@ test("the wind tunnel re-sorts buyers, reconciles chart tables, and respects red
     )
     .not.toBe(beforeDots);
 
+  // Each engine serializes the collapsed duration differently ("0.01ms", "1e-05s",
+  // "0.00001s"), so compare the parsed seconds rather than the spelling.
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(page.locator('[data-testid="buyer-dot"]').first()).toHaveCSS(
-    "transition-duration",
-    /(?:0\.01ms|1e-05s)/,
-  );
+  await expect
+    .poll(() =>
+      page
+        .locator('[data-testid="buyer-dot"]')
+        .first()
+        .evaluate((dot) => getComputedStyle(dot).transitionDuration)
+        .then(durationSeconds),
+    )
+    .toBeLessThan(0.001);
   await expectNoSeriousAxeViolations(page);
 
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
@@ -171,7 +215,12 @@ test("the wind tunnel re-sorts buyers, reconciles chart tables, and respects red
 
 test("each warmed template simulation renders within the 16ms P6a interaction budget", async ({
   page,
+  browserName,
 }) => {
+  // The P6a budget is measured through the Chrome DevTools Protocol, which Playwright
+  // exposes for Chromium only. The budget is an engine-specific performance gate, not a
+  // cross-browser behavioral contract, so it is asserted on Chromium and declared here.
+  test.skip(browserName !== "chromium", "Task-duration metrics require CDP (Chromium only)");
   const session = await page.context().newCDPSession(page);
   await session.send("Performance.enable");
 
@@ -203,7 +252,9 @@ test("each warmed template simulation renders within the 16ms P6a interaction bu
 
 test("uncertainty draws are seeded, paired, and rendered within the P7a budget", async ({
   page,
+  browserName,
 }) => {
+  test.skip(browserName !== "chromium", "Task-duration metrics require CDP (Chromium only)");
   const session = await page.context().newCDPSession(page);
   await session.send("Performance.enable");
 
@@ -367,6 +418,86 @@ test("the conjoint bridge stays gated when the study cannot identify a price eff
   await expect(page.getByTestId("conjoint-bridge-disabled")).toBeVisible();
   await expect(page.getByRole("button", { name: "Apply pooled part-worths" })).toBeDisabled();
   await expectNoSeriousAxeViolations(page);
+});
+
+// The following four flows are the automated evidence cited by docs/ACCESSIBILITY-AUDIT.md.
+test("the skip link stays off-canvas until focused, then reveals and targets the workbench", async ({
+  page,
+  browserName,
+}) => {
+  await page.goto("/");
+  const skip = page.getByRole("link", { name: "Skip to active workbench" });
+
+  // Off-canvas until focused.
+  const hidden = await skip.boundingBox();
+  expect(hidden?.y ?? 0).toBeLessThan(0);
+
+  // WebKit keeps links out of the sequential tab order unless macOS full keyboard access
+  // is on, so the "first tab stop" claim is asserted where links are tabbable by default.
+  if (browserName !== "webkit") {
+    await page.keyboard.press("Tab");
+    await expect(skip).toBeFocused();
+  } else {
+    await skip.focus();
+  }
+
+  const shown = await skip.boundingBox();
+  expect(shown?.y ?? -1).toBeGreaterThanOrEqual(0);
+
+  await expect(skip).toHaveAttribute("href", "#workbench-panel");
+  await skip.press("Enter");
+  await expect(page.locator("#workbench-panel")).toBeVisible();
+  await expectNoSeriousAxeViolations(page);
+});
+
+test("frequently used checkboxes meet a 24 x 24 CSS pixel pointer target", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+  await page.getByRole("tab", { name: "Design", exact: true }).click();
+
+  const checkboxes = page.getByRole("checkbox");
+  const count = await checkboxes.count();
+  expect(count).toBeGreaterThan(0);
+  for (let index = 0; index < count; index += 1) {
+    const box = await checkboxes.nth(index).boundingBox();
+    expect(box, `checkbox ${index} has no box`).not.toBeNull();
+    expect(box!.width).toBeGreaterThanOrEqual(24);
+    expect(box!.height).toBeGreaterThanOrEqual(24);
+  }
+});
+
+test("the shell reflows to 320 CSS pixels without page-level horizontal scrolling", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+
+  for (const tab of ["Model", "Design", "Simulate", "Analyze", "Share"]) {
+    await page.getByRole("tab", { name: tab, exact: true }).click();
+    await waitForTransitionsToSettle(page);
+    const overflow = await page.evaluate(() => {
+      const root = document.scrollingElement ?? document.documentElement;
+      return root.scrollWidth - root.clientWidth;
+    });
+    expect(overflow, `${tab} overflows horizontally at 320px`).toBeLessThanOrEqual(1);
+  }
+  await expectNoSeriousAxeViolations(page);
+});
+
+test("print media keeps the decision record and drops the non-document controls", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+  await page.getByRole("tab", { name: "Share" }).click();
+  await page.getByRole("button", { name: "Generate current record" }).click();
+  await expect(page.getByTestId("decision-record-document")).toBeVisible();
+
+  await page.emulateMedia({ media: "print" });
+  await expect(page.getByTestId("decision-record-document")).toBeVisible();
+  await expect(page.locator(".no-print").first()).toBeHidden();
+  await page.emulateMedia({ media: null });
 });
 
 test("the MaxDiff demo study scores items into normalized importance", async ({ page }) => {

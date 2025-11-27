@@ -103,6 +103,18 @@ input[type="checkbox"] {
   min-height: 1.5rem;
 }
 
+/*
+ * WCAG 1.4.10 (Reflow). Tailwind's `sr-only` is `position: absolute`, so inside a wide
+ * horizontally scrollable region it resolves against the initial containing block rather
+ * than the scroller. It then escapes the scroller's clip and pins the document's width to
+ * the region's full extent, so at 320 CSS px the whole page scrolled sideways by ~206px
+ * even though every visible box was correctly contained. Making the scroller a containing
+ * block clips the off-screen text without hiding it from assistive technology.
+ */
+.overflow-x-auto {
+  position: relative;
+}
+
 @media (forced-colors: active) {
   svg[role="img"] rect,
   svg[role="img"] circle {

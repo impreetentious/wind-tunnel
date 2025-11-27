@@ -13,7 +13,7 @@ jobs:
   verify:
     name: Typecheck, lint, test, build, and browser audit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v6
@@ -22,7 +22,7 @@ jobs:
           cache: npm
       - run: npm install --global npm@10.0.0
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run format:check
