@@ -41,7 +41,7 @@ test("the static shell is accessible, private, and theme-aware", async ({ page }
 
   const potential = page.getByText("Potential value").locator("xpath=following-sibling::*");
   const originalPotential = await potential.textContent();
-  await page.getByLabel("Growing teams account-level WTP confidence band P50 (USD)").fill("250");
+  await page.getByLabel("Growing teams account-level WTP confidence band P50 (USD)").fill("2500");
   await expect(potential).not.toHaveText(originalPotential ?? "");
 
   await page.getByLabel("Shared workspaces value for Growing teams").focus();

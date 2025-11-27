@@ -47,7 +47,7 @@ describe("P50-centred model editing", () => {
     expect(direct.ok).toBe(true);
     if (direct.ok) {
       const segment = direct.value.model.segments[0];
-      expect(segment.wtpBand.p50).toBe(39.5);
+      expect(segment.wtpBand.p50).toBe(215);
       expect(Object.values(segment.featureAllocation).reduce((sum, value) => sum + value, 0)).toBe(
         1,
       );

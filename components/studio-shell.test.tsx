@@ -69,7 +69,7 @@ describe("StudioShell", () => {
     const before = potentialLabel.nextElementSibling?.textContent;
     fireEvent.change(
       screen.getByLabelText("Growing teams account-level WTP confidence band P50 (USD)"),
-      { target: { value: "250" } },
+      { target: { value: "2500" } },
     );
     expect(potentialLabel.nextElementSibling).not.toHaveTextContent(before ?? "");
 
@@ -86,14 +86,14 @@ describe("StudioShell", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
     const p10 = screen.getByLabelText("Growing teams account-level WTP confidence band P10 (USD)");
-    fireEvent.change(p10, { target: { value: "26" } });
+    fireEvent.change(p10, { target: { value: "260" } });
     expect(screen.getByText("P10 cannot be greater than P50 (or P90).")).toBeVisible();
 
-    fireEvent.change(p10, { target: { value: "25" } });
-    expect(p10).toHaveValue(25);
+    fireEvent.change(p10, { target: { value: "250" } });
+    expect(p10).toHaveValue(250);
     expect(
       screen.getByLabelText("Growing teams account-level WTP confidence band P90 (USD)"),
-    ).toHaveValue(25);
+    ).toHaveValue(250);
   });
 
   it("edits an active design and keeps an alternative in the scenario", () => {

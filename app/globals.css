@@ -71,9 +71,51 @@ button,
 }
 
 button:focus-visible,
-[role="tab"]:focus-visible {
+[role="tab"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 50;
+  transform: translateY(-200%);
+  border-radius: 0.5rem;
+  background: var(--ink);
+  color: var(--canvas);
+  padding: 0.65rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+input[type="checkbox"] {
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+}
+
+@media (forced-colors: active) {
+  svg[role="img"] rect,
+  svg[role="img"] circle {
+    stroke: CanvasText;
+    stroke-width: 1px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    forced-color-adjust: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -84,5 +126,76 @@ button:focus-visible,
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+@page {
+  margin: 14mm;
+  size: A4;
+}
+
+@media print {
+  :root,
+  [data-theme="light"],
+  [data-theme="dark"] {
+    --canvas: #ffffff;
+    --canvas-raised: #ffffff;
+    --ink: #111111;
+    --muted: #3f4944;
+    --line: #cbd2ce;
+    --accent: #0b5143;
+    --accent-strong: #0b5143;
+    --accent-soft: #edf7f3;
+    --amber: #6f3705;
+    --amber-soft: #fff4e5;
+    --shadow: none;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    display: block !important;
+    max-width: none !important;
+    min-height: auto !important;
+    padding: 0 !important;
+  }
+
+  main > section {
+    display: block !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .decision-record {
+    border: 0 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+
+  .decision-record section,
+  .decision-record article,
+  .decision-record table,
+  .decision-record li {
+    break-inside: avoid;
+  }
+
+  .decision-record h2,
+  .decision-record h3,
+  .decision-record h4 {
+    break-after: avoid;
   }
 }

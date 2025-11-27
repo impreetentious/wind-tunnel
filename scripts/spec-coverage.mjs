@@ -4,7 +4,19 @@ import { join } from "node:path";
 const root = process.cwd();
 const spec = await readFile(join(root, "docs", "MODEL-SPEC.md"), "utf8");
 const sections = [...spec.matchAll(/^### §(4\.\d+) /gm)].map((match) => match[1]);
-const requiredSections = new Set(["4.1", "4.2", "4.3", "4.4", "4.5", "4.7", "4.8"]);
+// §4.10 ships with P7d-1/P7d-2; §4.11 stays optional until P7e exposes the positioning map.
+const requiredSections = new Set([
+  "4.1",
+  "4.2",
+  "4.3",
+  "4.4",
+  "4.5",
+  "4.6",
+  "4.7",
+  "4.8",
+  "4.9",
+  "4.10",
+]);
 const ignoredDirectories = new Set([
   ".git",
   ".next",
@@ -40,11 +52,7 @@ console.log("MODEL-SPEC coverage");
 for (const section of sections) {
   const count = citations.get(section) ?? 0;
   const requirement = requiredSections.has(section)
-    ? section === "4.8" || section === "4.7"
-      ? section === "4.8"
-        ? "required through P7a"
-        : "required through P7b"
-      : "required through P2"
+    ? "required for shipped modules"
     : "future phase";
   console.log(`§${section}: ${count} test citation(s) — ${requirement}`);
 }

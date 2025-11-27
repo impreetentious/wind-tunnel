@@ -18,7 +18,7 @@ export const plgCollaborationTemplate: Scenario = scenarioBase({
         name: "Growing teams",
         prospectBand: { p10: 800, p50: 1200, p90: 1800 },
         seatCount: 8,
-        wtpBand: { p10: 20, p50: 25, p90: 31.25 },
+        wtpBand: { p10: 200, p50: 250, p90: 312.5 },
         withinSegmentSigma: 0.42,
         featureAllocation: { workspace: 0.22, collaboration: 0.48, admin: 0.2, security: 0.1 },
         provenance: {
@@ -32,7 +32,7 @@ export const plgCollaborationTemplate: Scenario = scenarioBase({
         name: "Scaling organisations",
         prospectBand: { p10: 100, p50: 150, p90: 225 },
         seatCount: 40,
-        wtpBand: { p10: 64, p50: 80, p90: 100 },
+        wtpBand: { p10: 1280, p50: 1600, p90: 2000 },
         withinSegmentSigma: 0.32,
         featureAllocation: { workspace: 0.12, collaboration: 0.23, admin: 0.27, security: 0.38 },
         provenance: {
