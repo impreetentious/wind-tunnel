@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P9-partial hardening under way — a WCAG 1.4.10 reflow defect is fixed (the shell now holds 320 CSS pixels with no page-level horizontal scrolling), and the skip link, pointer targets, reflow, and print paths now have automated evidence across Chromium, Firefox, and WebKit (latest committed version v0.15.1). The static shell and local checks are ready; remote CI and deployment remain pending. Buyer-distribution math, economics, Van Westendorp PSM, bundling regimes, Conjoint MNL estimation with derivative-gated Newton-Raphson, MaxDiff-lite scoring, and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research (PSM + Bundling + Conjoint + MaxDiff), and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, design comparisons, bundling verdicts, and pricing-page previews inspectable.**
+> **Status: P9-partial hardening and release documentation are locally complete (latest committed version v0.15.2) — 111 unit tests plus the full Chromium/Firefox/WebKit Playwright matrix run green with zero serious or critical axe findings in either theme. Accessibility remains a stated WCAG 2.1 AA _intent_, not an audited claim: the manual assistive-technology matrix, 200% zoom, forced-colors, and screen-reader passes are still pending, as are remote CI and deployment. Buyer-distribution math, economics, Van Westendorp PSM, bundling regimes, Conjoint MNL estimation with derivative-gated Newton-Raphson, MaxDiff-lite scoring, and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research (PSM + Bundling + Conjoint + MaxDiff), and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, design comparisons, bundling verdicts, and pricing-page previews inspectable.**
 
 ## The idea
 
@@ -32,20 +32,20 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 
 ## Roadmap
 
-| Phase   | Delivers                                                                 | Status                                      |
-| ------- | ------------------------------------------------------------------------ | ------------------------------------------- |
-| P0      | Scaffold, CI, deployed shell                                             | —                                           |
-| P1–P2   | Economics engine (selection, KPIs, surplus, sweeps) + math spec          | P2 locally complete                         |
-| P3      | Scenarios: persistence, import/export, share-by-URL, templates           | P3 locally complete                         |
-| P4      | Model surface: segments, bands, value matrix, templates                  | P4 locally complete                         |
-| P5      | Design surface + design linter                                           | Locally complete                            |
-| P6a     | **v1.0 core:** live wind-tunnel reveal                                   | Locally complete                            |
-| P7a     | **v1.0 core:** Monte Carlo + tornado                                     | Locally complete                            |
-| P7b     | **v1.0 core:** Van Westendorp                                            | Locally complete                            |
-| P8      | **v1.0 core:** Pricing Decision Record export                            | Locally complete                            |
-| P9      | **v1.0 core:** hardening, accessibility & performance audit → **v1.0.0** | —                                           |
-| P6b/P8b | **v1.1 extensions:** mechanism + A/B and pricing-page mock               | Locally complete                            |
-| P7c–P7e | **v1.1 extensions:** bundling, CBC + MaxDiff, competitive positioning    | P7c + P7d locally complete; P7e not started |
+| Phase   | Delivers                                                                 | Status                                                                           |
+| ------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| P0      | Scaffold, CI, deployed shell                                             | —                                                                                |
+| P1–P2   | Economics engine (selection, KPIs, surplus, sweeps) + math spec          | P2 locally complete                                                              |
+| P3      | Scenarios: persistence, import/export, share-by-URL, templates           | P3 locally complete                                                              |
+| P4      | Model surface: segments, bands, value matrix, templates                  | P4 locally complete                                                              |
+| P5      | Design surface + design linter                                           | Locally complete                                                                 |
+| P6a     | **v1.0 core:** live wind-tunnel reveal                                   | Locally complete                                                                 |
+| P7a     | **v1.0 core:** Monte Carlo + tornado                                     | Locally complete                                                                 |
+| P7b     | **v1.0 core:** Van Westendorp                                            | Locally complete                                                                 |
+| P8      | **v1.0 core:** Pricing Decision Record export                            | Locally complete                                                                 |
+| P9      | **v1.0 core:** hardening, accessibility & performance audit → **v1.0.0** | Partial: automated gates + docs done; manual matrix, user test, live URL pending |
+| P6b/P8b | **v1.1 extensions:** mechanism + A/B and pricing-page mock               | Locally complete                                                                 |
+| P7c–P7e | **v1.1 extensions:** bundling, CBC + MaxDiff, competitive positioning    | P7c + P7d locally complete; P7e not started                                      |
 
 ## Project docs
 
@@ -87,5 +87,5 @@ that version in `package.json` and both root version fields in
 `package-lock.json` in the same commit. Historical v0.8.11–v0.9.7 timestamps
 were owner-directed exceptions; do not rewrite pushed history.
 
-- **Base Format Version:** 0.15.1
-- **Portfolio Version:** v0.15.1_2025-11-27_22:12:38 (IST)
+- **Base Format Version:** 0.15.2
+- **Portfolio Version:** v0.15.2_2025-11-27_22:55:03 (IST)
