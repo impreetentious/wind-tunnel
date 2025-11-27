@@ -4,7 +4,7 @@ import { join } from "node:path";
 const root = process.cwd();
 const spec = await readFile(join(root, "docs", "MODEL-SPEC.md"), "utf8");
 const sections = [...spec.matchAll(/^### §(4\.\d+) /gm)].map((match) => match[1]);
-// §4.10 ships with P7d-1/P7d-2; §4.11 stays optional until P7e exposes the positioning map.
+// §4.10 shipped with P7d-1/P7d-2; §4.11 is required from P7e (positioning surface).
 const requiredSections = new Set([
   "4.1",
   "4.2",
@@ -16,6 +16,7 @@ const requiredSections = new Set([
   "4.8",
   "4.9",
   "4.10",
+  "4.11",
 ]);
 const ignoredDirectories = new Set([
   ".git",
