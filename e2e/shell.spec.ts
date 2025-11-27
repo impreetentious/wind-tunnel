@@ -18,6 +18,13 @@ async function browserTaskDuration(
   return result.metrics.find((metric) => metric.name === "TaskDuration")?.value ?? 0;
 }
 
+async function readDownload(download: import("@playwright/test").Download) {
+  const stream = await download.createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 test("the static shell is accessible, private, and theme-aware", async ({ page }) => {
   const unexpectedRequests: string[] = [];
 
@@ -293,5 +300,91 @@ test("the canonical bundling fixture reports bundle-beats-components without ove
   await expect(page.getByTestId("bundling-verdict")).toContainText("$20.0 modeled revenue");
   await expect(page.getByTestId("bundling-verdict")).toContainText("$2.0 above pure components");
   await expect(page.getByText(/not a continuous global optimum/)).toBeVisible();
+  await expectNoSeriousAxeViolations(page);
+});
+
+// E2E-08 (§6 P7d-2): 3-attr × 3-level CBC on the shipped synthetic dataset.
+test("E2E-08: the synthetic CBC estimates, bridges onto selected cells, and gates honestly", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+  await page.getByRole("tab", { name: "Analyze" }).click();
+  await page.getByRole("tab", { name: "Research" }).click();
+  await page.getByRole("tab", { name: "Conjoint" }).click();
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Estimate pooled part-worths from a choice-based conjoint",
+    }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Load synthetic study" }).click();
+
+  await expect(page.getByRole("heading", { name: "Pooled MNL converged" })).toBeVisible();
+  await expect(page.getByTestId("conjoint-part-worth-chart")).toBeVisible();
+  await expect(page.getByTestId("conjoint-hit-rate")).toBeVisible();
+  await expect(page.getByTestId("conjoint-bridge-disabled")).toHaveCount(0);
+
+  await page.getByLabel("Feature for Speed").selectOption("workspace");
+  await page.getByLabel("Reference level for Speed").selectOption("low");
+  await page.getByLabel("Target level for Speed").selectOption("high");
+  await page.getByRole("button", { name: "Apply pooled part-worths" }).click();
+
+  await expect(
+    page.getByText("Updated 1 feature share with pooled conjoint provenance."),
+  ).toBeVisible();
+
+  // The bridged cell's pooled provenance travels into the Decision Record's Markdown
+  // export, which is where the per-feature provenance trace is expanded.
+  await page.getByRole("tab", { name: "Share" }).click();
+  await page.getByRole("button", { name: "Generate current record" }).click();
+  const download = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download Markdown" }).click(),
+  ]).then(([event]) => event);
+  const markdown = await readDownload(download);
+  expect(markdown).toMatch(
+    /Shared workspaces.*conjoint, medium confidence — pooled conjoint \(N=\d+\)/,
+  );
+
+  await expectNoSeriousAxeViolations(page);
+});
+
+test("the conjoint bridge stays gated when the study cannot identify a price effect", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+  await page.getByRole("tab", { name: "Analyze" }).click();
+  await page.getByRole("tab", { name: "Research" }).click();
+  await page.getByRole("tab", { name: "Conjoint" }).click();
+
+  await page.getByRole("button", { name: "Generate task design" }).click();
+  await page.getByRole("button", { name: "Load demo CSV" }).click();
+  await page.getByRole("button", { name: "Analyze pasted responses" }).click();
+
+  await expect(page.getByTestId("conjoint-bridge-disabled")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Apply pooled part-worths" })).toBeDisabled();
+  await expectNoSeriousAxeViolations(page);
+});
+
+test("the MaxDiff demo study scores items into normalized importance", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+  await page.getByRole("tab", { name: "Analyze" }).click();
+  await page.getByRole("tab", { name: "Research" }).click();
+  await page.getByRole("tab", { name: "MaxDiff" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Score item importance with a best-worst survey" }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Generate task design" }).click();
+  await page.getByRole("button", { name: "Load demo CSV" }).click();
+  await page.getByRole("button", { name: "Analyze pasted responses" }).click();
+
+  await expect(page.getByRole("heading", { name: "Normalized importance" })).toBeVisible();
+  await expect(page.getByTestId("maxdiff-scores-chart")).toBeVisible();
   await expectNoSeriousAxeViolations(page);
 });

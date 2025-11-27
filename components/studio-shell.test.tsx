@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { SYNTHETIC_CONJOINT_RESPONDENTS } from "@/lib/state/conjoint";
 import { activeDesign } from "@/lib/state/design-editing";
 import { simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { createBlankScenario, scenarioStore } from "@/lib/state/scenario-store";
@@ -275,6 +276,98 @@ describe("StudioShell", () => {
     ).toBeVisible();
     expect(screen.getByTestId("bundling-verdict")).toHaveTextContent("$20.0 modeled revenue");
     expect(screen.getByTestId("bundling-verdict")).toHaveTextContent("$2.0 above pure components");
+  });
+
+  it("recovers synthetic part-worths and bridges them onto the selected value-matrix cells", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Research" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Conjoint" }));
+    expect(
+      screen.getByRole("heading", {
+        name: "Estimate pooled part-worths from a choice-based conjoint",
+      }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Load synthetic study" }));
+
+    // Estimation succeeds and the price coefficient clears the bridge gate.
+    expect(screen.getByRole("heading", { name: "Pooled MNL converged" })).toBeVisible();
+    expect(screen.getByTestId("conjoint-part-worth-chart")).toBeVisible();
+    expect(screen.getByTestId("conjoint-hit-rate")).toBeVisible();
+    expect(screen.queryByTestId("conjoint-bridge-disabled")).not.toBeInTheDocument();
+
+    const apply = screen.getByRole("button", { name: "Apply pooled part-worths" });
+    expect(apply).toBeEnabled();
+
+    // Map only Speed → Shared workspaces; every other attribute stays skipped.
+    fireEvent.change(screen.getByLabelText("Feature for Speed"), {
+      target: { value: "workspace" },
+    });
+    fireEvent.change(screen.getByLabelText("Reference level for Speed"), {
+      target: { value: "low" },
+    });
+    fireEvent.change(screen.getByLabelText("Target level for Speed"), {
+      target: { value: "high" },
+    });
+    fireEvent.click(apply);
+
+    expect(
+      screen.getByText("Updated 1 feature share with pooled conjoint provenance."),
+    ).toBeVisible();
+
+    // Only the explicitly mapped cell carries pooled provenance; shares stay normalized.
+    const segment = scenarioStore
+      .getState()
+      .scenario.model.segments.find((candidate) => candidate.id === "team");
+    expect(segment?.provenance.featureValues.workspace).toEqual({
+      kind: "conjoint",
+      confidence: "medium",
+      note: `pooled conjoint (N=${SYNTHETIC_CONJOINT_RESPONDENTS})`,
+    });
+    expect(segment?.provenance.featureValues.collaboration.kind).not.toBe("conjoint");
+    const shareTotal = Object.values(segment?.featureAllocation ?? {}).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    expect(shareTotal).toBeCloseTo(1, 10);
+  });
+
+  it("keeps the WTP bridge gated when the study cannot identify a price effect", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Research" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Conjoint" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate task design" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load demo CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze pasted responses" }));
+
+    expect(screen.getByTestId("conjoint-bridge-disabled")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Apply pooled part-worths" })).toBeDisabled();
+  });
+
+  it("scores the seeded MaxDiff demo study into normalized importance", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Research" }));
+    fireEvent.click(screen.getByRole("tab", { name: "MaxDiff" }));
+    expect(
+      screen.getByRole("heading", { name: "Score item importance with a best-worst survey" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate task design" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load demo CSV" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze pasted responses" }));
+
+    expect(screen.getByRole("heading", { name: "Normalized importance" })).toBeVisible();
+    expect(screen.getByTestId("maxdiff-scores-chart")).toBeVisible();
   });
 
   it("surfaces validation errors while importing a complete scenario", () => {

@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.14.1",
+  "version": "0.14.2",
   "private": true,
   "description": "A client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -34,7 +34,7 @@
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.0",
     "@types/node": "24.10.1",
-    "@types/react": "19.2.5",
+    "@types/react": "19.2.6",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.1",
     "eslint-config-next": "16.0.3",
