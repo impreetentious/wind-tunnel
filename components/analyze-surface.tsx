@@ -3,11 +3,12 @@
 import { useState } from "react";
 
 import { handleHorizontalTabKey } from "./tab-keyboard";
+import { PositioningSurface } from "./positioning-surface";
 import { ResearchSurface } from "./research-surface";
 import { UncertaintySurface } from "./uncertainty-surface";
 
-type AnalyzeView = "uncertainty" | "research";
-const analyzeViews = ["uncertainty", "research"] as const;
+type AnalyzeView = "uncertainty" | "research" | "positioning";
+const analyzeViews = ["uncertainty", "research", "positioning"] as const;
 
 export function AnalyzeSurface() {
   const [view, setView] = useState<AnalyzeView>("uncertainty");
@@ -20,6 +21,7 @@ export function AnalyzeSurface() {
             [
               ["uncertainty", "Uncertainty"],
               ["research", "Research"],
+              ["positioning", "Positioning"],
             ] as const
           ).map(([id, label]) => {
             const selected = view === id;
@@ -58,7 +60,13 @@ export function AnalyzeSurface() {
         id="analyze-view"
         role="tabpanel"
       >
-        {view === "uncertainty" ? <UncertaintySurface /> : <ResearchSurface />}
+        {view === "uncertainty" ? (
+          <UncertaintySurface />
+        ) : view === "research" ? (
+          <ResearchSurface />
+        ) : (
+          <PositioningSurface />
+        )}
       </div>
     </section>
   );

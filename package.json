@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.16.0",
+  "version": "0.16.1",
   "private": true,
   "description": "A client-side SaaS pricing and packaging decision studio.",
   "scripts": {
