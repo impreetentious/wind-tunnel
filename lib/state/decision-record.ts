@@ -1,6 +1,10 @@
+import type { ConjointEstimate } from "@/lib/engine/conjoint";
+import type { MaxDiffResult } from "@/lib/engine/maxdiff";
 import { analyzeVanWestendorp } from "@/lib/engine/vanwest";
 
+import { estimateConjointRecord } from "./conjoint";
 import { activeDesign } from "./design-editing";
+import { scoreMaxDiffRecord } from "./maxdiff";
 import {
   runScenarioMonteCarlo,
   simulateScenarioDesign,
@@ -52,6 +56,8 @@ export interface PricingDecisionRecord {
         points: ReturnType<typeof analyzeVanWestendorp>["points"];
       }
     | undefined;
+  conjoint: ConjointEstimate | undefined;
+  maxDiff: MaxDiffResult | undefined;
   markdown: string;
 }
 
@@ -114,7 +120,7 @@ function pointPrice(
 }
 
 function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
-  const { scenario, activeDesign, economics, uncertainty, research } = record;
+  const { scenario, activeDesign, economics, uncertainty, research, conjoint, maxDiff } = record;
   const currency = scenario.settings.currency;
   const lines: string[] = [
     `# Pricing Decision Record — ${scenario.name}`,
@@ -273,6 +279,49 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
     );
   }
 
+  if (conjoint) {
+    lines.push(
+      "## Conjoint (pooled MNL)",
+      "",
+      `Status: **${conjoint.status}** · Respondents: ${conjoint.respondentCount} · Observations: ${conjoint.observationCount}${conjoint.hitRate !== undefined ? ` · Hit rate ${formatRecordPercent(conjoint.hitRate)}` : ""}.`,
+      "",
+      conjoint.bridgeEnabled
+        ? "The numeric price coefficient is significantly negative under the pooled 90% gate; WTP contrasts can be inspected."
+        : `Bridge disabled: ${conjoint.bridgeReason}`,
+      "",
+    );
+    if (conjoint.partWorths && conjoint.partWorths.length > 0) {
+      lines.push(
+        "| Attribute | Level | Estimate | SE | 90% CI |",
+        "| --- | --- | ---: | ---: | --- |",
+      );
+      for (const partWorth of conjoint.partWorths) {
+        lines.push(
+          `| ${tableCell(partWorth.attributeId)} | ${tableCell(partWorth.level)} | ${partWorth.estimate.toFixed(3)} | ${partWorth.standardError.toFixed(3)} | [${partWorth.ci90[0].toFixed(3)}, ${partWorth.ci90[1].toFixed(3)}] |`,
+        );
+      }
+      lines.push("");
+    }
+  }
+
+  if (maxDiff) {
+    lines.push("## MaxDiff (best-worst scoring)", "");
+    if (!maxDiff.ok) {
+      lines.push(`Validation error: ${maxDiff.error}`, "");
+    } else {
+      lines.push(
+        "| Item | Appearances | Best | Worst | Normalized |",
+        "| --- | ---: | ---: | ---: | ---: |",
+      );
+      for (const score of maxDiff.scores) {
+        lines.push(
+          `| ${tableCell(score.itemId)} | ${score.appearances} | ${score.bestCount} | ${score.worstCount} | ${score.normalizedScore.toFixed(1)} |`,
+        );
+      }
+      lines.push("");
+    }
+  }
+
   lines.push("## Deterministic critic", "");
   if (record.findings.length === 0) {
     lines.push("No documented linter rule is currently firing.", "");
@@ -330,6 +379,16 @@ export function buildPricingDecisionRecord(
   );
   const study = scenario.research.vanWestendorp;
   const psm = study ? analyzeVanWestendorp(study.responses) : undefined;
+  const conjointRecord = scenario.research.conjoint;
+  const conjointEstimate =
+    conjointRecord && conjointRecord.observations.length > 0
+      ? safelyEstimateConjoint(conjointRecord)
+      : undefined;
+  const maxDiffRecord = scenario.research.maxDiff;
+  const maxDiffScored =
+    maxDiffRecord && maxDiffRecord.responses.length > 0
+      ? scoreMaxDiffRecord(maxDiffRecord)
+      : undefined;
 
   const withoutMarkdown: Omit<PricingDecisionRecord, "markdown"> = {
     generatedOn,
@@ -376,6 +435,18 @@ export function buildPricingDecisionRecord(
             points: psm.points,
           }
         : undefined,
+    conjoint: conjointEstimate,
+    maxDiff: maxDiffScored,
   };
   return { ...withoutMarkdown, markdown: recordMarkdown(withoutMarkdown) };
+}
+
+function safelyEstimateConjoint(
+  record: NonNullable<Scenario["research"]["conjoint"]>,
+): ConjointEstimate | undefined {
+  try {
+    return estimateConjointRecord(record);
+  } catch {
+    return undefined;
+  }
 }

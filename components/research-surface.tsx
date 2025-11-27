@@ -3,11 +3,13 @@
 import { useState } from "react";
 
 import { BundlingSurface } from "./bundling-surface";
+import { ConjointSurface } from "./conjoint-surface";
+import { MaxDiffSurface } from "./maxdiff-surface";
 import { handleHorizontalTabKey } from "./tab-keyboard";
 import { VanWestendorpSurface } from "./van-westendorp-surface";
 
-type ResearchView = "psm" | "bundling";
-const researchViews = ["psm", "bundling"] as const;
+type ResearchView = "psm" | "bundling" | "conjoint" | "maxdiff";
+const researchViews = ["psm", "bundling", "conjoint", "maxdiff"] as const;
 
 export function ResearchSurface() {
   const [view, setView] = useState<ResearchView>("psm");
@@ -19,6 +21,8 @@ export function ResearchSurface() {
             [
               ["psm", "Van Westendorp"],
               ["bundling", "Bundling"],
+              ["conjoint", "Conjoint"],
+              ["maxdiff", "MaxDiff"],
             ] as const
           ).map(([id, label]) => {
             const selected = view === id;
@@ -57,7 +61,15 @@ export function ResearchSurface() {
         id="research-view"
         role="tabpanel"
       >
-        {view === "psm" ? <VanWestendorpSurface /> : <BundlingSurface />}
+        {view === "psm" ? (
+          <VanWestendorpSurface />
+        ) : view === "bundling" ? (
+          <BundlingSurface />
+        ) : view === "conjoint" ? (
+          <ConjointSurface />
+        ) : (
+          <MaxDiffSurface />
+        )}
       </div>
     </section>
   );

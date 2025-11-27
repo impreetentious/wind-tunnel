@@ -4,12 +4,15 @@ import { generateConjointDesign } from "@/lib/engine/conjoint";
 
 import {
   applyConjointBridge,
+  buildSyntheticConjointStudy,
   CONJOINT_DEMO_CSV,
   conjointCsv,
   estimateConjointRecord,
   makeConjointStudy,
   parseConjointCsv,
   scenarioWithConjointStudy,
+  SYNTHETIC_CONJOINT_RESPONDENTS,
+  SYNTHETIC_CONJOINT_TRUE_BETA,
 } from "./conjoint";
 import { scenarioTemplates } from "./templates";
 
@@ -198,5 +201,33 @@ r1,${record.tasks[0].id},not-a-concept`;
     expect(updated.research.conjoint).toEqual(populated);
     const estimate = estimateConjointRecord(populated);
     expect(["ok", "nonIdentifiable", "separated", "nonConverged"]).toContain(estimate.status);
+  });
+
+  // @spec §6 P7d-2 E2E-08 — the shipped synthetic dataset must be recoverable, otherwise
+  // the acceptance flow is demonstrating the estimator against data it cannot identify.
+  it("recovers the shipped synthetic study's generating coefficients within three standard errors", () => {
+    const record = buildSyntheticConjointStudy();
+
+    expect(record.attributes).toHaveLength(3);
+    record.attributes.forEach((attribute) => expect(attribute.levels).toHaveLength(3));
+    expect(record.observations).toHaveLength(SYNTHETIC_CONJOINT_RESPONDENTS * record.tasks.length);
+
+    const estimate = estimateConjointRecord(record);
+    expect(estimate.status).toBe("ok");
+    expect(estimate.respondentCount).toBe(SYNTHETIC_CONJOINT_RESPONDENTS);
+    expect(estimate.freeCoefficients).toHaveLength(SYNTHETIC_CONJOINT_TRUE_BETA.length);
+    estimate.freeCoefficients?.forEach((coefficient, index) => {
+      expect(
+        Math.abs(coefficient.estimate - SYNTHETIC_CONJOINT_TRUE_BETA[index]),
+      ).toBeLessThanOrEqual(3 * coefficient.standardError);
+    });
+
+    // The bridge gate opens only because the price coefficient is significantly negative.
+    expect(estimate.bridgeEnabled).toBe(true);
+    expect(estimate.priceCoefficient?.ci90[1]).toBeLessThan(0);
+  });
+
+  it("regenerates the shipped synthetic study identically on every build", () => {
+    expect(buildSyntheticConjointStudy()).toEqual(buildSyntheticConjointStudy());
   });
 });
