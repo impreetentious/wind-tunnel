@@ -400,6 +400,49 @@ describe("StudioShell", () => {
     expect(screen.getByRole("button", { name: "Print / Save PDF" })).toBeVisible();
   });
 
+  it("adds a competitor and exposes live competitor loss on the wind-tunnel KPI header", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+
+    // Baseline: no competitors, so the KPI header shows the "no competitors" state.
+    fireEvent.click(screen.getByRole("tab", { name: "Simulate" }));
+    expect(screen.getByText("No competitors active")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Positioning" }));
+    expect(
+      screen.getByRole("heading", {
+        name: "Competitor alternatives and the segment-scoped map",
+      }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByTestId("positioning-add-competitor"));
+    const scenario = scenarioStore.getState().scenario;
+    expect(scenario.competitors).toHaveLength(1);
+    const competitor = scenario.competitors[0];
+
+    // Give the competitor a strictly better value/price so it actually attracts share.
+    fireEvent.change(screen.getByLabelText(`${competitor.name} price`), {
+      target: { value: "1" },
+    });
+    for (const segment of scenario.model.segments) {
+      fireEvent.change(screen.getByLabelText(`${competitor.name} value for ${segment.name}`), {
+        target: { value: "10000" },
+      });
+    }
+
+    // The competitor now dominates the tier menu, so simulate exposes the
+    // percentage of catalog potential lost to competitors.
+    fireEvent.click(screen.getByRole("tab", { name: "Simulate" }));
+    expect(screen.queryByText("No competitors active")).not.toBeInTheDocument();
+    const readout = simulateScenarioDesign(
+      scenarioStore.getState().scenario,
+      activeDesign(scenarioStore.getState().scenario),
+    );
+    expect(readout?.competitorLossShare).toBeGreaterThan(0);
+  });
+
   it("renders the active design as a theme-aware pricing-page mock", () => {
     render(<StudioShell version="1.1.0" />);
 

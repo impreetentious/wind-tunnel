@@ -89,11 +89,17 @@ function choiceRows(segment: SegmentEconomicsReadout): ChoiceRow[] {
 
   return offers.map((offer, index) => {
     const share = segment.selection.shares[offer.id] ?? 0;
+    const color =
+      offer.owner === "outside"
+        ? "#78847d"
+        : offer.owner === "competitor"
+          ? "#8a2f3d"
+          : dotColors[index % dotColors.length];
     return {
       offer,
       share,
       buyers: segment.prospectCount * share,
-      color: offer.owner === "outside" ? "#78847d" : dotColors[index % dotColors.length],
+      color,
     };
   });
 }
@@ -126,7 +132,13 @@ function KpiHeader({ readout, currency }: { readout: EconomicsReadout; currency:
     { label: "Paid conversion", value: formatPercent(readout.paidConversion) },
     { label: "ARPA", value: formatCurrency(readout.arpa, currency) },
     { label: "Capture rate", value: formatPercent(readout.captureRate) },
-    { label: "Competitor loss", value: "Positioning phase" },
+    {
+      label: "Competitor loss",
+      value:
+        readout.competitorLossShare === undefined
+          ? "No competitors active"
+          : formatPercent(readout.competitorLossShare),
+    },
   ];
 
   return (
