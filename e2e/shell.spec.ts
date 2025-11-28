@@ -500,6 +500,65 @@ test("print media keeps the decision record and drops the non-document controls"
   await page.emulateMedia({ media: null });
 });
 
+// E2E-09 (§6 P7e): positioning surface — competitors, segment-scoped map, competitor-loss KPI.
+test("E2E-09: the positioning surface adds competitors, renders the segment map, and reveals live competitor loss", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+
+  // Baseline: no competitors, so the wind tunnel says so.
+  await page.getByRole("tab", { name: "Simulate" }).click();
+  await expect(page.getByText("No competitors active")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Analyze" }).click();
+  await page.getByRole("tab", { name: "Positioning" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Competitor alternatives and the segment-scoped map" }),
+  ).toBeVisible();
+
+  // Add three competitors and give the first one a dominant value/price so the
+  // envelope engine sends real share to it.
+  for (let index = 0; index < 3; index += 1) {
+    await page.getByTestId("positioning-add-competitor").click();
+  }
+  await expect(page.getByTestId(/positioning-competitor-card-/)).toHaveCount(3);
+
+  const firstCompetitor = page.getByTestId(/positioning-competitor-card-/).first();
+  const firstNameInput = firstCompetitor.getByLabel(/name$/);
+  const originalName = (await firstNameInput.inputValue()) || "New competitor";
+  await firstCompetitor.getByLabel(`${originalName} price`, { exact: true }).fill("1");
+  const perSegmentValueInputs = firstCompetitor.getByLabel(
+    new RegExp(`^${originalName} value for `),
+  );
+  const valueInputCount = await perSegmentValueInputs.count();
+  for (let index = 0; index < valueInputCount; index += 1) {
+    await perSegmentValueInputs.nth(index).fill("10000");
+  }
+
+  // Verify the map renders with tier + competitor markers.
+  await expect(page.getByTestId("positioning-chart")).toBeVisible();
+  const competitorMarkerCount = await page.getByTestId(/positioning-competitor-marker-/).count();
+  expect(competitorMarkerCount).toBeGreaterThan(0);
+  await expect(page.getByTestId(/positioning-tier-marker-/).first()).toBeVisible();
+
+  // Per-segment competitor share now reads real values.
+  await expect(page.getByTestId(/positioning-share-/).first()).toBeVisible();
+
+  // Simulate exposes the live competitor-loss share KPI.
+  await page.getByRole("tab", { name: "Simulate" }).click();
+  await expect(page.getByText("No competitors active")).toHaveCount(0);
+  await expect(page.getByTestId("waterfall-value-Competitor loss").first()).toBeVisible();
+
+  // Toggle a dark-theme render pass through the map + axe.
+  await page.getByRole("tab", { name: "Analyze" }).click();
+  await page.getByRole("tab", { name: "Positioning" }).click();
+  await expect(page.getByTestId("positioning-chart")).toBeVisible();
+  await page.getByRole("button", { name: /Switch to dark theme/i }).click();
+  await expect(page.getByTestId("positioning-chart")).toBeVisible();
+  await expectNoSeriousAxeViolations(page);
+});
+
 test("the MaxDiff demo study scores items into normalized importance", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Use this template" }).first().click();

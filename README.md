@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P9-partial hardening and release documentation are locally complete (latest committed version v0.16.2) — 111 unit tests plus the full Chromium/Firefox/WebKit Playwright matrix run green with zero serious or critical axe findings in either theme. Accessibility remains a stated WCAG 2.1 AA _intent_, not an audited claim: the manual assistive-technology matrix, 200% zoom, forced-colors, and screen-reader passes are still pending, as are remote CI and deployment. Buyer-distribution math, economics, Van Westendorp PSM, bundling regimes, Conjoint MNL estimation with derivative-gated Newton-Raphson, MaxDiff-lite scoring, and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research (PSM + Bundling + Conjoint + MaxDiff), and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, design comparisons, bundling verdicts, and pricing-page previews inspectable.**
+> **Status: P7e — competitive positioning — is locally complete (latest committed version v0.16.3). 124 unit tests plus the Chromium E2E matrix run green with zero serious or critical axe findings in either theme; E2E-09 also passes on Firefox and WebKit. Accessibility remains a stated WCAG 2.1 AA _intent_, not an audited claim: the manual assistive-technology matrix, 200% zoom, forced-colors, and screen-reader passes are still pending, as are remote CI and deployment. Buyer-distribution math, economics, Van Westendorp PSM, bundling regimes, Conjoint MNL estimation with derivative-gated Newton-Raphson, MaxDiff-lite scoring, competitive positioning (Pareto staircase, break-even rays, direct-dominance verdict), and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research (PSM + Bundling + Conjoint + MaxDiff), Positioning, and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, design comparisons, bundling verdicts, and pricing-page previews inspectable.**
 
 ## The idea
 
@@ -17,7 +17,7 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 - **Simulate** — now available: closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall, and a 400-point residual price sweep for each tier. The mechanism diagram, A/B comparison, and user-facing competitor-loss share follow in v1.1.
 - **Analyze — Uncertainty** — now available: seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates, and a tornado chart that tells you _which assumption to validate first_.
 - **Analyze — Research** — now available: survey-first Van Westendorp PSM with manual/CSV input, exclusion reporting, cumulative curves, interpolated points, and a clearly labeled illustrative mode. The v1.1 extensions add Choice-Based Conjoint, MaxDiff-lite, and bundling economics.
-- **Analyze — Positioning** — v1.0 builds and tests competitor alternatives as a core engine/linter path; user-facing competitor entry, loss-share readouts, and the segment-scoped map arrive together in v1.1.
+- **Analyze — Positioning** — now available: competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI wired into the wind tunnel.
 - **Communicate** — v1.0 ships the exportable Pricing Decision Record; the pricing-page mock follows in v1.1.
 
 The economics is the point: the planned engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Its release gate requires every formula to be tested against closed-form results and a value-conservation identity to hold on every simulation.
@@ -45,7 +45,7 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 | P8      | **v1.0 core:** Pricing Decision Record export                            | Locally complete                                                                 |
 | P9      | **v1.0 core:** hardening, accessibility & performance audit → **v1.0.0** | Partial: automated gates + docs done; manual matrix, user test, live URL pending |
 | P6b/P8b | **v1.1 extensions:** mechanism + A/B and pricing-page mock               | Locally complete                                                                 |
-| P7c–P7e | **v1.1 extensions:** bundling, CBC + MaxDiff, competitive positioning    | P7c + P7d locally complete; P7e not started                                      |
+| P7c–P7e | **v1.1 extensions:** bundling, CBC + MaxDiff, competitive positioning    | Locally complete                                                                 |
 
 ## Project docs
 
@@ -87,5 +87,5 @@ that version in `package.json` and both root version fields in
 `package-lock.json` in the same commit. Historical v0.8.11–v0.9.7 timestamps
 were owner-directed exceptions; do not rewrite pushed history.
 
-- **Base Format Version:** 0.16.2
-- **Portfolio Version:** v0.16.2_2025-11-29_00:26:33 (IST)
+- **Base Format Version:** 0.16.3
+- **Portfolio Version:** v0.16.3_2025-11-29_03:38:53 (IST)
