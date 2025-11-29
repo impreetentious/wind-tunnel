@@ -3,11 +3,13 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 
 const outputRoot = path.join("out", "_next");
-// P7d-2 lands the Conjoint + MaxDiff research surfaces; v1.1 extension code pushes
-// the total gzip footprint past the D-01 v1.0 ceiling of 300 KiB. The 320 KiB ceiling
-// is the extension budget; keep "as small as possible" as the practical target and
-// audit every future addition.
-const budgetBytes = 320 * 1024;
+// D-01 sized the v1.0 core to 300 KiB gzip. D-34 raised it to 320 KiB to carry the
+// v1.1 research extensions (P7c bundling, P7d-2 conjoint/MaxDiff). D-39 (S36) raises
+// it to 360 KiB to carry the parked-scope mission (§15): new pure engine modules
+// (optimizer, elasticity, MaxDiff MNL, D-efficient generator) and their eventual
+// UI hookups. The "as small as possible under Next's static-export path" spirit
+// stays; every future addition is still audited against this ceiling.
+const budgetBytes = 360 * 1024;
 
 async function filesUnder(directory) {
   const entries = await readdir(directory, { withFileTypes: true });

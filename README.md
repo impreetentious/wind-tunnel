@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P7e — competitive positioning — is locally complete (latest committed version v0.18.0). 124 unit tests plus the Chromium E2E matrix run green with zero serious or critical axe findings in either theme; E2E-09 also passes on Firefox and WebKit. Accessibility remains a stated WCAG 2.1 AA _intent_, not an audited claim: the manual assistive-technology matrix, 200% zoom, forced-colors, and screen-reader passes are still pending, as are remote CI and deployment. Buyer-distribution math, economics, Van Westendorp PSM, bundling regimes, Conjoint MNL estimation with derivative-gated Newton-Raphson, MaxDiff-lite scoring, competitive positioning (Pareto staircase, break-even rays, direct-dominance verdict), and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research (PSM + Bundling + Conjoint + MaxDiff), Positioning, and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, design comparisons, bundling verdicts, and pricing-page previews inspectable.**
+> **Status: P7e — competitive positioning — is locally complete (latest committed version v0.18.1). 124 unit tests plus the Chromium E2E matrix run green with zero serious or critical axe findings in either theme; E2E-09 also passes on Firefox and WebKit. Accessibility remains a stated WCAG 2.1 AA _intent_, not an audited claim: the manual assistive-technology matrix, 200% zoom, forced-colors, and screen-reader passes are still pending, as are remote CI and deployment. Buyer-distribution math, economics, Van Westendorp PSM, bundling regimes, Conjoint MNL estimation with derivative-gated Newton-Raphson, MaxDiff-lite scoring, competitive positioning (Pareto staircase, break-even rays, direct-dominance verdict), and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research (PSM + Bundling + Conjoint + MaxDiff), Positioning, and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, design comparisons, bundling verdicts, and pricing-page previews inspectable.**
 
 ## The idea
 
@@ -72,7 +72,7 @@ npm run build
 npm run e2e
 ```
 
-`npm run build` produces the portable static bundle in `out/` and applies the 320 KiB gzip client-JavaScript gate (raised from 300 KiB to carry the v1.1 research extensions). The browser check serves that export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist.
+`npm run build` produces the portable static bundle in `out/` and applies the 360 KiB gzip client-JavaScript gate (raised from 320 KiB to carry the §15 parked-scope mission). The browser check serves that export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist.
 
 ## License
 

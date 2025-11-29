@@ -207,6 +207,52 @@ becomes an envelope offer and contributes only to `CompetitorLoss`.
 T-CMP-01…08 cover frontier construction, rays, direct dominance, engine shares,
 conservation, empty competitor identity, and the B-001 tie policy.
 
+### §4.13 Elasticity and cross-tier substitution matrix
+
+Per segment, given an active envelope (§4.2) at within-segment `σ > 0`, the
+demand share of the k-th active offer is
+`share_k = Φ(ln(b_k)/σ) − Φ(ln(a_k)/σ)`. Let
+`g(x) = φ(ln(x)/σ) / (σ · x)` be the standardized lognormal density with
+`μ = 0`. The own-price share derivative is
+
+```text
+∂share_k / ∂P_k = − g(a_k) / (V_k − V_{k-1})
+                 − g(b_k) / (V_{k+1} − V_k)
+```
+
+Cross-price share derivatives are non-zero only for the two envelope neighbors
+of offer k, so the segment substitution matrix is tridiagonal in the
+envelope-ordered active offers:
+
+```text
+∂share_{k-1} / ∂P_k = + g(a_k) / (V_k − V_{k-1})
+∂share_{k+1} / ∂P_k = + g(b_k) / (V_{k+1} − V_k)
+```
+
+Boundary offers use `g(0) = 0` (outside-adjacent lower bound) and
+`g(+∞) = 0` (top-envelope upper bound). Total-share conservation holds
+exactly: `Σ_k ∂share_k / ∂P_j = 0` for every perturbed price `j`.
+
+Own-price demand elasticity is `(P_k / share_k) · ∂share_k / ∂P_k`, always
+`≤ 0` at price-positive, share-positive active offers. Revenue elasticity is
+`1 + (own-price demand elasticity)`; it crosses zero at a local revenue peak
+along a price sweep, matching §4.4.
+
+These are _regime-local_ derivatives: they are valid only for price changes
+small enough that the current active-offer envelope is preserved. A step large
+enough to push an offer onto or off the envelope changes the derivative
+structure. Use §4.4's price sweep for finite steps.
+
+At `σ = 0` the segment collapses to a point mass; local derivatives are Dirac
+distributions and are not reported. The elasticity readout is returned with
+`degenerate: true`, empty per-offer elasticities, and empty substitution
+entries. Use §4.4 for the finite-difference view a `σ = 0` segment supports.
+
+Required tests: T-ELS-01 analytic-vs-finite-difference derivative gate on
+three- and four-offer fixtures; T-ELS-02 column-sum conservation; T-ELS-03 the
+`σ = 0` degenerate branch; T-ELS-04 own-price signs and the revenue-elasticity
+zero-crossing near a price-sweep argmax.
+
 ### §4.12 Numerical conventions
 
 Prices are non-negative; UI `σ_s` is `[0.05, 2.0]` with low/medium/high presets
