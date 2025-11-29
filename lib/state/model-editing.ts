@@ -89,7 +89,7 @@ function normalizedAllocations(
   });
   if (remainingIds.length > 0) {
     const lastId = remainingIds[remainingIds.length - 1];
-    next[lastId] = 1 - Object.values(next).reduce((sum, value) => sum + value, 0);
+    next[lastId] = Math.max(0, 1 - Object.values(next).reduce((sum, value) => sum + value, 0));
   }
   return { ok: true, value: next };
 }

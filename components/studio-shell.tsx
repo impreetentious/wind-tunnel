@@ -57,13 +57,7 @@ function ThemeToggle({
   onChange: (theme: ScenarioSettings["theme"]) => void;
 }) {
   const nextTheme: ScenarioSettings["theme"] =
-    theme === "system"
-      ? effectiveTheme === "light"
-        ? "dark"
-        : "light"
-      : theme === "dark"
-        ? "light"
-        : "system";
+    theme === "system" ? "dark" : theme === "dark" ? "light" : "system";
 
   return (
     <button
@@ -109,7 +103,7 @@ export function StudioShell({ version }: { version: string }) {
 
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash) {
+    if (hash.startsWith("#s=")) {
       const decoded = decodeShareHash(hash);
       if (decoded.ok) {
         scenarioStore
@@ -121,6 +115,7 @@ export function StudioShell({ version }: { version: string }) {
         scenarioStore.temporal.getState().clear();
       } else {
         setMessage(decoded.error);
+        restoreScenarioFromStorage(scenarioStore, window.localStorage);
       }
     } else {
       restoreScenarioFromStorage(scenarioStore, window.localStorage);

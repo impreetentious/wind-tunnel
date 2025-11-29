@@ -28,8 +28,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" data-theme="light" suppressHydrationWarning>
       <body className={inter.variable}>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var s=window.localStorage.getItem("wind-tunnel.scenario.v1");var t=s?JSON.parse(s).settings.theme:"system";if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}document.documentElement.dataset.theme=t;}catch(e){}`,
+          }}
+        />
         {children}
-        <div className="sr-only" aria-live="polite" aria-atomic="true" id="app-status" />
       </body>
     </html>
   );

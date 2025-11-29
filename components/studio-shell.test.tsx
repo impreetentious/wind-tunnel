@@ -2,9 +2,11 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { SYNTHETIC_CONJOINT_RESPONDENTS } from "@/lib/state/conjoint";
+import { exportScenario } from "@/lib/state/codec";
 import { activeDesign } from "@/lib/state/design-editing";
 import { simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { createBlankScenario, scenarioStore } from "@/lib/state/scenario-store";
+import { scenarioTemplates } from "@/lib/state/templates";
 import { StudioShell } from "./studio-shell";
 
 beforeEach(() => {
@@ -30,6 +32,23 @@ describe("StudioShell", () => {
 
     expect(document.documentElement).toHaveAttribute("data-theme", "dark");
     expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeVisible();
+  });
+
+  it("restores local autosave when the URL contains an in-page anchor", () => {
+    const stored = scenarioTemplates[0].scenario;
+    window.location.hash = "#workbench-panel";
+    window.localStorage.setItem("wind-tunnel.scenario.v1", exportScenario(stored));
+
+    render(<StudioShell version="1.0.0" />);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen.getByLabelText("Growing teams account-level WTP confidence band P50 (USD)"),
+    ).toBeVisible();
+    expect(scenarioStore.getState().scenario.name).toBe(stored.name);
+
+    window.location.hash = "";
+    window.localStorage.clear();
   });
 
   it("changes the active workbench section", () => {

@@ -63,7 +63,7 @@ export const segmentSchema = z.strictObject({
   prospectBand: quantileBandSchema,
   seatCount: z.number().int().min(1),
   wtpBand: quantileBandSchema,
-  withinSegmentSigma: nonNegativeNumber,
+  withinSegmentSigma: nonNegativeNumber.max(2),
   featureAllocation: z.record(identifierSchema, nonNegativeNumber),
   provenance: z.strictObject({
     prospectCount: provenanceSchema,

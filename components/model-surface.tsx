@@ -3,8 +3,6 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
 
 import { GlossaryPopover } from "@/components/glossary-popover";
-import { simulateEconomics } from "@/lib/engine/economics";
-import { expandOffers } from "@/lib/engine/offers";
 import type { EconomicsReadout } from "@/lib/engine/types";
 import {
   editAllocationShare,
@@ -14,6 +12,7 @@ import {
   type QuantileBand,
 } from "@/lib/state/model-editing";
 import { scenarioStore, useScenarioStore } from "@/lib/state/scenario-store";
+import { simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { scenarioTemplates } from "@/lib/state/templates";
 import type { Scenario } from "@/lib/state/schemas";
 
@@ -42,33 +41,7 @@ function modelReadout(scenario: Scenario): EconomicsReadout | null {
   const design = scenario.designs.find((candidate) => candidate.id === scenario.activeDesignId);
   if (!design || design.tiers.length === 0 || scenario.model.segments.length === 0) return null;
 
-  return simulateEconomics({
-    segments: scenario.model.segments.map((segment) => ({
-      id: segment.id,
-      prospectCount: segment.prospectBand.p50,
-      fullCatalogValue: segment.wtpBand.p50,
-      sigma: segment.withinSegmentSigma,
-      offers: expandOffers({
-        seatCount: segment.seatCount,
-        featureValues: Object.fromEntries(
-          scenario.model.features.map((feature) => [
-            feature.id,
-            segment.wtpBand.p50 * segment.featureAllocation[feature.id],
-          ]),
-        ),
-        tiers: design.tiers,
-        addOns: design.addOns,
-        competitors: scenario.competitors.map((competitor) => ({
-          id: competitor.id,
-          name: competitor.name,
-          price: competitor.price,
-          priceMetric: competitor.priceMetric,
-          value: competitor.valueBySegment[segment.id],
-        })),
-        includeCompetitors: scenario.competitors.length > 0,
-      }),
-    })),
-  });
+  return simulateScenarioDesign(scenario, design);
 }
 
 function ModelKpiRail({ scenario }: { scenario: Scenario }) {
@@ -206,7 +179,7 @@ function WtpDensityStrip({ segment, currency }: { segment: Segment; currency: st
         <p className="text-xs font-semibold text-ink">
           Buyer-value density <GlossaryPopover term="spread" />
         </p>
-        <p className="text-xs text-muted">σ {sigma.toFixed(2)}</p>
+        <p className="text-xs text-muted">σ {segment.withinSegmentSigma.toFixed(2)}</p>
       </div>
       <svg
         aria-label={`${segment.name} willingness-to-pay density around a ${formatCurrency(segment.wtpBand.p50, currency)} median`}
@@ -298,9 +271,9 @@ function ProvenanceControl({
 }
 
 function spreadPreset(sigma: number) {
-  if (sigma === 0.2) return "narrow";
-  if (sigma === 0.4) return "moderate";
-  if (sigma === 0.6) return "wide";
+  if (sigma === 0.25) return "low";
+  if (sigma === 0.5) return "medium";
+  if (sigma === 0.9) return "high";
   return "custom";
 }
 
@@ -385,16 +358,16 @@ function SegmentCard({ segment, scenario }: { segment: Segment; scenario: Scenar
                 aria-label={`${segment.name} buyer spread preset`}
                 className="mt-1 block min-h-10 w-full rounded-lg border border-line bg-canvas px-2 text-sm text-ink"
                 onChange={(event) => {
-                  const values: Record<string, number> = { narrow: 0.2, moderate: 0.4, wide: 0.6 };
+                  const values: Record<string, number> = { low: 0.25, medium: 0.5, high: 0.9 };
                   const sigma = values[event.target.value];
                   if (sigma !== undefined)
                     updateSegment((current) => ({ ...current, withinSegmentSigma: sigma }));
                 }}
                 value={spreadPreset(segment.withinSegmentSigma)}
               >
-                <option value="narrow">Narrow variation</option>
-                <option value="moderate">Moderate variation</option>
-                <option value="wide">Wide variation</option>
+                <option value="low">Low variation</option>
+                <option value="medium">Medium variation</option>
+                <option value="high">High variation</option>
                 <option value="custom">Custom ({segment.withinSegmentSigma.toFixed(2)})</option>
               </select>
             </label>
@@ -403,10 +376,15 @@ function SegmentCard({ segment, scenario }: { segment: Segment; scenario: Scenar
               <input
                 aria-label={`${segment.name} buyer spread sigma`}
                 className="mt-1 block min-h-10 w-20 rounded-lg border border-line bg-canvas px-2 text-sm font-semibold tabular-nums text-ink"
-                min="0"
+                max="2"
+                min="0.05"
                 onChange={(event) => {
                   const withinSegmentSigma = Number(event.target.value);
-                  if (Number.isFinite(withinSegmentSigma) && withinSegmentSigma >= 0) {
+                  if (
+                    Number.isFinite(withinSegmentSigma) &&
+                    withinSegmentSigma >= 0.05 &&
+                    withinSegmentSigma <= 2
+                  ) {
                     updateSegment((current) => ({ ...current, withinSegmentSigma }));
                   }
                 }}
@@ -733,7 +711,7 @@ function addSegment(scenario: Scenario): Scenario | null {
           prospectBand: { p10: 100, p50: 150, p90: 225 },
           seatCount: 5,
           wtpBand: { p10: 50, p50: 75, p90: 112.5 },
-          withinSegmentSigma: 0.4,
+          withinSegmentSigma: 0.5,
           featureAllocation: Object.fromEntries(
             scenario.model.features.map((feature) => [feature.id, allocation]),
           ),
