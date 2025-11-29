@@ -1,8 +1,8 @@
 {
   "name": "wind-tunnel",
-  "version": "0.17.4",
+  "version": "0.18.0",
   "private": true,
-  "description": "A client-side SaaS pricing and packaging decision studio.",
+  "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
     "dev": "next dev",
     "build": "npm run privacy && next build && npm run bundle-size",
@@ -20,10 +20,10 @@
   },
   "dependencies": {
     "lz-string": "1.5.0",
-    "next": "16.0.3",
+    "next": "16.0.4",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "zod": "4.1.12",
+    "zod": "4.1.13",
     "zundo": "2.3.0",
     "zustand": "5.0.8"
   },
@@ -34,10 +34,10 @@
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.0",
     "@types/node": "24.10.1",
-    "@types/react": "19.2.6",
+    "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.1",
-    "eslint-config-next": "16.0.3",
+    "eslint-config-next": "16.0.4",
     "fast-check": "4.3.0",
     "jsdom": "27.2.0",
     "postcss": "8.5.6",
@@ -52,5 +52,15 @@
   "engines": {
     "node": "24.11.1",
     "npm": ">=10.0.0"
-  }
+  },
+  "license": "MIT",
+  "author": "Sidakpreet Singh",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ItsMonarch04/wind-tunnel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ItsMonarch04/wind-tunnel/issues"
+  },
+  "homepage": "https://github.com/ItsMonarch04/wind-tunnel#"
 }

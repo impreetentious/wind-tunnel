@@ -2,7 +2,7 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-> **Status: P7e — competitive positioning — is locally complete (latest committed version v0.17.4). 124 unit tests plus the Chromium E2E matrix run green with zero serious or critical axe findings in either theme; E2E-09 also passes on Firefox and WebKit. Accessibility remains a stated WCAG 2.1 AA _intent_, not an audited claim: the manual assistive-technology matrix, 200% zoom, forced-colors, and screen-reader passes are still pending, as are remote CI and deployment. Buyer-distribution math, economics, Van Westendorp PSM, bundling regimes, Conjoint MNL estimation with derivative-gated Newton-Raphson, MaxDiff-lite scoring, competitive positioning (Pareto staircase, break-even rays, direct-dominance verdict), and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research (PSM + Bundling + Conjoint + MaxDiff), Positioning, and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, design comparisons, bundling verdicts, and pricing-page previews inspectable.**
+> **Status: P7e — competitive positioning — is locally complete (latest committed version v0.18.0). 124 unit tests plus the Chromium E2E matrix run green with zero serious or critical axe findings in either theme; E2E-09 also passes on Firefox and WebKit. Accessibility remains a stated WCAG 2.1 AA _intent_, not an audited claim: the manual assistive-technology matrix, 200% zoom, forced-colors, and screen-reader passes are still pending, as are remote CI and deployment. Buyer-distribution math, economics, Van Westendorp PSM, bundling regimes, Conjoint MNL estimation with derivative-gated Newton-Raphson, MaxDiff-lite scoring, competitive positioning (Pareto staircase, break-even rays, direct-dominance verdict), and the Pricing Decision Record have tested pure-engine contracts; scenarios persist locally and share safely, and the Model, Design, Simulate, Uncertainty, Research (PSM + Bundling + Conjoint + MaxDiff), Positioning, and Share workbenches make assumptions, evidence, decisions, mechanism envelopes, design comparisons, bundling verdicts, and pricing-page previews inspectable.**
 
 ## The idea
 
@@ -20,13 +20,13 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 - **Analyze — Positioning** — now available: competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI wired into the wind tunnel.
 - **Communicate** — v1.0 ships the exportable Pricing Decision Record; the pricing-page mock follows in v1.1.
 
-The economics is the point: the planned engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Its release gate requires every formula to be tested against closed-form results and a value-conservation identity to hold on every simulation.
+The economics is the point: the planned engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Its release gate requires every formula to be tested against closed-form results and a value-conservation identity to hold on every simulation. See `docs/MODEL-SPEC.md` for the normative math contract.
 
 ## What it is not
 
 No accounts, no server, no telemetry, no data connectors. Fully client-side: your assumptions stay in your browser; compact model/design configurations can share as URLs, while full survey data travels only in an explicit JSON export.
 
-## Planned stack
+## Stack
 
 Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind CSS · Zustand · Zod — fully client-side, with no server. Vercel is the selected deployment target; it is not connected or deployed yet, and the future static bundle remains portable to any static host. The plan requires light + dark themes, WCAG 2.1 AA intent with a recorded audit before any stronger claim, hand-rolled SVG visualization, Vitest + fast-check property tests against the economics contract, and Playwright end-to-end checks.
 
@@ -77,15 +77,3 @@ npm run e2e
 ## License
 
 [MIT](LICENSE) © 2025 Sidakpreet Singh
-
-## AI Agent Instructions
-
-Never commit or push unless the owner explicitly asks. Before any authorized
-commit, use the owner-assigned release version and update the Version Control
-string below with the real current commit time in IST (`Asia/Kolkata`). Align
-that version in `package.json` and both root version fields in
-`package-lock.json` in the same commit. Historical v0.8.11–v0.9.7 timestamps
-were owner-directed exceptions; do not rewrite pushed history.
-
-- **Base Format Version:** 0.17.4
-- **Portfolio Version:** v0.17.4_2025-11-30_01:02:08 (IST)
