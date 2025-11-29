@@ -32,7 +32,7 @@ function defaultCompetitorValueForSegment(segment: ScenarioSegment) {
   return segment.wtpBand.p50;
 }
 
-/** Builds the per-segment value map used as the "overall" default (mean WTP). */
+/** Builds the per-segment value map used as the "overall" default (P50 WTP). */
 function defaultValueBySegment(scenario: Scenario): Record<string, number> {
   return Object.fromEntries(
     scenario.model.segments.map((segment) => [

@@ -162,6 +162,26 @@ describe("P5 deterministic design linter", () => {
   });
 
   // @spec §4.9
+  it("does not flag a tier whose add-on composite carries its envelope share", () => {
+    expect(
+      ids(
+        menuInput(
+          [{ id: "pro", name: "Pro", price: 100, priceMetric: "flat", featureIds: ["a"] }],
+          [
+            {
+              id: "analytics",
+              name: "Analytics",
+              price: 0,
+              priceMetric: "flat",
+              featureIds: ["b"],
+            },
+          ],
+        ),
+      ),
+    ).not.toContain("E2");
+  });
+
+  // @spec §4.9
   it("T-LNT-03 flags a fence inversion and nothing else", () => {
     expect(
       ids(
@@ -197,6 +217,26 @@ describe("P5 deterministic design linter", () => {
     const findings = lintDesign(input);
     expect(findings.map((finding) => finding.id)).toEqual(["E4"]);
     expect(findings[0].metrics?.shareOfBuyers).toBeGreaterThan(0.3);
+  });
+
+  // @spec §4.9
+  it("does not count top-tier add-on composites as downgrade mass", () => {
+    expect(
+      ids(
+        menuInput(
+          [{ id: "pro", name: "Pro", price: 50, priceMetric: "flat", featureIds: ["a"] }],
+          [
+            {
+              id: "analytics",
+              name: "Analytics",
+              price: 0,
+              priceMetric: "flat",
+              featureIds: ["b"],
+            },
+          ],
+        ),
+      ),
+    ).not.toContain("E4");
   });
 
   // @spec §4.9

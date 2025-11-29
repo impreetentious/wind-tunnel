@@ -7,6 +7,7 @@ const forbiddenEngineImports = [
   /^@\/lib\/state(?:\/|$)/,
   /^(?:\.\.\/)+components(?:\/|$)/,
   /^(?:\.\.\/)+state(?:\/|$)/,
+  /^(?:\.\.\/)+lib\/state(?:\/|$)/,
 ];
 
 const enginePurityRule = {
@@ -36,6 +37,7 @@ const enginePurityRule = {
         if (node.source) checkSource(node.source);
       },
       ImportDeclaration: (node) => checkSource(node.source),
+      ImportExpression: (node) => checkSource(node.source),
     };
   },
 };

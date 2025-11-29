@@ -221,12 +221,12 @@ export function PositioningSurface() {
                   <button
                     className="mt-2 min-h-9 rounded-lg border border-line bg-canvas px-3 text-xs font-semibold text-ink hover:border-accent"
                     onClick={() => {
-                      const overall = Number(
-                        prompt(
-                          `Apply one value to every segment for ${competitor.name}:`,
-                          `${competitor.valueBySegment[segments[0]?.id ?? ""] ?? 0}`,
-                        ) ?? "",
+                      const entered = prompt(
+                        `Apply one value to every segment for ${competitor.name}:`,
+                        `${competitor.valueBySegment[segments[0]?.id ?? ""] ?? 0}`,
                       );
+                      if (entered === null || entered.trim() === "") return;
+                      const overall = Number(entered);
                       if (!Number.isFinite(overall) || overall < 0) return;
                       updateScenario((current) =>
                         setCompetitorOverallValue(current, competitor.id, overall),
@@ -323,6 +323,19 @@ export function PositioningSurface() {
                 segments.find((segment) => segment.id === positioning.segmentId)?.name ?? ""
               }
             />
+          ) : null}
+          {positioning && scenario.competitors.length > positioning.frontier.length ? (
+            <p
+              className="mt-3 rounded-lg bg-amber-soft px-3 py-2 text-xs leading-5 text-amber"
+              data-testid="positioning-dominated-note"
+            >
+              {`${scenario.competitors.length - positioning.frontier.length} competitor(s) are not on this segment's Pareto frontier (dominated or duplicated) and are not plotted: ${scenario.competitors
+                .filter(
+                  (competitor) => !positioning.frontier.some((point) => point.id === competitor.id),
+                )
+                .map((competitor) => competitor.name)
+                .join(", ")}. They still compete in the simulation.`}
+            </p>
           ) : null}
         </section>
       ) : null}
@@ -551,7 +564,16 @@ function PositioningChart({
           <polyline
             fill="none"
             points={positioning.frontier
-              .map((point) => `${x(point.value).toFixed(2)},${y(point.effectivePrice).toFixed(2)}`)
+              .flatMap((point, index, frontier) => {
+                const previous = frontier[index - 1];
+                const corner = previous
+                  ? [`${x(previous.value).toFixed(2)},${y(point.effectivePrice).toFixed(2)}`]
+                  : [];
+                return [
+                  ...corner,
+                  `${x(point.value).toFixed(2)},${y(point.effectivePrice).toFixed(2)}`,
+                ];
+              })
               .join(" ")}
             stroke="var(--muted)"
             strokeDasharray="6 4"

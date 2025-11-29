@@ -174,14 +174,17 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
   for (const tier of input.tiers) {
     const perSegment = input.baseline.segments.map((segment) => ({
       segment,
-      share: segment.selection.shares[`tier:${tier.id}`] ?? 0,
+      share: ownOfferAtTier(segment, tier.id).reduce(
+        (total, offer) => total + (segment.selection.shares[offer.id] ?? 0),
+        0,
+      ),
     }));
     if (perSegment.length > 0 && perSegment.every(({ share }) => share <= EPSILON)) {
       findings.push({
         id: "E2",
         severity: "warning",
         title: `${tier.name} is dominated in the rational model`,
-        message: `${tier.name} receives zero direct envelope share in every segment. It is inert in this model, though a deliberate asymmetric decoy can have behavioral effects the simulation does not invent a number for.`,
+        message: `${tier.name} receives zero envelope share in every segment, including every add-on combination built on it. It is inert in this model, though a deliberate asymmetric decoy can have behavioral effects the simulation does not invent a number for.`,
         citation: "Huber, Payne & Puto (1982) — asymmetric dominance effect",
         segmentIds: perSegment.map(({ segment }) => segment.id),
       });
@@ -217,8 +220,10 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
 
   for (const segment of input.baseline.segments) {
     if (segment.ownBuyers <= EPSILON) continue;
-    const ownOffers = segment.selection.offers.filter((offer) => offer.owner === "own");
-    const maximum = ownOffers.reduce<ExpandedOffer | undefined>(
+    const ownTierOffers = segment.selection.offers.filter(
+      (offer) => offer.owner === "own" && offer.kind === "tier",
+    );
+    const maximum = ownTierOffers.reduce<ExpandedOffer | undefined>(
       (winner, offer) => (!winner || offer.value > winner.value ? offer : winner),
       undefined,
     );
@@ -266,7 +271,7 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
       id: "E5",
       severity: recoveredShare > FREE_LEAKAGE_WARNING_THRESHOLD ? "warning" : "info",
       title: "Free tier leakage",
-      message: `${freeTier.name} absorbs ${percent(absorbedShare)} of would-be paid demand; removing it changes MRR by about ${money(recoveredMrr)}.`,
+      message: `${freeTier.name} absorbs ${percent(absorbedShare)} of would-be paid demand; removing it would ${recoveredMrr >= 0 ? "recover" : "cost"} about ${money(recoveredMrr)} MRR.`,
       metrics: { absorbedShare, recoveredMrr },
     });
   }
