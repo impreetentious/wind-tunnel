@@ -20,7 +20,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm install --global npm@10.0.0
       - run: npm ci
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run typecheck

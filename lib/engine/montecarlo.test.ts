@@ -33,6 +33,7 @@ function fixture(overrides: Partial<MonteCarloInput> = {}): MonteCarloInput {
 
 describe("P7a seeded Monte Carlo uncertainty", () => {
   // T-MC-01 @spec §4.8
+  // @spec §4.12 — engine randomness flows only through the injected seeded PRNG
   it("returns byte-identical draws and percentile summaries for a fixed seed", () => {
     const first = runMonteCarlo(fixture());
     const second = runMonteCarlo(fixture());

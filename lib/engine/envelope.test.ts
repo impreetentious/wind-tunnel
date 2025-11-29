@@ -124,6 +124,7 @@ describe("utility upper envelope", () => {
   });
 
   // P1 tie-mode acceptance guard @spec §4.2
+  // @spec §4.12 — 1e-9 tie tolerance and deterministic tie policy
   it("makes the two tie modes diverge for participation and offer-to-offer ties", () => {
     const participation = [outside, offer("paid", 100, 100)];
     expect(selectOfferAtScale(participation, 1, { tieMode: "conservative" }).id).toBe("outside");

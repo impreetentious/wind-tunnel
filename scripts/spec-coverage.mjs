@@ -17,6 +17,7 @@ const requiredSections = new Set([
   "4.9",
   "4.10",
   "4.11",
+  "4.12",
 ]);
 const ignoredDirectories = new Set([
   ".git",

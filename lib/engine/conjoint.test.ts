@@ -93,6 +93,7 @@ function expectPositiveDefinite(matrix: readonly (readonly number[])[]) {
 }
 
 describe("pooled conjoint estimator", () => {
+  // @spec §4.12 — softmax computed via log-sum-exp
   it("passes the mandatory analytic derivative gate", () => {
     const study = recoveryStudy(12);
     for (const beta of [Array(8).fill(0), trueBeta, trueBeta.map((value) => value * 0.37)]) {
