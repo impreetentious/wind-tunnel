@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { DesignCompareSurface, MechanismSurface } from "@/components/simulation-extensions";
+import { GlossaryPopover } from "@/components/glossary-popover";
 import { handleHorizontalTabKey } from "@/components/tab-keyboard";
 import { sweepTierPrice } from "@/lib/engine/economics";
 import type {
@@ -15,6 +16,7 @@ import type {
 import { activeDesign } from "@/lib/state/design-editing";
 import { priceSweepInputForDesign, simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { useScenarioStore } from "@/lib/state/scenario-store";
+import type { GlossaryTermId } from "@/content/glossary";
 
 const DOT_COUNT = 20;
 const EPSILON = 1e-12;
@@ -127,13 +129,14 @@ function ChartToggle({
 }
 
 function KpiHeader({ readout, currency }: { readout: EconomicsReadout; currency: string }) {
-  const metrics = [
+  const metrics: { label: string; value: string; term?: GlossaryTermId }[] = [
     { label: "MRR", value: formatCurrency(readout.mrr, currency) },
     { label: "Paid conversion", value: formatPercent(readout.paidConversion) },
     { label: "ARPA", value: formatCurrency(readout.arpa, currency) },
-    { label: "Capture rate", value: formatPercent(readout.captureRate) },
+    { label: "Capture rate", value: formatPercent(readout.captureRate), term: "captureRate" },
     {
       label: "Competitor loss",
+      term: "competitorLoss",
       value:
         readout.competitorLossShare === undefined
           ? "No competitors active"
@@ -160,7 +163,10 @@ function KpiHeader({ readout, currency }: { readout: EconomicsReadout; currency:
       <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {metrics.map((metric) => (
           <div className="border-t border-line pt-3" key={metric.label}>
-            <dt className="text-xs font-medium text-muted">{metric.label}</dt>
+            <dt className="text-xs font-medium text-muted">
+              {metric.label}
+              {metric.term ? <GlossaryPopover term={metric.term} /> : null}
+            </dt>
             <dd className="mt-1 text-lg font-semibold tracking-[-0.02em] tabular-nums">
               {metric.value}
             </dd>
@@ -203,8 +209,8 @@ function BuyerDots({
             See where buyer demand lands
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
-            Each row is a segment. Every dot stands for an equal slice of its prospects and moves as
-            the utility-maximising choice changes.
+            Each row is a segment. Each dot is 5% of that segment&apos;s prospects (20 dots per
+            segment) and moves as the utility-maximising choice changes.
           </p>
         </div>
         <ChartToggle mode={mode} noun="buyer selection" onChange={setMode} />
@@ -394,7 +400,7 @@ function ValueWaterfall({ readout, currency }: { readout: EconomicsReadout; curr
           </h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
             Every dollar of catalog potential is assigned to revenue, buyer surplus, withholding,
-            non-conversion, or an included competitor.
+            non-conversion, or an included competitor. <GlossaryPopover term="buyerSurplus" />
           </p>
         </div>
         <ChartToggle mode={mode} noun="value waterfall" onChange={setMode} />

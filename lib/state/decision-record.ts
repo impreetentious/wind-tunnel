@@ -5,6 +5,7 @@ import { analyzeVanWestendorp } from "@/lib/engine/vanwest";
 import { estimateConjointRecord } from "./conjoint";
 import { activeDesign } from "./design-editing";
 import { scoreMaxDiffRecord } from "./maxdiff";
+import { positioningMapForSegment } from "./positioning";
 import {
   runScenarioMonteCarlo,
   simulateScenarioDesign,
@@ -58,6 +59,18 @@ export interface PricingDecisionRecord {
     | undefined;
   conjoint: ConjointEstimate | undefined;
   maxDiff: MaxDiffResult | undefined;
+  positioning:
+    | {
+        competitorCount: number;
+        lossShare: number | undefined;
+        segments: readonly {
+          segmentId: string;
+          segmentName: string;
+          competitorShare: number;
+          dominatedTierNames: readonly string[];
+        }[];
+      }
+    | undefined;
   markdown: string;
 }
 
@@ -120,7 +133,16 @@ function pointPrice(
 }
 
 function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
-  const { scenario, activeDesign, economics, uncertainty, research, conjoint, maxDiff } = record;
+  const {
+    scenario,
+    activeDesign,
+    economics,
+    uncertainty,
+    research,
+    conjoint,
+    maxDiff,
+    positioning,
+  } = record;
   const currency = scenario.settings.currency;
   const lines: string[] = [
     `# Pricing Decision Record — ${scenario.name}`,
@@ -322,6 +344,28 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
     }
   }
 
+  if (positioning) {
+    lines.push(
+      "## Competitive positioning",
+      "",
+      `${positioning.competitorCount} competitor${positioning.competitorCount === 1 ? "" : "s"} are active in the simulation. Competitor choice is recorded as lost catalog potential — never as revenue or own-buyer surplus.`,
+      "",
+      ...(positioning.lossShare === undefined
+        ? []
+        : [
+            `Scenario competitor-loss share: **${formatRecordPercent(positioning.lossShare)}** of catalog potential.`,
+            "",
+          ]),
+      "| Segment | Share choosing a competitor | Directly dominated tiers |",
+      "| --- | ---: | --- |",
+      ...positioning.segments.map(
+        (entry) =>
+          `| ${tableCell(entry.segmentName)} | ${formatRecordPercent(entry.competitorShare)} | ${tableCell(entry.dominatedTierNames.join(", ") || "None")} |`,
+      ),
+      "",
+    );
+  }
+
   lines.push("## Deterministic critic", "");
   if (record.findings.length === 0) {
     lines.push("No documented linter rule is currently firing.", "");
@@ -387,7 +431,35 @@ export function buildPricingDecisionRecord(
   const maxDiffRecord = scenario.research.maxDiff;
   const maxDiffScored =
     maxDiffRecord && maxDiffRecord.responses.length > 0
-      ? scoreMaxDiffRecord(maxDiffRecord)
+      ? safelyScoreMaxDiff(maxDiffRecord)
+      : undefined;
+  const positioning =
+    scenario.competitors.length > 0 && economics
+      ? {
+          competitorCount: scenario.competitors.length,
+          lossShare: economics.competitorLossShare,
+          segments: scenario.model.segments.map((segment) => {
+            const readout = economics.segments.find((entry) => entry.id === segment.id);
+            const competitorShare = readout
+              ? readout.selection.offers
+                  .filter((offer) => offer.owner === "competitor")
+                  .reduce((total, offer) => total + (readout.selection.shares[offer.id] ?? 0), 0)
+              : 0;
+            const map = positioningMapForSegment(scenario, segment.id);
+            const dominatedTierNames = (map?.dominance ?? [])
+              .filter((entry) => entry.verdict === "directly-dominated")
+              .map(
+                (entry) =>
+                  map?.tiers.find((tier) => tier.id === entry.tierId)?.name ?? entry.tierId,
+              );
+            return {
+              segmentId: segment.id,
+              segmentName: segment.name,
+              competitorShare,
+              dominatedTierNames,
+            };
+          }),
+        }
       : undefined;
 
   const withoutMarkdown: Omit<PricingDecisionRecord, "markdown"> = {
@@ -437,6 +509,7 @@ export function buildPricingDecisionRecord(
         : undefined,
     conjoint: conjointEstimate,
     maxDiff: maxDiffScored,
+    positioning,
   };
   return { ...withoutMarkdown, markdown: recordMarkdown(withoutMarkdown) };
 }
@@ -446,6 +519,16 @@ function safelyEstimateConjoint(
 ): ConjointEstimate | undefined {
   try {
     return estimateConjointRecord(record);
+  } catch {
+    return undefined;
+  }
+}
+
+function safelyScoreMaxDiff(
+  record: NonNullable<Scenario["research"]["maxDiff"]>,
+): MaxDiffResult | undefined {
+  try {
+    return scoreMaxDiffRecord(record);
   } catch {
     return undefined;
   }

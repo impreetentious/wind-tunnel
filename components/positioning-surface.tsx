@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { GlossaryPopover } from "@/components/glossary-popover";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 import {
   addCompetitor,
@@ -283,6 +284,7 @@ export function PositioningSurface() {
               </h3>
               <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
                 Value on X, account-month price on Y. Rays are the segment&apos;s ε at P10/P50/P90.
+                <GlossaryPopover term="isoUtilityRay" />
                 Competitor points are the Pareto staircase — no line is a purchasable offer.
               </p>
             </div>

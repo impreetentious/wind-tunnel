@@ -5,7 +5,13 @@ import { useState } from "react";
 import { DecisionRecordSurface } from "@/components/decision-record-surface";
 import { PricingPageSurface } from "@/components/pricing-page-surface";
 import { handleHorizontalTabKey } from "@/components/tab-keyboard";
-import { encodeShareHash, exportScenario, importScenario } from "@/lib/state/codec";
+import {
+  buildSharePayload,
+  encodeShareHash,
+  exportScenario,
+  importScenario,
+  stableStringify,
+} from "@/lib/state/codec";
 import { scenarioStore, useScenarioStore } from "@/lib/state/scenario-store";
 
 type ShareView = "record" | "pricing" | "transfer";
@@ -14,10 +20,13 @@ const shareViews = ["record", "pricing", "transfer"] as const;
 function ScenarioTransferSurface() {
   const scenario = useScenarioStore((state) => state.scenario);
   const importCurrentJson = useScenarioStore((state) => state.replaceScenario);
+  const updateScenario = useScenarioStore((state) => state.updateScenario);
   const setMessage = useScenarioStore((state) => state.setMessage);
   const [importText, setImportText] = useState("");
   const [fullExport, setFullExport] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
+  const [payloadPreview, setPayloadPreview] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState(scenario.name);
   const researchCount = Object.keys(scenario.research).length;
 
   const createShareLink = () => {
@@ -69,6 +78,31 @@ function ScenarioTransferSurface() {
 
       <div className="mt-8 grid gap-5">
         <section className="rounded-2xl border border-line bg-canvas p-5">
+          <h2 className="text-base font-semibold text-ink">Scenario name</h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            This name headlines the Pricing Decision Record, its downloaded filename, and the
+            pricing-page mock.
+          </p>
+          <label className="mt-4 block text-sm font-medium text-ink">
+            Name
+            <input
+              aria-label="Scenario name"
+              className="mt-2 w-full rounded-lg border border-line bg-canvas-raised px-3 py-2 text-sm text-ink"
+              maxLength={120}
+              onBlur={() => setNameDraft(scenario.name)}
+              onChange={(event) => {
+                const next = event.target.value;
+                setNameDraft(next);
+                if (next.trim().length > 0) {
+                  updateScenario((current) => ({ ...current, name: next }));
+                }
+              }}
+              value={nameDraft}
+            />
+          </label>
+        </section>
+
+        <section className="rounded-2xl border border-line bg-canvas p-5">
           <h2 className="text-base font-semibold text-ink">Compact share link</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
             Includes model, designs, competitors, seed, currency, and theme. It never includes
@@ -91,6 +125,23 @@ function ScenarioTransferSurface() {
                 className="mt-2 w-full rounded-lg border border-line bg-canvas-raised px-3 py-2 text-sm text-ink"
                 readOnly
                 value={shareLink}
+              />
+            </label>
+          ) : null}
+          <button
+            className="mt-4 min-h-10 rounded-lg border border-line bg-canvas-raised px-4 text-sm font-semibold text-ink hover:border-accent"
+            onClick={() => setPayloadPreview(stableStringify(buildSharePayload(scenario).payload))}
+            type="button"
+          >
+            Show exactly what the link contains
+          </button>
+          {payloadPreview ? (
+            <label className="mt-4 block text-sm font-medium text-ink">
+              Exact compact-link payload
+              <textarea
+                className="mt-2 min-h-32 w-full rounded-lg border border-line bg-canvas-raised p-3 font-mono text-xs text-ink"
+                readOnly
+                value={payloadPreview}
               />
             </label>
           ) : null}

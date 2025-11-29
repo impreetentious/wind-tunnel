@@ -78,6 +78,15 @@ describe("StudioShell", () => {
     expect(screen.getByRole("tab", { name: "Scenario transfer", selected: true })).toHaveFocus();
   });
 
+  it("renames a scenario from Scenario transfer", () => {
+    render(<StudioShell version="1.0.0" />);
+    fireEvent.click(screen.getByRole("tab", { name: "Share" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Scenario transfer" }));
+    fireEvent.change(screen.getByLabelText("Scenario name"), { target: { value: "Board review" } });
+
+    expect(scenarioStore.getState().scenario.name).toBe("Board review");
+  });
+
   it("loads a template, updates live KPIs, and supports matrix arrow navigation", () => {
     render(<StudioShell version="0.5.0" />);
 

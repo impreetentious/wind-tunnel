@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { GlossaryPopover } from "@/components/glossary-popover";
 import {
   analyzeVanWestendorp,
   type VanWestendorpCurvePoint,
@@ -509,7 +510,7 @@ export function VanWestendorpSurface() {
                 Interpolated crossings
               </p>
               <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-ink">
-                Read points as reported, not invented
+                Read points as reported, not invented <GlossaryPopover term="psmPoints" />
               </h2>
               <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {Object.values(result.points).map((point) => (

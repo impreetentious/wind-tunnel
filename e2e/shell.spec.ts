@@ -62,7 +62,10 @@ async function readDownload(download: import("@playwright/test").Download) {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-test("the static shell is accessible, private, and theme-aware", async ({ page }) => {
+// §6 traceability: E2E-01…E2E-09 are the test titles below. E2E-10 (decision-record
+// Markdown download + print CSS) is covered by the E2E-08 download assertion plus the
+// print-media flow below.
+test("E2E-01: the static shell is accessible, private, and theme-aware", async ({ page }) => {
   const unexpectedRequests: string[] = [];
 
   page.on("request", (request) => {
@@ -98,7 +101,7 @@ test("the static shell is accessible, private, and theme-aware", async ({ page }
   expect(unexpectedRequests).toEqual([]);
 });
 
-test("the Design workbench builds a three-tier menu from blank and surfaces its linter guidance", async ({
+test("E2E-02: the Design workbench builds a three-tier menu from blank and surfaces its linter guidance", async ({
   page,
 }) => {
   await page.goto("/");
@@ -141,7 +144,7 @@ test("the Design workbench builds a three-tier menu from blank and surfaces its 
   await expectNoSeriousAxeViolations(page);
 });
 
-test("the wind tunnel re-sorts buyers, reconciles chart tables, and respects reduced motion", async ({
+test("E2E-03: the wind tunnel re-sorts buyers, reconciles chart tables, and respects reduced motion", async ({
   page,
 }) => {
   await page.goto("/");
@@ -250,7 +253,7 @@ test("each warmed template simulation renders within the 16ms P6a interaction bu
   }
 });
 
-test("uncertainty draws are seeded, paired, and rendered within the P7a budget", async ({
+test("E2E-05: uncertainty draws are seeded, paired, and rendered within the P7a budget", async ({
   page,
   browserName,
 }) => {
@@ -287,7 +290,7 @@ test("uncertainty draws are seeded, paired, and rendered within the P7a budget",
   await expectNoSeriousAxeViolations(page);
 });
 
-test("Van Westendorp validates fielded input, interpolates the demo points, and preserves undefined crossings", async ({
+test("E2E-06: Van Westendorp validates fielded input, interpolates the demo points, and preserves undefined crossings", async ({
   page,
 }) => {
   const demoCsv = `too cheap,cheap,expensive,too expensive
@@ -335,7 +338,7 @@ test("Van Westendorp validates fielded input, interpolates the demo points, and 
   await expectNoSeriousAxeViolations(page);
 });
 
-test("the canonical bundling fixture reports bundle-beats-components without overclaiming", async ({
+test("E2E-07: the canonical bundling fixture reports bundle-beats-components without overclaiming", async ({
   page,
 }) => {
   await page.goto("/");
@@ -399,6 +402,30 @@ test("E2E-08: the synthetic CBC estimates, bridges onto selected cells, and gate
     /Shared workspaces.*conjoint, medium confidence — pooled conjoint \(N=\d+\)/,
   );
 
+  await expectNoSeriousAxeViolations(page);
+});
+
+// E2E-04 (§6 P6b): mechanism view + A/B compare against the same buyers.
+test("E2E-04: the mechanism view renders and A/B compare reports a real delta", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+
+  await page.getByRole("tab", { name: "Simulate" }).click();
+  await page.getByRole("tab", { name: "Mechanism" }).click();
+  await expect(page.getByTestId("mechanism-chart")).toBeVisible();
+  await page.getByRole("button", { name: "View mechanism as table" }).click();
+  await expect(page.getByRole("table", { name: "Mechanism envelope table" })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Design", exact: true }).click();
+  await page.getByRole("button", { name: "Duplicate active" }).click();
+  await page.getByRole("spinbutton", { name: "Team price", exact: true }).fill("18");
+
+  await page.getByRole("tab", { name: "Simulate" }).click();
+  await page.getByRole("tab", { name: "Compare designs" }).click();
+  // signedMoney prefixes + or − only for a non-zero delta.
+  await expect(page.getByTestId("compare-delta-mrr")).toHaveText(/[+−]/);
   await expectNoSeriousAxeViolations(page);
 });
 

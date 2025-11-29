@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 
+import { GlossaryPopover } from "@/components/glossary-popover";
 import { linterExplainers } from "@/content/linter-copy";
 import type { LinterFinding } from "@/lib/engine/linter";
 import {
@@ -300,7 +301,7 @@ function FindingsDock({
       </div>
       <p className="mt-3 text-sm leading-6 text-muted">
         Deterministic checks over the current menu and engine readout. They identify trade-offs;
-        they do not prescribe a universal price.
+        they do not prescribe a universal price. <GlossaryPopover term="decoy" />
       </p>
       {findings.length === 0 ? (
         <p className="mt-5 rounded-xl border border-dashed border-line bg-canvas p-4 text-sm leading-6 text-muted">
@@ -516,6 +517,7 @@ export function DesignSurface() {
             <p className="mt-2 text-sm leading-6 text-muted">
               A fence is useful only when it changes the offer a buyer can choose. The linter calls
               out dead fences and non-nested upgrades without assuming every ladder must be linear.
+              <GlossaryPopover term="fence" />
             </p>
             <FenceGrid design={design} scenario={scenario} />
           </section>

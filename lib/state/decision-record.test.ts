@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { plgCollaborationTemplate } from "./templates/plg-collaboration";
 import { buildPricingDecisionRecord } from "./decision-record";
+import { addCompetitor, setCompetitorPrice } from "./positioning";
 
 describe("pricing decision record", () => {
   it("composes a deterministic, engine-backed Markdown artifact", () => {
@@ -44,5 +45,20 @@ describe("pricing decision record", () => {
     expect(
       buildPricingDecisionRecord(plgCollaborationTemplate, "2026-07-17", 200).markdown,
     ).not.toContain("## Van Westendorp research");
+  });
+
+  it("includes competitive positioning only when competitors are active", () => {
+    const withCompetitor = setCompetitorPrice(
+      addCompetitor(plgCollaborationTemplate, "Alternative"),
+      "alternative",
+      20,
+    );
+
+    expect(buildPricingDecisionRecord(withCompetitor, "2026-07-17", 200).markdown).toContain(
+      "## Competitive positioning",
+    );
+    expect(
+      buildPricingDecisionRecord(plgCollaborationTemplate, "2026-07-17", 200).markdown,
+    ).not.toContain("## Competitive positioning");
   });
 });
