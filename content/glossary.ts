@@ -19,6 +19,11 @@ export const glossary = {
     definition:
       "Where an assumption came from and how much confidence you place in it. This helps turn model uncertainty into a validation plan.",
   },
+  partWorth: {
+    label: "Part-worth",
+    definition:
+      "A conjoint utility weight for one attribute level, estimated from respondents' choices. Differences between levels — not absolute values — carry the meaning.",
+  },
 } as const;
 
 export type GlossaryTermId = keyof typeof glossary;

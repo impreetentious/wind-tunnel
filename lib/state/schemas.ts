@@ -145,12 +145,67 @@ export const conjointObservationSchema = z.strictObject({
   chosenAlternativeId: identifierSchema,
 });
 
-export const conjointStudySchema = z.strictObject({
-  attributes: z.array(conjointAttributeSchema).min(1).max(5),
-  tasks: z.array(conjointTaskSchema).min(1).max(30),
-  observations: z.array(conjointObservationSchema).max(50_000),
-  numericPrice: z.boolean(),
-});
+export const conjointStudySchema = z
+  .strictObject({
+    attributes: z.array(conjointAttributeSchema).min(1).max(5),
+    tasks: z.array(conjointTaskSchema).min(1).max(30),
+    observations: z.array(conjointObservationSchema).max(50_000),
+    numericPrice: z.boolean(),
+  })
+  .superRefine((study, context) => {
+    uniqueIds(study.attributes, "Conjoint attribute", context, ["attributes"]);
+    uniqueIds(study.tasks, "Conjoint task", context, ["tasks"]);
+    const levelsByAttribute = new Map(
+      study.attributes.map((attribute) => [attribute.id, new Set(attribute.levels)]),
+    );
+    const alternativesByTask = new Map<string, Set<string>>();
+    study.tasks.forEach((task, taskIndex) => {
+      uniqueIds(task.alternatives, "Conjoint alternative", context, [
+        "tasks",
+        taskIndex,
+        "alternatives",
+      ]);
+      alternativesByTask.set(task.id, new Set(task.alternatives.map((entry) => entry.id)));
+      task.alternatives.forEach((alternative, alternativeIndex) => {
+        if (alternative.none) return;
+        for (const attribute of study.attributes) {
+          const level = alternative.levels?.[attribute.id];
+          if (level === undefined || !levelsByAttribute.get(attribute.id)?.has(level)) {
+            context.addIssue({
+              code: "custom",
+              message: `Concept “${alternative.id}” needs a valid level for attribute “${attribute.id}”.`,
+              path: ["tasks", taskIndex, "alternatives", alternativeIndex, "levels"],
+            });
+          }
+        }
+        if (study.numericPrice && alternative.price === undefined) {
+          context.addIssue({
+            code: "custom",
+            message: `Concept “${alternative.id}” needs a numeric price in a numeric-price study.`,
+            path: ["tasks", taskIndex, "alternatives", alternativeIndex, "price"],
+          });
+        }
+      });
+    });
+    study.observations.forEach((observation, observationIndex) => {
+      const alternatives = alternativesByTask.get(observation.taskId);
+      if (!alternatives) {
+        context.addIssue({
+          code: "custom",
+          message: `Observation references unknown task “${observation.taskId}”.`,
+          path: ["observations", observationIndex, "taskId"],
+        });
+        return;
+      }
+      if (!alternatives.has(observation.chosenAlternativeId)) {
+        context.addIssue({
+          code: "custom",
+          message: `Observation chooses an alternative that task “${observation.taskId}” does not show.`,
+          path: ["observations", observationIndex, "chosenAlternativeId"],
+        });
+      }
+    });
+  });
 
 /** Durable MaxDiff records persist item labels, tasks, and best-worst picks. */
 export const maxDiffItemSchema = z.strictObject({
@@ -170,11 +225,34 @@ export const maxDiffResponseSchema = z.strictObject({
   worstItemId: identifierSchema,
 });
 
-export const maxDiffStudySchema = z.strictObject({
-  items: z.array(maxDiffItemSchema).min(2).max(20),
-  tasks: z.array(maxDiffTaskSchema).min(1).max(30),
-  responses: z.array(maxDiffResponseSchema).max(50_000),
-});
+export const maxDiffStudySchema = z
+  .strictObject({
+    items: z.array(maxDiffItemSchema).min(2).max(12),
+    tasks: z.array(maxDiffTaskSchema).min(1).max(30),
+    responses: z.array(maxDiffResponseSchema).max(50_000),
+  })
+  .superRefine((study, context) => {
+    uniqueIds(study.items, "MaxDiff item", context, ["items"]);
+    uniqueIds(study.tasks, "MaxDiff task", context, ["tasks"]);
+    const itemIds = new Set(study.items.map((item) => item.id));
+    study.tasks.forEach((task, taskIndex) => {
+      if (new Set(task.itemIds).size !== task.itemIds.length) {
+        context.addIssue({
+          code: "custom",
+          message: `Task “${task.id}” repeats an item.`,
+          path: ["tasks", taskIndex, "itemIds"],
+        });
+      }
+      const unknown = task.itemIds.find((itemId) => !itemIds.has(itemId));
+      if (unknown) {
+        context.addIssue({
+          code: "custom",
+          message: `Task “${task.id}” shows unknown item “${unknown}”.`,
+          path: ["tasks", taskIndex, "itemIds"],
+        });
+      }
+    });
+  });
 
 export const researchArtifactsSchema = z.strictObject({
   vanWestendorp: vanWestendorpStudySchema.optional(),
@@ -286,6 +364,13 @@ export const scenarioSchema = z
           context.addIssue({
             code: "custom",
             message: `Offer references unknown feature “${unknownFeature}”.`,
+            path: ["designs", designIndex, "offers", offerIndex, "featureIds"],
+          });
+        }
+        if (new Set(offer.featureIds).size !== offer.featureIds.length) {
+          context.addIssue({
+            code: "custom",
+            message: "Offer feature fences must not repeat a feature.",
             path: ["designs", designIndex, "offers", offerIndex, "featureIds"],
           });
         }

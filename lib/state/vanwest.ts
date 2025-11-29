@@ -171,11 +171,14 @@ export function scenarioWithVanWestendorpStudy(
   scenario: Scenario,
   study: VanWestendorpStudy | undefined,
 ): Scenario {
+  const research = { ...scenario.research };
+  if (study) {
+    research.vanWestendorp = study;
+  } else {
+    delete research.vanWestendorp;
+  }
   return {
     ...scenario,
-    research: {
-      ...scenario.research,
-      ...(study ? { vanWestendorp: study } : { vanWestendorp: undefined }),
-    },
+    research,
   };
 }

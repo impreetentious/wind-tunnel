@@ -31,4 +31,13 @@ describe("Van Westendorp scenario records", () => {
     expect(illustrative.responses).toHaveLength(scenario.model.segments.length * 4);
     expect(updated.research.vanWestendorp).toEqual(illustrative);
   });
+
+  it("removes the research key instead of retaining an undefined artifact", () => {
+    const scenario = scenarioTemplates[0].scenario;
+    const illustrative = createIllustrativeVanWestendorpStudy(scenario);
+    const attached = scenarioWithVanWestendorpStudy(scenario, illustrative);
+    const removed = scenarioWithVanWestendorpStudy(attached, undefined);
+
+    expect(Object.keys(removed.research)).not.toContain("vanWestendorp");
+  });
 });

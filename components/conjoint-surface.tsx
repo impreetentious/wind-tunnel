@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { GlossaryPopover } from "@/components/glossary-popover";
 import type { ConjointEstimate } from "@/lib/engine/conjoint";
 import { generateConjointDesign } from "@/lib/engine/conjoint";
 import {
@@ -131,10 +132,20 @@ export function ConjointSurface() {
   const [csv, setCsv] = useState(() => (record ? conjointCsv(record.observations) : ""));
   const [csvErrors, setCsvErrors] = useState<readonly { line: number; message: string }[]>([]);
 
-  const estimate = useMemo(
-    () => (record && record.observations.length > 0 ? estimateConjointRecord(record) : undefined),
-    [record],
-  );
+  const estimation = useMemo(() => {
+    if (!record || record.observations.length === 0) return undefined;
+    try {
+      return { estimate: estimateConjointRecord(record) };
+    } catch (error) {
+      return {
+        estimateError:
+          error instanceof Error ? error.message : "This conjoint record cannot be estimated.",
+      };
+    }
+  }, [record]);
+  const estimate = estimation && "estimate" in estimation ? estimation.estimate : undefined;
+  const estimateError =
+    estimation && "estimateError" in estimation ? estimation.estimateError : undefined;
 
   const [segmentId, setSegmentId] = useState(() => scenario.model.segments[0]?.id ?? "");
   const [mapping, setMapping] = useState<
@@ -272,8 +283,9 @@ export function ConjointSurface() {
         </h1>
         <p className="mt-4 max-w-3xl leading-7 text-muted">
           Define attributes and levels, generate a random-balanced task design, paste respondent
-          picks, and inspect pooled MNL part-worths with 90% intervals. The WTP bridge stays gated
-          behind a significantly negative numeric price coefficient.
+          picks, and inspect pooled MNL part-worths with 90% intervals.{" "}
+          <GlossaryPopover term="partWorth" /> The WTP bridge stays gated behind a significantly
+          negative numeric price coefficient.
         </p>
 
         <section className="mt-8 rounded-2xl border border-line bg-canvas p-5">
@@ -484,6 +496,15 @@ export function ConjointSurface() {
               </ul>
             ) : null}
           </section>
+        ) : null}
+
+        {estimateError ? (
+          <p
+            className="mt-3 rounded-lg border border-amber bg-amber-soft p-3 text-sm text-ink"
+            role="alert"
+          >
+            {`This stored study cannot be estimated: ${estimateError} Regenerate the design or re-import a complete scenario.`}
+          </p>
         ) : null}
 
         {estimate ? (

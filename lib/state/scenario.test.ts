@@ -55,6 +55,49 @@ describe("P3 scenario schema and codecs", () => {
     if (!oversized.ok) expect(oversized.error).toContain("2 MiB");
   });
 
+  it("rejects a conjoint observation that references an unknown task", () => {
+    const exported = JSON.parse(exportScenario(templateScenario));
+    exported.research = {
+      conjoint: {
+        attributes: [{ id: "feature", name: "Feature", levels: ["low", "high"] }],
+        tasks: [
+          {
+            id: "task-1",
+            alternatives: [
+              { id: "concept-1", levels: { feature: "low" }, price: 10 },
+              { id: "concept-2", levels: { feature: "high" }, price: 20 },
+            ],
+          },
+        ],
+        observations: [{ respondentId: "r1", taskId: "task-99", chosenAlternativeId: "concept-1" }],
+        numericPrice: true,
+      },
+    };
+    expect(importScenario(JSON.stringify(exported)).ok).toBe(false);
+  });
+
+  it("rejects a MaxDiff task that contains an unknown item", () => {
+    const exported = JSON.parse(exportScenario(templateScenario));
+    exported.research = {
+      maxDiff: {
+        items: [
+          { id: "item-a", name: "Item A" },
+          { id: "item-b", name: "Item B" },
+        ],
+        tasks: [{ id: "task-1", itemIds: ["item-a", "item-b", "item-unknown"] }],
+        responses: [],
+      },
+    };
+    expect(importScenario(JSON.stringify(exported)).ok).toBe(false);
+  });
+
+  it("rejects repeated offer fence features", () => {
+    const exported = JSON.parse(exportScenario(templateScenario));
+    const tier = exported.designs[0].tiers[0];
+    tier.featureIds = [tier.featureIds[0], tier.featureIds[0]];
+    expect(importScenario(JSON.stringify(exported)).ok).toBe(false);
+  });
+
   // @spec §3.3
   it("T-URL-01 round-trips a compact hash with unicode segment names", () => {
     const scenario = cloneTemplate();

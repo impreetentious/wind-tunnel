@@ -95,10 +95,18 @@ export function MaxDiffSurface() {
   const [csv, setCsv] = useState(() => (record ? maxDiffCsv(record.responses) : ""));
   const [csvErrors, setCsvErrors] = useState<readonly { line: number; message: string }[]>([]);
 
-  const result: MaxDiffResult | undefined = useMemo(
-    () => (record && record.responses.length > 0 ? scoreMaxDiffRecord(record) : undefined),
-    [record],
-  );
+  const result: MaxDiffResult | undefined = useMemo(() => {
+    if (!record || record.responses.length === 0) return undefined;
+    try {
+      return scoreMaxDiffRecord(record);
+    } catch (error) {
+      return {
+        ok: false,
+        status: "invalidResponse",
+        error: error instanceof Error ? error.message : "This stored study cannot be scored.",
+      };
+    }
+  }, [record]);
 
   const generateDesign = () => {
     setDesignError(undefined);
@@ -209,7 +217,7 @@ export function MaxDiffSurface() {
             ))}
             <button
               className={buttonSecondary}
-              disabled={drafts.length >= 20}
+              disabled={drafts.length >= 12}
               onClick={() =>
                 setDrafts((current) => [...current, { id: `item-${current.length + 1}`, name: "" }])
               }

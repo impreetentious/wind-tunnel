@@ -291,12 +291,15 @@ export function scenarioWithConjointStudy(
   scenario: Scenario,
   study: ConjointStudyRecord | undefined,
 ): Scenario {
+  const research = { ...scenario.research };
+  if (study) {
+    research.conjoint = study;
+  } else {
+    delete research.conjoint;
+  }
   return {
     ...scenario,
-    research: {
-      ...scenario.research,
-      ...(study ? { conjoint: study } : { conjoint: undefined }),
-    },
+    research,
   };
 }
 

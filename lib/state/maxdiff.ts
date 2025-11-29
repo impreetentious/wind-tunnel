@@ -181,11 +181,14 @@ export function scenarioWithMaxDiffStudy(
   scenario: Scenario,
   study: MaxDiffStudyRecord | undefined,
 ): Scenario {
+  const research = { ...scenario.research };
+  if (study) {
+    research.maxDiff = study;
+  } else {
+    delete research.maxDiff;
+  }
   return {
     ...scenario,
-    research: {
-      ...scenario.research,
-      ...(study ? { maxDiff: study } : { maxDiff: undefined }),
-    },
+    research,
   };
 }
