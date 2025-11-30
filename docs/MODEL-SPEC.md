@@ -253,6 +253,36 @@ three- and four-offer fixtures; T-ELS-02 column-sum conservation; T-ELS-03 the
 `σ = 0` degenerate branch; T-ELS-04 own-price signs and the revenue-elasticity
 zero-crossing near a price-sweep argmax.
 
+### §4.14 Joint price optimizer (local search, not truth)
+
+The optimizer searches for a per-tier price vector that locally maximizes
+scenario MRR under the closed-form simulator. It runs coordinate descent on
+each tier's list-price unit ($/account/month for flat, $/seat/month for
+per-seat), with multi-start from perturbations of the current design's prices;
+each single-tier line search reuses the §4.4 price-sweep grid so its results
+are locally consistent with the sweep chart. It returns the best local
+optimum found across all starts plus per-start diagnostics.
+
+Because MRR is _not_ concave in the joint price vector (screening menus
+routinely have several local optima), the result is explicitly labeled
+`local optimum` and never `optimal`. The public UI presentation must keep the
+per-tier sweep plus the tornado (§4.8) as the primary reading; the optimizer
+readout is a supplementary "under these assumptions and starting near your
+current design, this menu found more revenue" rather than an authoritative
+answer. This honesty framing is required (D-07, D-24, and §2.2 cut rationale).
+
+Determinism: given the same scenario, seed, and search options, the optimizer
+returns the same result. Randomness enters only through the seeded PRNG used
+to generate perturbed starts. The optimizer never mutates the scenario; the
+caller applies the returned prices explicitly.
+
+Required tests: T-OPT-01 the optimizer weakly improves scenario MRR against
+the current design (`bestMrr ≥ baseline.mrr − tolerance`); T-OPT-02 on a
+convex single-tier fixture the optimizer converges to the price-sweep
+argmax within one grid step; T-OPT-03 determinism (identical seeds → identical
+result); T-OPT-04 a scenario with no tiers is rejected with an informative
+error rather than silently returning the empty menu.
+
 ### §4.12 Numerical conventions
 
 Prices are non-negative; UI `σ_s` is `[0.05, 2.0]` with low/medium/high presets

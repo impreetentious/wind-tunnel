@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -29,7 +29,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.11.0",
-    "@playwright/test": "1.56.1",
+    "@playwright/test": "1.57.0",
     "@tailwindcss/postcss": "4.1.17",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.0",
@@ -44,7 +44,7 @@
     "prettier": "3.6.2",
     "tailwindcss": "4.1.17",
     "typescript": "5.9.3",
-    "vitest": "4.0.13"
+    "vitest": "4.0.14"
   },
   "overrides": {
     "postcss": "8.5.6"

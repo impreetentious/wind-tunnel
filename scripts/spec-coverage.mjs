@@ -5,7 +5,7 @@ const root = process.cwd();
 const spec = await readFile(join(root, "docs", "MODEL-SPEC.md"), "utf8");
 const sections = [...spec.matchAll(/^### §(4\.\d+) /gm)].map((match) => match[1]);
 // §4.10 shipped with P7d-1/P7d-2; §4.11 is required from P7e (positioning surface).
-// §4.13 (elasticity) is required from §15 Batch 1 (S36).
+// §4.13 (elasticity) and §4.14 (joint optimizer) are required from §15 Batch 1 (S36).
 const requiredSections = new Set([
   "4.1",
   "4.2",
@@ -20,6 +20,7 @@ const requiredSections = new Set([
   "4.11",
   "4.12",
   "4.13",
+  "4.14",
 ]);
 const ignoredDirectories = new Set([
   ".git",
