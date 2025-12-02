@@ -31,6 +31,18 @@ export interface CompetitorDefinition {
   value: number;
 }
 
+/**
+ * A non-additive value adjustment for an unordered feature pair (§4.1.1). The
+ * `value` is an account-level increment applied once when BOTH features are
+ * present in an offer's feature set: positive for complements (the pair is
+ * worth more than the sum of its parts), negative for substitutes. It never
+ * applies to an offer that contains only one of the two features.
+ */
+export interface FeatureInteraction {
+  featureIds: readonly [string, string];
+  value: number;
+}
+
 export interface OfferExpansionInput {
   seatCount: number;
   featureValues: Readonly<Record<string, number>>;
@@ -38,6 +50,8 @@ export interface OfferExpansionInput {
   addOns?: readonly AddOnDefinition[];
   competitors?: readonly CompetitorDefinition[];
   includeCompetitors?: boolean;
+  /** Optional complement/substitute adjustments; additive model when omitted. */
+  interactions?: readonly FeatureInteraction[];
 }
 
 /**

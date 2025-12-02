@@ -832,7 +832,8 @@ export function generateDEfficientConjointDesign(
     for (let iteration = 0; iteration < maxSwaps; iteration += 1) {
       let bestGain = 0;
       let bestSwap:
-        { i: number; ai: number; j: number; aj: number; attributeId: string } | undefined;
+        | { i: number; ai: number; j: number; aj: number; attributeId: string }
+        | undefined;
 
       for (let i = 0; i < currentTasks.length; i += 1) {
         for (let j = i; j < currentTasks.length; j += 1) {

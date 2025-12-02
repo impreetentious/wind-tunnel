@@ -39,6 +39,41 @@ integration. T-STAT-02 holds to `1e-9` on the interior grid and to `1e-8` at
 the `±6σ` endpoints: binary64 CDF output at `+6σ` cannot retain more tail
 detail, and the measured round trip is about `8.85e-9`.
 
+#### §4.1.1 Non-additive feature values (extension)
+
+The additive rule `V_s(o) = Σ_(f ∈ F_o) v[s,f]` is the default. An optional set
+of **pair interactions** captures complements and substitutes: unordered
+feature pairs `{f, g}` each carry an adjustment `δ[f,g]` that applies once, and
+only when both features are in the offer:
+
+```text
+V_s(o) = max(0, Σ_(f ∈ F_o) v[s,f] + Σ_({f,g} ⊆ F_o) δ_s[f,g])
+```
+
+An interaction with `δ > 0` is a complement (the pair is worth more than the
+sum of its parts); `δ < 0` is a substitute. The adjustment applies to every
+offer whose feature set contains both features, including tier + add-on
+composites — so an add-on that completes a complementary pair unlocks the pair
+value in exactly the composites that hold both features. A pair referencing a
+feature absent from the offer contributes nothing, so a stale interaction is
+inert rather than distorting. The value is floored at zero: a substitute may
+reduce an offer below its additive parts but never below worthless, which the
+envelope (§4.2) requires. Omitting all interactions is byte-identical to the
+additive model, so this extension never changes an additive scenario.
+
+Durable interactions are stored per unordered pair as a fraction of the
+segment's full-catalog P50 WTP, `δ_s[f,g] = W_s · φ[f,g]` with
+`φ[f,g] ∈ [−1, 1]`, so they scale per segment exactly like the additive
+allocation shares `w[s,f]`. The schema rejects self-pairs, duplicate pairs, and
+references to unknown features.
+
+Required tests (cite `@spec §4.1`): pair adjustments apply only to offers
+holding both features; complements add and substitutes subtract with a
+zero floor; the empty-interaction path equals the additive model; a stale or
+non-finite interaction is inert or rejected; the full expansion carries the
+adjustment into add-on composites; and, through the state adapter, a strong
+complement strictly raises simulated MRR on a single-paid-tier menu at `σ > 0`.
+
 ### §4.2 Offer selection — utility upper envelope
 
 Each buyer selects `argmax_o { ε · V_s(o) − P_s(o) }`, including the outside

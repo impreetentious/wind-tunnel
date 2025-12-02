@@ -1,8 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
-import { expandOffers } from "./offers";
-import type { AddOnDefinition, ExpandedOffer, TierDefinition } from "./types";
+import { expandOffers, interactionValueForFeatures, offerValueForFeatures } from "./offers";
+import type { AddOnDefinition, ExpandedOffer, FeatureInteraction, TierDefinition } from "./types";
 
 function expectedOfferIds(tier: TierDefinition, addOns: readonly AddOnDefinition[]): string[] {
   const eligible = addOns.filter((addOn) =>
@@ -96,5 +96,74 @@ describe("offer expansion", () => {
       ),
       { numRuns: 100 },
     );
+  });
+});
+
+describe("non-additive feature interactions", () => {
+  const featureValues = { a: 100, b: 60, c: 40 };
+
+  // @spec §4.1 — an interaction contributes only when both features are present.
+  it("applies a pair adjustment only to offers holding both features", () => {
+    const interactions: FeatureInteraction[] = [{ featureIds: ["a", "b"], value: 25 }];
+    expect(interactionValueForFeatures(["a", "b", "c"], interactions)).toBe(25);
+    expect(interactionValueForFeatures(["a", "c"], interactions)).toBe(0);
+    expect(interactionValueForFeatures(["b"], interactions)).toBe(0);
+  });
+
+  // @spec §4.1 — complements add, substitutes subtract, and value floors at zero.
+  it("adds complements, subtracts substitutes, and never returns a negative value", () => {
+    const additive = offerValueForFeatures(["a", "b"], featureValues, []);
+    expect(additive).toBe(160);
+
+    const complement = offerValueForFeatures(["a", "b"], featureValues, [
+      { featureIds: ["a", "b"], value: 40 },
+    ]);
+    expect(complement).toBe(200);
+
+    const substitute = offerValueForFeatures(["a", "b"], featureValues, [
+      { featureIds: ["a", "b"], value: -50 },
+    ]);
+    expect(substitute).toBe(110);
+
+    // A substitute larger than the additive base clamps at zero, not negative.
+    const clamped = offerValueForFeatures(["a", "b"], featureValues, [
+      { featureIds: ["a", "b"], value: -500 },
+    ]);
+    expect(clamped).toBe(0);
+  });
+
+  // @spec §4.1 — omitting interactions is identical to the additive model.
+  it("is byte-identical to the additive model when no interaction is supplied", () => {
+    const withoutArg = offerValueForFeatures(["a", "b", "c"], featureValues);
+    const withEmpty = offerValueForFeatures(["a", "b", "c"], featureValues, []);
+    expect(withoutArg).toBe(200);
+    expect(withEmpty).toBe(200);
+  });
+
+  // @spec §4.1 — a stale interaction referencing an absent feature is inert.
+  it("ignores an interaction whose features are not both present, and rejects non-finite values", () => {
+    expect(interactionValueForFeatures(["a", "b"], [{ featureIds: ["a", "z"], value: 99 }])).toBe(
+      0,
+    );
+    expect(() =>
+      interactionValueForFeatures(["a", "b"], [{ featureIds: ["a", "b"], value: Number.NaN }]),
+    ).toThrow(/finite/);
+  });
+
+  // @spec §4.1 — the full expansion carries interaction value into composites.
+  it("raises the value of a tier and its add-on composites that unlock the pair", () => {
+    const offers = expandOffers({
+      seatCount: 1,
+      featureValues,
+      tiers: [{ id: "base", name: "Base", price: 50, priceMetric: "flat", featureIds: ["a"] }],
+      addOns: [{ id: "plus", name: "Plus", price: 20, priceMetric: "flat", featureIds: ["b"] }],
+      includeCompetitors: false,
+      interactions: [{ featureIds: ["a", "b"], value: 30 }],
+    });
+    const byId = expandedById(offers);
+    // Bare tier holds only "a": no pair, additive value 100.
+    expect(byId.get("tier:base")?.value).toBe(100);
+    // Composite holds "a" and "b": additive 160 + interaction 30 = 190.
+    expect(byId.get("tier:base+addons:plus")?.value).toBe(190);
   });
 });

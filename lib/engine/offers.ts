@@ -2,6 +2,7 @@ import type {
   AddOnDefinition,
   CompetitorDefinition,
   ExpandedOffer,
+  FeatureInteraction,
   OfferExpansionInput,
   PriceMetric,
   TierDefinition,
@@ -47,6 +48,43 @@ function uniqueFeatureIds(featureIds: readonly string[]): string[] {
   return [...new Set(featureIds)];
 }
 
+/**
+ * Sum of non-additive pair adjustments (§4.1.1) active for a feature set. An
+ * interaction contributes only when both of its features are present; a pair
+ * referencing an absent feature is inert, so a stale interaction never crashes
+ * or silently distorts an unrelated offer. Each `value` must be finite.
+ */
+export function interactionValueForFeatures(
+  featureIds: readonly string[],
+  interactions: readonly FeatureInteraction[],
+): number {
+  if (interactions.length === 0) return 0;
+  const present = new Set(featureIds);
+  return interactions.reduce((total, interaction) => {
+    const [a, b] = interaction.featureIds;
+    if (a === b || !present.has(a) || !present.has(b)) return total;
+    if (!Number.isFinite(interaction.value)) {
+      throw new RangeError(`Interaction value for “${a}+${b}” must be finite.`);
+    }
+    return total + interaction.value;
+  }, 0);
+}
+
+/**
+ * Account-level value of a feature set: the additive sum plus any non-additive
+ * pair adjustments, floored at zero. Substitutes can push value down but never
+ * below zero — the envelope requires non-negative offer values, and a "worse
+ * than worthless" bundle is economically indistinguishable from a worthless one.
+ */
+export function offerValueForFeatures(
+  featureIds: readonly string[],
+  featureValues: Readonly<Record<string, number>>,
+  interactions: readonly FeatureInteraction[] = [],
+): number {
+  const additive = valueForFeatures(featureIds, featureValues);
+  return Math.max(0, additive + interactionValueForFeatures(featureIds, interactions));
+}
+
 function addOnSubsets(addOns: readonly AddOnDefinition[]): AddOnDefinition[][] {
   return Array.from({ length: 1 << addOns.length }, (_, mask) =>
     addOns.filter((_, index) => (mask & (1 << index)) !== 0),
@@ -83,6 +121,7 @@ function ownOffers(
   input: OfferExpansionInput,
   addOns: readonly AddOnDefinition[],
 ): ExpandedOffer[] {
+  const interactions = input.interactions ?? [];
   return input.tiers.flatMap((tier) => {
     const eligibleAddOns = availableAddOns(tier, addOns);
     return addOnSubsets(eligibleAddOns).map((subset) => {
@@ -106,7 +145,7 @@ function ownOffers(
             : `${tier.name} + ${subset.map((addOn) => addOn.name).join(" + ")}`,
         owner: "own" as const,
         kind: addOnIds.length === 0 ? ("tier" as const) : ("tier-add-on" as const),
-        value: valueForFeatures(selectedFeatures, input.featureValues),
+        value: offerValueForFeatures(selectedFeatures, input.featureValues, interactions),
         effectivePrice: effectivePrice(tier.price, tier.priceMetric, input.seatCount) + addOnPrice,
         featureIds: selectedFeatures,
         tierId: tier.id,
