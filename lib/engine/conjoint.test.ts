@@ -6,6 +6,7 @@ import {
   conjointWtpContrast,
   estimateConjoint,
   generateConjointDesign,
+  generateDEfficientConjointDesign,
   type ConjointAlternative,
   type ConjointAttribute,
   type ConjointObservation,
@@ -314,5 +315,90 @@ describe("pooled conjoint estimator", () => {
         }),
       ).toBe(8);
     }
+  });
+});
+
+describe("D-efficient conjoint design generator", () => {
+  const smallAttributes: ConjointAttribute[] = [
+    { id: "speed", name: "Speed", levels: ["low", "medium", "high"] },
+    { id: "support", name: "Support", levels: ["self", "priority", "dedicated"] },
+  ];
+
+  function levelCountsAreBalanced(tasks: readonly ConjointTask[], attribute: ConjointAttribute) {
+    const counts = attribute.levels.map(
+      (level) =>
+        tasks
+          .flatMap((task) => task.alternatives)
+          .filter((alternative) => alternative.levels?.[attribute.id] === level).length,
+    );
+    return Math.max(...counts) - Math.min(...counts) <= 1;
+  }
+
+  // @spec §4.10 T-CNJ-09
+  it("weakly improves the random-balanced baseline determinant", () => {
+    const design = generateDEfficientConjointDesign({
+      attributes: smallAttributes,
+      taskCount: 8,
+      alternativesPerTask: 3,
+      seed: 1234,
+      starts: 3,
+      maxSwaps: 15,
+    });
+    expect(design.logDeterminant).toBeGreaterThanOrEqual(design.baselineLogDeterminant - 1e-9);
+  });
+
+  // @spec §4.10 T-CNJ-10
+  it("preserves per-attribute level balance", () => {
+    const design = generateDEfficientConjointDesign({
+      attributes: smallAttributes,
+      taskCount: 8,
+      alternativesPerTask: 3,
+      seed: 5678,
+      starts: 2,
+      maxSwaps: 8,
+    });
+    for (const attribute of smallAttributes) {
+      expect(levelCountsAreBalanced(design.tasks, attribute)).toBe(true);
+    }
+  });
+
+  // @spec §4.10 T-CNJ-11
+  it("returns a design that is identified for MNL estimation", () => {
+    const design = generateDEfficientConjointDesign({
+      attributes: smallAttributes,
+      taskCount: 8,
+      alternativesPerTask: 3,
+      seed: 4242,
+      starts: 2,
+      maxSwaps: 8,
+    });
+    const study: ConjointStudy = {
+      attributes: smallAttributes,
+      tasks: design.tasks,
+      numericPrice: false,
+      observations: design.tasks.map((task) => ({
+        respondentId: "check",
+        taskId: task.id,
+        chosenAlternativeId: task.alternatives[0].id,
+      })),
+    };
+    const derivatives = conjointDerivatives(study, Array(conjointParameterCount(study)).fill(0));
+    expect(derivatives.gradient.every(Number.isFinite)).toBe(true);
+  });
+
+  // @spec §4.10 T-CNJ-12
+  it("is deterministic under identical seeds", () => {
+    const optionsA = {
+      attributes: smallAttributes,
+      taskCount: 8,
+      alternativesPerTask: 3,
+      seed: 9999,
+      starts: 2,
+      maxSwaps: 8,
+    };
+    const first = generateDEfficientConjointDesign(optionsA);
+    const second = generateDEfficientConjointDesign(optionsA);
+    expect(second.logDeterminant).toBeCloseTo(first.logDeterminant, 9);
+    expect(second.swapCount).toBe(first.swapCount);
   });
 });

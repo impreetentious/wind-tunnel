@@ -197,6 +197,39 @@ MaxDiff-lite requires every item to appear, scores
 uniform `100/m` when all raw scores are equal. T-CNJ-01…08 and T-MXD-01…03
 cover the estimator, derivative gate, bridge, balance, and degenerate scoring.
 
+#### §4.10.1 D-efficient design generation (extension)
+
+`generateDEfficientConjointDesign` seeds a random-balanced design from
+`generateConjointDesign` and refines it by modified-Fedorov local search:
+at each iteration, the swap of one attribute's level between two alternatives
+that maximizes `log |X'X|` is accepted. Total per-attribute level counts are
+invariant under any single-attribute pairwise swap, so balance is preserved
+throughout the search. Termination is by no-improvement or a swap cap; the
+best log-determinant across multi-start restarts is returned. If a start
+cannot exceed the random-balanced baseline the result is labeled
+`baseline` or `unimprovable`, never `improved`. Determinism holds under a
+fixed seed. Required tests: T-CNJ-09 improvement or match against the
+random-balanced baseline; T-CNJ-10 level balance preserved on the returned
+design; T-CNJ-11 identifiability of the returned design; T-CNJ-12 determinism
+under identical seeds.
+
+#### §4.10.2 MNL best-worst estimation for MaxDiff (extension)
+
+`estimateMaxDiffMnl` fits an item-level utility vector by joint-MNL over
+best-worst pairs (Louviere's sequential decomposition: from a k-item task the
+respondent's best is the max-utility of k items, the worst is the min-utility
+— equivalently, the max-utility item in the negated set of the k − 1 remaining
+items). One utility parameter per item is estimated with the identifying
+constraint `Σ_i u_i = 0`, using the same log-sum-exp softmax, analytic
+gradient, and damped Newton-Raphson kernel as §4.10 CBC. Statuses are `ok`,
+`nonIdentifiable`, `separated`, and `nonConverged`. The `ok` result returns
+utilities, standard errors from `−H⁻¹`, and normalized shares (softmax of
+utilities). The counting-score result (§4.10) continues to ship as the
+lightweight lens; MNL is available whenever there are enough responses to
+identify the model. Required tests: T-MXD-04 recovery on a simulated dataset
+with a known utility vector; T-MXD-05 the identifying constraint holds; T-MXD-06
+separated and nonIdentifiable statuses on adversarial fixtures.
+
 ### §4.11 Competitive price-value map and alternatives
 
 The map is segment-scoped, with value on X, price on Y, and zero-utility ray

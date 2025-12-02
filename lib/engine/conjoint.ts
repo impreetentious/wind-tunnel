@@ -685,3 +685,249 @@ export function generateConjointDesign(options: ConjointDesignOptions): Generate
     "Could not generate a duplicate-free, full-rank balanced conjoint design for these dimensions.",
   );
 }
+
+/**
+ * Computes the log-determinant of a positive-definite symmetric matrix via
+ * Cholesky decomposition. Returns undefined when the matrix is not
+ * positive-definite (i.e. the design is not identified).
+ */
+function symmetricLogDeterminant(matrix: readonly (readonly number[])[]): number | undefined {
+  const size = matrix.length;
+  const lower = Array.from({ length: size }, () => Array<number>(size).fill(0));
+  for (let row = 0; row < size; row += 1) {
+    for (let column = 0; column <= row; column += 1) {
+      let value = matrix[row][column];
+      for (let index = 0; index < column; index += 1)
+        value -= lower[row][index] * lower[column][index];
+      if (row === column) {
+        if (value <= PIVOT_TOLERANCE) return undefined;
+        lower[row][column] = Math.sqrt(value);
+      } else {
+        lower[row][column] = value / lower[column][column];
+      }
+    }
+  }
+  let logDet = 0;
+  for (let row = 0; row < size; row += 1) logDet += 2 * Math.log(lower[row][row]);
+  return logDet;
+}
+
+interface DesignScoreOutcome {
+  logDeterminant: number | undefined;
+  parameterCount: number;
+}
+
+function scoreDesign(study: ConjointStudy): DesignScoreOutcome {
+  const layout = layoutFor(study);
+  const dummy: ConjointStudy = {
+    ...study,
+    observations: study.tasks.map((task) => ({
+      respondentId: "design-score",
+      taskId: task.id,
+      chosenAlternativeId: task.alternatives[0].id,
+    })),
+  };
+  const prepared = prepare(dummy);
+  if (matrixRank(designRows(prepared), layout.count) < layout.count) {
+    return { logDeterminant: undefined, parameterCount: layout.count };
+  }
+  const zeros = Array<number>(layout.count).fill(0);
+  const derivatives = objective(prepared, zeros);
+  const observationCount = prepared.observations.length;
+  const information = derivatives.hessian.map((row) =>
+    row.map((value) => -value * observationCount),
+  );
+  return { logDeterminant: symmetricLogDeterminant(information), parameterCount: layout.count };
+}
+
+function tasksWithSwappedLevel(
+  tasks: readonly ConjointTask[],
+  fromIndex: number,
+  fromAlternative: number,
+  toIndex: number,
+  toAlternative: number,
+  attributeId: string,
+): ConjointTask[] {
+  const replacement = tasks.map((task) => ({
+    ...task,
+    alternatives: task.alternatives.map((alternative) => ({ ...alternative })),
+  }));
+  const fromLevels = { ...(replacement[fromIndex].alternatives[fromAlternative].levels ?? {}) };
+  const toLevels = { ...(replacement[toIndex].alternatives[toAlternative].levels ?? {}) };
+  const holder = fromLevels[attributeId];
+  fromLevels[attributeId] = toLevels[attributeId];
+  toLevels[attributeId] = holder;
+  replacement[fromIndex].alternatives[fromAlternative].levels = fromLevels;
+  replacement[toIndex].alternatives[toAlternative].levels = toLevels;
+  return replacement;
+}
+
+function taskHasDuplicateConcepts(task: ConjointTask, numericPrice: boolean): boolean {
+  const keys = task.alternatives
+    .filter((alternative) => !alternative.none)
+    .map((alternative) =>
+      JSON.stringify([alternative.levels, numericPrice ? alternative.price : undefined]),
+    );
+  return new Set(keys).size !== keys.length;
+}
+
+export interface DEfficientDesignOptions extends ConjointDesignOptions {
+  /** Random-balanced restart count (default 8). Higher values search harder for improvements. */
+  starts?: number;
+  /** Maximum accepted swaps per start (default 200). */
+  maxSwaps?: number;
+}
+
+export interface DEfficientDesignResult extends GeneratedConjointDesign {
+  logDeterminant: number;
+  baselineLogDeterminant: number;
+  /** Total accepted swaps across the winning start. */
+  swapCount: number;
+  starts: number;
+  status: "improved" | "baseline" | "unimprovable";
+}
+
+/**
+ * Modified-Fedorov D-efficient design generator, seeded from the existing
+ * random-balanced generator (@spec §4.10 D-efficient addendum). It preserves
+ * per-attribute level balance by only ever swapping level assignments between
+ * pairs of alternatives — the total level counts never change. Multi-start
+ * restarts pick the largest log|X'X| across seeds. Returns the random-balanced
+ * baseline (with status `baseline` or `unimprovable`) when no swap improves it.
+ */
+export function generateDEfficientConjointDesign(
+  options: DEfficientDesignOptions,
+): DEfficientDesignResult {
+  const starts = options.starts ?? 8;
+  const maxSwaps = options.maxSwaps ?? 200;
+  if (!(Number.isInteger(starts) && starts >= 1))
+    throw new RangeError("D-efficient generator needs at least one random-balanced start.");
+  if (!(Number.isInteger(maxSwaps) && maxSwaps >= 0))
+    throw new RangeError("D-efficient generator maxSwaps must be a non-negative integer.");
+
+  const numericPrice = options.priceLevels !== undefined;
+  let bestResult: DEfficientDesignResult | undefined;
+
+  for (let start = 0; start < starts; start += 1) {
+    const seed = (options.seed + start * 0x9e3779b9) >>> 0;
+    const baseline = generateConjointDesign({ ...options, seed });
+    const baselineStudy: ConjointStudy = {
+      attributes: options.attributes,
+      tasks: baseline.tasks,
+      numericPrice,
+      observations: [],
+    };
+    const baselineScore = scoreDesign(baselineStudy);
+    if (baselineScore.logDeterminant === undefined) continue;
+
+    let currentTasks: ConjointTask[] = baseline.tasks.map((task) => ({
+      ...task,
+      alternatives: task.alternatives.map((alternative) => ({ ...alternative })),
+    }));
+    let currentScore = baselineScore.logDeterminant;
+    let swapCount = 0;
+    let improved = false;
+    let unimprovable = true;
+
+    for (let iteration = 0; iteration < maxSwaps; iteration += 1) {
+      let bestGain = 0;
+      let bestSwap:
+        { i: number; ai: number; j: number; aj: number; attributeId: string } | undefined;
+
+      for (let i = 0; i < currentTasks.length; i += 1) {
+        for (let j = i; j < currentTasks.length; j += 1) {
+          const taskI = currentTasks[i];
+          const taskJ = currentTasks[j];
+          for (let ai = 0; ai < taskI.alternatives.length; ai += 1) {
+            if (taskI.alternatives[ai].none) continue;
+            for (let aj = 0; aj < taskJ.alternatives.length; aj += 1) {
+              if (taskJ.alternatives[aj].none) continue;
+              if (i === j && ai >= aj) continue;
+              for (const attribute of options.attributes) {
+                const fromLevel = taskI.alternatives[ai].levels?.[attribute.id];
+                const toLevel = taskJ.alternatives[aj].levels?.[attribute.id];
+                if (fromLevel === toLevel) continue;
+                const candidateTasks = tasksWithSwappedLevel(
+                  currentTasks,
+                  i,
+                  ai,
+                  j,
+                  aj,
+                  attribute.id,
+                );
+                if (
+                  taskHasDuplicateConcepts(candidateTasks[i], numericPrice) ||
+                  (i !== j && taskHasDuplicateConcepts(candidateTasks[j], numericPrice))
+                ) {
+                  continue;
+                }
+                const candidateStudy: ConjointStudy = {
+                  attributes: options.attributes,
+                  tasks: candidateTasks,
+                  numericPrice,
+                  observations: [],
+                };
+                const candidateScore = scoreDesign(candidateStudy);
+                if (candidateScore.logDeterminant === undefined) continue;
+                const gain = candidateScore.logDeterminant - currentScore;
+                if (gain > bestGain + 1e-12) {
+                  bestGain = gain;
+                  bestSwap = { i, ai, j, aj, attributeId: attribute.id };
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!bestSwap) {
+        unimprovable = swapCount === 0;
+        break;
+      }
+      currentTasks = tasksWithSwappedLevel(
+        currentTasks,
+        bestSwap.i,
+        bestSwap.ai,
+        bestSwap.j,
+        bestSwap.aj,
+        bestSwap.attributeId,
+      );
+      currentScore += bestGain;
+      swapCount += 1;
+      improved = true;
+    }
+
+    const levelCounts = Object.fromEntries(
+      options.attributes.map((attribute) => [
+        attribute.id,
+        Object.fromEntries(
+          attribute.levels.map((level) => [
+            level,
+            currentTasks
+              .flatMap((task) => task.alternatives)
+              .filter((alternative) => alternative.levels?.[attribute.id] === level).length,
+          ]),
+        ),
+      ]),
+    );
+    const outcome: DEfficientDesignResult = {
+      tasks: currentTasks,
+      levelCounts,
+      logDeterminant: currentScore,
+      baselineLogDeterminant: baselineScore.logDeterminant,
+      swapCount,
+      starts,
+      status: improved ? "improved" : unimprovable ? "unimprovable" : "baseline",
+    };
+    if (!bestResult || outcome.logDeterminant > bestResult.logDeterminant + 1e-12) {
+      bestResult = outcome;
+    }
+  }
+
+  if (!bestResult) {
+    throw new RangeError(
+      "Could not generate an identified D-efficient conjoint design for these dimensions.",
+    );
+  }
+  return bestResult;
+}
