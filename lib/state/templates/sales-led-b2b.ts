@@ -42,6 +42,7 @@ export const salesLedB2bTemplate: Scenario = scenarioBase({
         },
       },
     ],
+    interactions: [],
   },
   designs: [
     {

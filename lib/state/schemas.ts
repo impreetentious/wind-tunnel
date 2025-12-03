@@ -57,6 +57,18 @@ export const featureSchema = z.strictObject({
   name: labelSchema,
 });
 
+/**
+ * A non-additive value adjustment for one unordered feature pair (§4.1.1).
+ * `valueFraction` is expressed as a fraction of the segment's full-catalog P50
+ * WTP so it scales per segment exactly like the additive allocation shares:
+ * positive is a complement, negative a substitute. Bounded to ±100% of WTP.
+ */
+export const featureInteractionSchema = z.strictObject({
+  featureIds: z.tuple([identifierSchema, identifierSchema]),
+  valueFraction: z.number().finite().min(-1).max(1),
+  note: z.string().trim().max(200).optional(),
+});
+
 export const segmentSchema = z.strictObject({
   id: identifierSchema,
   name: labelSchema,
@@ -269,6 +281,7 @@ export const settingsSchema = z.strictObject({
 const modelSchema = z.strictObject({
   features: z.array(featureSchema).max(12),
   segments: z.array(segmentSchema).max(6),
+  interactions: z.array(featureInteractionSchema).max(12).default([]),
 });
 
 function uniqueIds(
@@ -324,6 +337,36 @@ export const scenarioSchema = z
         path: ["activeDesignId"],
       });
     }
+
+    const seenInteractionPairs = new Set<string>();
+    scenario.model.interactions.forEach((interaction, interactionIndex) => {
+      const [a, b] = interaction.featureIds;
+      if (a === b) {
+        context.addIssue({
+          code: "custom",
+          message: "A feature interaction must reference two different features.",
+          path: ["model", "interactions", interactionIndex, "featureIds"],
+        });
+      }
+      for (const featureId of interaction.featureIds) {
+        if (!featureIds.has(featureId)) {
+          context.addIssue({
+            code: "custom",
+            message: `Interaction references unknown feature “${featureId}”.`,
+            path: ["model", "interactions", interactionIndex, "featureIds"],
+          });
+        }
+      }
+      const pairKey = [a, b].sort().join("|");
+      if (seenInteractionPairs.has(pairKey)) {
+        context.addIssue({
+          code: "custom",
+          message: "Each feature pair may have at most one interaction.",
+          path: ["model", "interactions", interactionIndex, "featureIds"],
+        });
+      }
+      seenInteractionPairs.add(pairKey);
+    });
 
     scenario.model.segments.forEach((segment, segmentIndex) => {
       if (!hasExactlyKeys(segment.featureAllocation, featureIds)) {

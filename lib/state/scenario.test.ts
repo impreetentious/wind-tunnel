@@ -165,6 +165,46 @@ describe("P3 scenario schema and codecs", () => {
     expect(compactExport.ok).toBe(true);
     if (compactExport.ok) expect(compactExport.value).not.toContain("tooExpensive");
   });
+
+  // @spec §4.1 — non-additive interactions default empty, round-trip, and are cross-validated.
+  it("defaults model interactions to empty and preserves valid ones through JSON", () => {
+    const scenario = cloneTemplate();
+    expect(scenario.model.interactions).toEqual([]);
+
+    const [first, second] = scenario.model.features;
+    scenario.model.interactions = [
+      { featureIds: [first.id, second.id], valueFraction: 0.15, note: "bought together" },
+    ];
+    const roundTripped = importScenario(exportScenario(scenario));
+    expect(roundTripped.ok).toBe(true);
+    if (roundTripped.ok) {
+      expect(roundTripped.value.model.interactions).toEqual(scenario.model.interactions);
+    }
+  });
+
+  // @spec §4.1 — the cross-field rules reject bad interaction references.
+  it("rejects interactions that self-pair, duplicate a pair, or name an unknown feature", () => {
+    const [a, b] = cloneTemplate().model.features;
+
+    const selfPair = cloneTemplate();
+    selfPair.model.interactions = [{ featureIds: [a.id, a.id], valueFraction: 0.1 }];
+    expect(scenarioSchema.safeParse(selfPair).success).toBe(false);
+
+    const unknown = cloneTemplate();
+    unknown.model.interactions = [{ featureIds: [a.id, "ghost-feature"], valueFraction: 0.1 }];
+    expect(scenarioSchema.safeParse(unknown).success).toBe(false);
+
+    const duplicate = cloneTemplate();
+    duplicate.model.interactions = [
+      { featureIds: [a.id, b.id], valueFraction: 0.1 },
+      { featureIds: [b.id, a.id], valueFraction: 0.2 },
+    ];
+    expect(scenarioSchema.safeParse(duplicate).success).toBe(false);
+
+    const outOfRange = cloneTemplate();
+    outOfRange.model.interactions = [{ featureIds: [a.id, b.id], valueFraction: 2 }];
+    expect(scenarioSchema.safeParse(outOfRange).success).toBe(false);
+  });
 });
 
 describe("P3 scenario state", () => {
