@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { activeDesign } from "./design-editing";
 import { scenarioSchema } from "./schemas";
 import {
   simulateScenarioDesign,
@@ -59,5 +60,38 @@ describe("P7a scenario uncertainty adapter", () => {
     });
     expect(result.distributions[0].percentiles.mean).toBeCloseTo(analytic.mrr, 9);
     expect(result.tornado.every((driver) => driver.maximumAbsoluteDelta === 0)).toBe(true);
+  });
+});
+
+describe("non-additive interactions flow through the simulator (§4.1.1)", () => {
+  // A single paid tier plus the outside option makes MRR monotone in the
+  // tier's value at fixed price and σ > 0, so a complement must strictly raise
+  // it — proving the state adapter carries model interactions into the engine.
+  function singleTierScenario(interactions: unknown[]) {
+    const base = deterministicSalesScenario();
+    const design = activeDesign(base);
+    const tier = [...design.tiers].sort((a, b) => b.featureIds.length - a.featureIds.length)[0];
+    return scenarioSchema.parse({
+      ...base,
+      status: "draft",
+      competitors: [],
+      model: { ...base.model, interactions },
+      designs: [{ id: "single", name: "Single tier", tiers: [tier], addOns: [] }],
+      activeDesignId: "single",
+    });
+  }
+
+  it("raises simulated MRR when a strong complement is added to the tier's features", () => {
+    const design = activeDesign(deterministicSalesScenario());
+    const tier = [...design.tiers].sort((a, b) => b.featureIds.length - a.featureIds.length)[0];
+    expect(tier.featureIds.length).toBeGreaterThanOrEqual(2);
+    const [f1, f2] = tier.featureIds;
+
+    const additive = singleTierScenario([]);
+    const complemented = singleTierScenario([{ featureIds: [f1, f2], valueFraction: 0.6 }]);
+
+    const baseMrr = simulateScenarioDesign(additive, additive.designs[0])!.mrr;
+    const liftedMrr = simulateScenarioDesign(complemented, complemented.designs[0])!.mrr;
+    expect(liftedMrr).toBeGreaterThan(baseMrr);
   });
 });

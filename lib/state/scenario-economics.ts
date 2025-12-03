@@ -36,7 +36,13 @@ function constantBand(value: number) {
   return { p10: value, p50: value, p90: value };
 }
 
-function offerExpansionForSegment(
+/**
+ * Builds the pure-engine offer expansion for one segment under one design.
+ * Exported so every downstream state adapter (economics, sweeps, elasticity,
+ * the joint optimizer) derives offers from exactly one place — a change to
+ * how features become account value can never drift between surfaces.
+ */
+export function offerExpansionForSegment(
   scenario: Scenario,
   design: ScenarioDesign,
   segment: Scenario["model"]["segments"][number],
@@ -59,6 +65,13 @@ function offerExpansionForSegment(
       value: competitor.valueBySegment[segment.id],
     })),
     includeCompetitors: scenario.competitors.length > 0,
+    // §4.1.1: durable interactions are stored as a fraction of the segment's
+    // P50 WTP so they scale per segment like the additive allocation shares.
+    // The engine works in absolute account value, so resolve them here.
+    interactions: scenario.model.interactions.map((interaction) => ({
+      featureIds: interaction.featureIds,
+      value: interaction.valueFraction * segment.wtpBand.p50,
+    })),
   };
 }
 

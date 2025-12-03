@@ -5,6 +5,12 @@ import { useMemo, useState, type KeyboardEvent } from "react";
 import { GlossaryPopover } from "@/components/glossary-popover";
 import type { EconomicsReadout } from "@/lib/engine/types";
 import {
+  addInteraction,
+  canAddInteraction,
+  removeInteraction,
+  setInteractionFraction,
+} from "@/lib/state/interactions";
+import {
   editAllocationShare,
   editDirectFeatureValue,
   editP50CenteredBand,
@@ -758,6 +764,168 @@ function BlankModelActions({ scenario }: { scenario: Scenario }) {
   );
 }
 
+function InteractionsEditor({ scenario }: { scenario: Scenario }) {
+  const updateScenario = useScenarioStore((state) => state.updateScenario);
+  const features = scenario.model.features;
+  const [featureA, setFeatureA] = useState<string>(features[0]?.id ?? "");
+  const [featureB, setFeatureB] = useState<string>(features[1]?.id ?? "");
+  const [percent, setPercent] = useState<number>(10);
+
+  if (features.length < 2) return null;
+
+  const featureName = (id: string) => features.find((feature) => feature.id === id)?.name ?? id;
+  const duplicate = scenario.model.interactions.some((interaction) => {
+    const key = [interaction.featureIds[0], interaction.featureIds[1]].sort().join("|");
+    return key === [featureA, featureB].sort().join("|");
+  });
+  const canAdd =
+    canAddInteraction(scenario) && featureA !== featureB && !duplicate && featureA && featureB;
+
+  return (
+    <section
+      aria-labelledby="interactions-title"
+      className="mt-8 rounded-2xl border border-line bg-canvas p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">
+            Non-additive value
+          </p>
+          <h2
+            className="mt-1 text-xl font-semibold tracking-[-0.03em] text-ink"
+            id="interactions-title"
+          >
+            Feature interactions (complements &amp; substitutes)
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">
+            By default a menu&apos;s value is the sum of its features. Add a pair here when two
+            features are worth more together (complement, +) or partly redundant (substitute, −).
+            The adjustment is a share of each segment&apos;s P50 WTP and applies only to offers that
+            include both features.
+          </p>
+        </div>
+        <span className="rounded-full bg-canvas-raised px-3 py-1 text-xs font-medium text-muted">
+          {scenario.model.interactions.length} / 12
+        </span>
+      </div>
+
+      {scenario.model.interactions.length > 0 ? (
+        <ul className="mt-5 grid gap-2">
+          {scenario.model.interactions.map((interaction) => {
+            const [a, b] = interaction.featureIds;
+            return (
+              <li
+                className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-canvas-raised p-3"
+                key={`${a}|${b}`}
+              >
+                <span className="flex-1 text-sm font-medium text-ink">
+                  {featureName(a)} <span className="text-muted">×</span> {featureName(b)}
+                </span>
+                <label className="text-xs font-medium text-muted">
+                  Value share
+                  <span className="ml-2 inline-flex items-center gap-1">
+                    <input
+                      aria-label={`Interaction value for ${featureName(a)} and ${featureName(b)}`}
+                      className="w-20 rounded-md border border-line bg-canvas px-2 py-1 text-sm tabular-nums text-ink"
+                      max={100}
+                      min={-100}
+                      onChange={(event) =>
+                        updateScenario((current) =>
+                          setInteractionFraction(current, a, b, Number(event.target.value) / 100),
+                        )
+                      }
+                      step={1}
+                      type="number"
+                      value={Math.round(interaction.valueFraction * 100)}
+                    />
+                    <span className="text-muted">%</span>
+                  </span>
+                </label>
+                <button
+                  aria-label={`Remove interaction between ${featureName(a)} and ${featureName(b)}`}
+                  className="min-h-9 rounded-lg border border-line bg-canvas px-3 text-xs font-semibold text-ink hover:border-accent"
+                  onClick={() => updateScenario((current) => removeInteraction(current, a, b))}
+                  type="button"
+                >
+                  Remove
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="mt-5 text-sm text-muted">
+          No interactions yet — the model is fully additive.
+        </p>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-line pt-4">
+        <label className="text-xs font-medium text-ink">
+          Feature
+          <select
+            aria-label="First interaction feature"
+            className="mt-1 block rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink"
+            onChange={(event) => setFeatureA(event.target.value)}
+            value={featureA}
+          >
+            {features.map((feature) => (
+              <option key={feature.id} value={feature.id}>
+                {feature.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-ink">
+          Feature
+          <select
+            aria-label="Second interaction feature"
+            className="mt-1 block rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink"
+            onChange={(event) => setFeatureB(event.target.value)}
+            value={featureB}
+          >
+            {features.map((feature) => (
+              <option key={feature.id} value={feature.id}>
+                {feature.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="text-xs font-medium text-ink">
+          Value share
+          <span className="mt-1 flex items-center gap-1">
+            <input
+              aria-label="New interaction value share"
+              className="w-20 rounded-md border border-line bg-canvas px-2 py-1 text-sm tabular-nums text-ink"
+              max={100}
+              min={-100}
+              onChange={(event) => setPercent(Number(event.target.value))}
+              step={1}
+              type="number"
+              value={percent}
+            />
+            <span className="text-muted">%</span>
+          </span>
+        </label>
+        <button
+          className="min-h-9 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-strong disabled:opacity-60"
+          disabled={!canAdd}
+          onClick={() =>
+            updateScenario((current) => addInteraction(current, featureA, featureB, percent / 100))
+          }
+          type="button"
+        >
+          Add interaction
+        </button>
+        {featureA === featureB ? (
+          <p className="w-full text-xs text-muted">Pick two different features.</p>
+        ) : duplicate ? (
+          <p className="w-full text-xs text-muted">That pair already has an interaction.</p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function ModelSurface() {
   const scenario = useScenarioStore((state) => state.scenario);
   const [blankStarted, setBlankStarted] = useState(false);
@@ -817,6 +985,7 @@ export function ModelSurface() {
         </div>
       )}
       <ValueMatrix scenario={scenario} />
+      <InteractionsEditor scenario={scenario} />
     </section>
   );
 }
