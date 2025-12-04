@@ -3,12 +3,14 @@
 import { useState } from "react";
 
 import { handleHorizontalTabKey } from "./tab-keyboard";
+import { ElasticitySurface } from "./elasticity-surface";
+import { OptimizerSurface } from "./optimizer-surface";
 import { PositioningSurface } from "./positioning-surface";
 import { ResearchSurface } from "./research-surface";
 import { UncertaintySurface } from "./uncertainty-surface";
 
-type AnalyzeView = "uncertainty" | "research" | "positioning";
-const analyzeViews = ["uncertainty", "research", "positioning"] as const;
+type AnalyzeView = "uncertainty" | "elasticity" | "optimize" | "research" | "positioning";
+const analyzeViews = ["uncertainty", "elasticity", "optimize", "research", "positioning"] as const;
 
 export function AnalyzeSurface() {
   const [view, setView] = useState<AnalyzeView>("uncertainty");
@@ -20,6 +22,8 @@ export function AnalyzeSurface() {
           {(
             [
               ["uncertainty", "Uncertainty"],
+              ["elasticity", "Elasticity"],
+              ["optimize", "Price search"],
               ["research", "Research"],
               ["positioning", "Positioning"],
             ] as const
@@ -62,6 +66,10 @@ export function AnalyzeSurface() {
       >
         {view === "uncertainty" ? (
           <UncertaintySurface />
+        ) : view === "elasticity" ? (
+          <ElasticitySurface />
+        ) : view === "optimize" ? (
+          <OptimizerSurface />
         ) : view === "research" ? (
           <ResearchSurface />
         ) : (
