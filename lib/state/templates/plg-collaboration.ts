@@ -43,6 +43,7 @@ export const plgCollaborationTemplate: Scenario = scenarioBase({
       },
     ],
     interactions: [],
+    usageMetrics: [],
   },
   designs: [
     {

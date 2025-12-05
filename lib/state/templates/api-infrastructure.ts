@@ -53,6 +53,7 @@ export const apiInfrastructureTemplate: Scenario = scenarioBase({
       },
     ],
     interactions: [],
+    usageMetrics: [],
   },
   designs: [
     {

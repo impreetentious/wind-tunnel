@@ -72,6 +72,9 @@ export function offerExpansionForSegment(
       featureIds: interaction.featureIds,
       value: interaction.valueFraction * segment.wtpBand.p50,
     })),
+    // §4.15: pass the segment's expected-usage bands so any tier/add-on usage
+    // line summarizes to a per-segment surcharge inside `expandOffers`.
+    usageBands: segment.usageBands,
   };
 }
 

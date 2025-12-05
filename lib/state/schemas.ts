@@ -58,6 +58,46 @@ export const featureSchema = z.strictObject({
 });
 
 /**
+ * Optional usage metric catalog entry (§4.15). Each metric has an id,
+ * user-facing name, and free-form unit label ("API calls", "GB egress"). Metric
+ * IDs are catalog-wide; segments reference them in `usageBands`.
+ */
+export const usageMetricSchema = z.strictObject({
+  id: identifierSchema,
+  name: labelSchema,
+  unitLabel: labelSchema,
+});
+
+/**
+ * Segment expected-usage band (§4.15). Positive-domain quantiles reusing the
+ * lognormal contract from `quantileBandSchema`.
+ */
+export const usageBandSchema = z
+  .strictObject({
+    p10: nonNegativeNumber,
+    p50: nonNegativeNumber,
+    p90: nonNegativeNumber,
+  })
+  .superRefine((band, context) => {
+    if (!(band.p10 <= band.p50 && band.p50 <= band.p90)) {
+      context.addIssue({
+        code: "custom",
+        message: "A usage band must be ordered P10 ≤ P50 ≤ P90.",
+      });
+    }
+  });
+
+/**
+ * A single usage line on a tier or add-on (§4.15). `perUnitPrice` is
+ * $/unit/month; `includedUnits` is an optional free monthly allowance.
+ */
+export const usagePricingLineSchema = z.strictObject({
+  metricId: identifierSchema,
+  perUnitPrice: nonNegativeNumber,
+  includedUnits: nonNegativeNumber.optional(),
+});
+
+/**
  * A non-additive value adjustment for one unordered feature pair (§4.1.1).
  * `valueFraction` is expressed as a fraction of the segment's full-catalog P50
  * WTP so it scales per segment exactly like the additive allocation shares:
@@ -82,6 +122,8 @@ export const segmentSchema = z.strictObject({
     willingnessToPay: provenanceSchema,
     featureValues: z.record(identifierSchema, provenanceSchema),
   }),
+  /** Optional segment usage bands (§4.15). */
+  usageBands: z.record(identifierSchema, usageBandSchema).optional(),
 });
 
 const priceMetricSchema = z.enum(["flat", "per-seat"]);
@@ -92,6 +134,8 @@ export const tierSchema = z.strictObject({
   price: nonNegativeNumber,
   priceMetric: priceMetricSchema,
   featureIds: z.array(identifierSchema).max(12),
+  /** Optional usage-based lines (§4.15). */
+  usagePricing: z.array(usagePricingLineSchema).max(3).optional(),
 });
 
 export const addOnSchema = z.strictObject({
@@ -100,6 +144,8 @@ export const addOnSchema = z.strictObject({
   price: nonNegativeNumber,
   priceMetric: priceMetricSchema,
   featureIds: z.array(identifierSchema).min(1).max(12),
+  /** Optional usage-based lines (§4.15). */
+  usagePricing: z.array(usagePricingLineSchema).max(3).optional(),
 });
 
 export const designSchema = z.strictObject({
@@ -282,6 +328,8 @@ const modelSchema = z.strictObject({
   features: z.array(featureSchema).max(12),
   segments: z.array(segmentSchema).max(6),
   interactions: z.array(featureInteractionSchema).max(12).default([]),
+  /** Optional usage metric catalog (§4.15). Absent = flat/per-seat only. */
+  usageMetrics: z.array(usageMetricSchema).max(4).default([]),
 });
 
 function uniqueIds(
@@ -416,6 +464,47 @@ export const scenarioSchema = z
             message: "Offer feature fences must not repeat a feature.",
             path: ["designs", designIndex, "offers", offerIndex, "featureIds"],
           });
+        }
+      });
+    });
+
+    // §4.15 usage metric cross-validation. Segment bands and offer usage lines
+    // may only reference metrics declared in the catalog. Missing declarations
+    // fail closed rather than being silently ignored.
+    const usageMetricIds = new Set(scenario.model.usageMetrics.map((metric) => metric.id));
+    uniqueIds(scenario.model.usageMetrics, "Usage metric", context, ["model", "usageMetrics"]);
+
+    scenario.model.segments.forEach((segment, segmentIndex) => {
+      const bands = segment.usageBands ?? {};
+      for (const metricId of Object.keys(bands)) {
+        if (!usageMetricIds.has(metricId)) {
+          context.addIssue({
+            code: "custom",
+            message: `Usage band references unknown metric “${metricId}”.`,
+            path: ["model", "segments", segmentIndex, "usageBands", metricId],
+          });
+        }
+      }
+    });
+
+    scenario.designs.forEach((design, designIndex) => {
+      [...design.tiers, ...design.addOns].forEach((offer, offerIndex) => {
+        for (const [lineIndex, line] of (offer.usagePricing ?? []).entries()) {
+          if (!usageMetricIds.has(line.metricId)) {
+            context.addIssue({
+              code: "custom",
+              message: `Usage line references unknown metric “${line.metricId}”.`,
+              path: [
+                "designs",
+                designIndex,
+                "offers",
+                offerIndex,
+                "usagePricing",
+                lineIndex,
+                "metricId",
+              ],
+            });
+          }
         }
       });
     });
