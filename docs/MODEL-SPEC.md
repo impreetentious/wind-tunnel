@@ -351,6 +351,48 @@ argmax within one grid step; T-OPT-03 determinism (identical seeds → identical
 result); T-OPT-04 a scenario with no tiers is rejected with an informative
 error rather than silently returning the empty menu.
 
+### §4.15 Usage-based pricing (extension)
+
+A tier or add-on may attach a **usage line**: a base list price (unchanged
+flat/per-seat metric) plus a per-unit charge on a named metric. Each segment
+carries an expected-usage band `{p10, p50, p90}` per metric that appears in its
+offers. The engine summarizes each buyer's monthly usage bill to its
+per-segment expected cost:
+
+```text
+usageSurcharge_o,s = Σ_(line ∈ o) max(0, band[line.metric].p50 − line.includedUnits) · line.perUnitPrice
+effectivePrice_o,s = flat/per-seat base + usageSurcharge_o,s
+```
+
+The surcharge folds into `effectivePrice`, so the envelope primitive (§4.2) is
+unchanged: a buyer still faces `u(o) = ε · V_s(o) − P_s(o)` and picks the
+utility-maximizing offer. This is a **per-segment expected-cost approximation**,
+not a per-buyer joint distribution over usage and ε. The approximation is
+stated in the UI and record — the engine does not hide it. Monte Carlo (§4.8)
+samples the usage band as one more assumption, giving the P10/P50/P90
+distribution over the surcharge and hence over MRR.
+
+`includedUnits` (default `0`) is a free monthly allowance subtracted before
+multiplying by `perUnitPrice`; a segment whose median usage stays at or below
+the allowance pays zero surcharge, matching how billing pages read to buyers.
+Missing metric bands make a usage line inert (0 surcharge) rather than
+throwing, so a stale metric reference on an imported template never crashes an
+unrelated offer — mirroring the interaction inertness policy in §4.1.1.
+
+Backwards compatibility: a scenario that omits `usagePricing` and `usageBands`
+computes a byte-identical `effectivePrice`, so every prior §4.3–§4.14 test and
+template still holds. The persistence schema adds optional fields
+(`model.usageMetrics`, `segment.usageBands`, `tier.usagePricing`,
+`addOn.usagePricing`) with backward-compatible defaults; `SCHEMA_VERSION` is
+unchanged.
+
+Required tests (`@spec §4.15`): T-USG-01 billed volume above the allowance and
+zero when at or below the allowance; T-USG-02 additive across multiple lines
+and inert on missing bands; T-USG-03 the empty-line path equals the flat/
+per-seat baseline; T-USG-04 rejects non-finite or ordered-band violations; and
+the offer-expansion integration test that carries the surcharge through
+tier + add-on composites and per-seat interactions.
+
 ### §4.12 Numerical conventions
 
 Prices are non-negative; UI `σ_s` is `[0.05, 2.0]` with low/medium/high presets

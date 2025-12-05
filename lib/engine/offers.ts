@@ -1,3 +1,4 @@
+import { summarizeUsageCost, type UsageBand } from "./usage";
 import type {
   AddOnDefinition,
   CompetitorDefinition,
@@ -30,6 +31,20 @@ function assertUniqueIds(items: readonly { id: string }[], collectionName: strin
 function effectivePrice(price: number, metric: PriceMetric, seatCount: number): number {
   assertFiniteNonNegative(price, "Offer price");
   return metric === "per-seat" ? price * seatCount : price;
+}
+
+/**
+ * §4.15 usage surcharge for an offer. Delegates to `summarizeUsageCost` so
+ * every consumer (tier, add-on, sweep) computes the same per-segment expected
+ * cost. Returns 0 when the offer carries no usage lines, so an additive-only
+ * scenario is byte-identical to the pre-extension model.
+ */
+function usageSurcharge(
+  usagePricing: readonly import("./usage").UsagePricing[] | undefined,
+  usageBands: Readonly<Record<string, UsageBand>> | undefined,
+): number {
+  if (!usagePricing || usagePricing.length === 0) return 0;
+  return summarizeUsageCost({ usagePricing, usageBands: usageBands ?? {} });
 }
 
 function valueForFeatures(
@@ -122,6 +137,7 @@ function ownOffers(
   addOns: readonly AddOnDefinition[],
 ): ExpandedOffer[] {
   const interactions = input.interactions ?? [];
+  const usageBands = input.usageBands;
   return input.tiers.flatMap((tier) => {
     const eligibleAddOns = availableAddOns(tier, addOns);
     return addOnSubsets(eligibleAddOns).map((subset) => {
@@ -130,10 +146,16 @@ function ownOffers(
         ...subset.flatMap((addOn) => addOn.featureIds),
       ]);
       const addOnPrice = subset.reduce(
-        (total, addOn) => total + effectivePrice(addOn.price, addOn.priceMetric, input.seatCount),
+        (total, addOn) =>
+          total +
+          effectivePrice(addOn.price, addOn.priceMetric, input.seatCount) +
+          usageSurcharge(addOn.usagePricing, usageBands),
         0,
       );
       const addOnIds = subset.map((addOn) => addOn.id);
+      const tierEffective =
+        effectivePrice(tier.price, tier.priceMetric, input.seatCount) +
+        usageSurcharge(tier.usagePricing, usageBands);
       return {
         id:
           addOnIds.length === 0
@@ -146,7 +168,7 @@ function ownOffers(
         owner: "own" as const,
         kind: addOnIds.length === 0 ? ("tier" as const) : ("tier-add-on" as const),
         value: offerValueForFeatures(selectedFeatures, input.featureValues, interactions),
-        effectivePrice: effectivePrice(tier.price, tier.priceMetric, input.seatCount) + addOnPrice,
+        effectivePrice: tierEffective + addOnPrice,
         featureIds: selectedFeatures,
         tierId: tier.id,
         addOnIds,

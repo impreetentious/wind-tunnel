@@ -12,6 +12,8 @@ export interface TierDefinition {
   price: number;
   priceMetric: PriceMetric;
   featureIds: readonly string[];
+  /** Optional usage-based lines (§4.15). Omitted = pure flat/per-seat. */
+  usagePricing?: readonly import("./usage").UsagePricing[];
 }
 
 export interface AddOnDefinition {
@@ -20,6 +22,8 @@ export interface AddOnDefinition {
   price: number;
   priceMetric: PriceMetric;
   featureIds: readonly string[];
+  /** Optional usage-based lines (§4.15). Omitted = pure flat/per-seat. */
+  usagePricing?: readonly import("./usage").UsagePricing[];
 }
 
 /** A competitor is already valued for the segment being simulated. */
@@ -52,6 +56,12 @@ export interface OfferExpansionInput {
   includeCompetitors?: boolean;
   /** Optional complement/substitute adjustments; additive model when omitted. */
   interactions?: readonly FeatureInteraction[];
+  /**
+   * Optional segment expected-usage bands (§4.15). Missing bands make every
+   * usage line inert — the extension is opt-in and byte-identical to the
+   * additive flat/per-seat model when omitted.
+   */
+  usageBands?: Readonly<Record<string, import("./usage").UsageBand>>;
 }
 
 /**

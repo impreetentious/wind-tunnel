@@ -150,6 +150,64 @@ describe("non-additive feature interactions", () => {
     ).toThrow(/finite/);
   });
 
+  // @spec §4.15 — usage lines fold into the offer's effective price
+  it("adds the segment expected usage surcharge to tier and add-on composites", () => {
+    const offers = expandOffers({
+      seatCount: 5,
+      featureValues,
+      tiers: [
+        {
+          id: "base",
+          name: "Base",
+          price: 50,
+          priceMetric: "flat",
+          featureIds: ["a"],
+          usagePricing: [{ metricId: "calls", perUnitPrice: 0.001, includedUnits: 1_000 }],
+        },
+      ],
+      addOns: [
+        {
+          id: "plus",
+          name: "Plus",
+          price: 20,
+          priceMetric: "flat",
+          featureIds: ["b"],
+          usagePricing: [{ metricId: "gb", perUnitPrice: 5 }],
+        },
+      ],
+      includeCompetitors: false,
+      usageBands: {
+        calls: { p10: 3_000, p50: 5_000, p90: 9_000 },
+        gb: { p10: 5, p50: 10, p90: 20 },
+      },
+    });
+    const byId = expandedById(offers);
+    // Base: 50 flat + (5000 - 1000) * 0.001 = 50 + 4 = 54
+    expect(byId.get("tier:base")?.effectivePrice).toBeCloseTo(54, 12);
+    // Composite adds add-on flat 20 + usage 10 * 5 = 20 + 50 = 70; total 54 + 70 = 124
+    expect(byId.get("tier:base+addons:plus")?.effectivePrice).toBeCloseTo(124, 12);
+  });
+
+  // @spec §4.15 — omitting usage lines/bands is byte-identical to the flat model
+  it("computes an unchanged effective price when usage is not configured", () => {
+    const offers = expandOffers({
+      seatCount: 1,
+      featureValues,
+      tiers: [{ id: "base", name: "Base", price: 40, priceMetric: "flat", featureIds: ["a"] }],
+      includeCompetitors: false,
+    });
+    const withEmpty = expandOffers({
+      seatCount: 1,
+      featureValues,
+      tiers: [{ id: "base", name: "Base", price: 40, priceMetric: "flat", featureIds: ["a"] }],
+      includeCompetitors: false,
+      usageBands: {},
+    });
+    expect(offers.map((offer) => offer.effectivePrice)).toEqual(
+      withEmpty.map((offer) => offer.effectivePrice),
+    );
+  });
+
   // @spec §4.1 — the full expansion carries interaction value into composites.
   it("raises the value of a tier and its add-on composites that unlock the pair", () => {
     const offers = expandOffers({
