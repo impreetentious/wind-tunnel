@@ -6,7 +6,9 @@ import { GlossaryPopover } from "@/components/glossary-popover";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 import {
   addCompetitor,
+  applyCompetitorValueSurvey,
   canAddCompetitor,
+  parseCompetitorValueSurvey,
   positioningMapForSegment,
   removeCompetitor,
   renameCompetitor,
@@ -14,6 +16,7 @@ import {
   setCompetitorPrice,
   setCompetitorPriceMetric,
   setCompetitorValueForSegment,
+  summarizeCompetitorValueSurvey,
 } from "@/lib/state/positioning";
 import { simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { activeDesign } from "@/lib/state/design-editing";
@@ -43,6 +46,89 @@ function formatCurrency(value: number, currency: string, digits = 0) {
 
 function formatPercent(value: number) {
   return percentFormatter.format(value);
+}
+
+function CompetitorValueSurvey({
+  competitorName,
+  segments,
+  currency,
+  onApply,
+}: {
+  competitorName: string;
+  segments: readonly { id: string; name: string }[];
+  currency: string;
+  onApply: (segmentId: string, values: number[]) => void;
+}) {
+  const [raw, setRaw] = useState("");
+  const [targetSegmentId, setTargetSegmentId] = useState<string>(segments[0]?.id ?? "");
+  const segmentId = segments.some((segment) => segment.id === targetSegmentId)
+    ? targetSegmentId
+    : (segments[0]?.id ?? "");
+
+  const parsed = useMemo(() => parseCompetitorValueSurvey(raw), [raw]);
+  const summary = useMemo(() => summarizeCompetitorValueSurvey(parsed.values), [parsed.values]);
+  const rejected = parsed.rejected;
+
+  return (
+    <details className="mt-3 rounded-lg border border-line bg-canvas p-3">
+      <summary className="cursor-pointer text-xs font-semibold tracking-[0.1em] text-muted uppercase">
+        Survey shortcut
+      </summary>
+      <p className="mt-2 text-xs leading-5 text-muted">
+        Paste each respondent&apos;s stated account-month value for {competitorName} (comma, space,
+        or newline separated). The median fills the selected segment&apos;s value — a faster way to
+        set the per-segment cell above.
+      </p>
+      <label className="mt-2 block text-xs font-medium text-ink">
+        Stated values
+        <textarea
+          aria-label={`Survey responses for ${competitorName}`}
+          className="mt-1 block h-16 w-full rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink"
+          onChange={(event) => setRaw(event.target.value)}
+          placeholder="120, 150, 90, 200"
+          value={raw}
+        />
+      </label>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <label className="text-xs font-medium text-ink">
+          Apply to
+          <select
+            aria-label={`Segment to apply the ${competitorName} survey to`}
+            className="mt-1 block rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink"
+            onChange={(event) => setTargetSegmentId(event.target.value)}
+            value={segmentId}
+          >
+            {segments.map((segment) => (
+              <option key={segment.id} value={segment.id}>
+                {segment.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="min-h-9 rounded-lg border border-line bg-canvas-raised px-3 text-xs font-semibold text-ink hover:border-accent disabled:opacity-60"
+          disabled={summary === null || !segmentId}
+          onClick={() => {
+            if (summary === null || !segmentId) return;
+            onApply(segmentId, parsed.values);
+            setRaw("");
+          }}
+          type="button"
+        >
+          Apply median
+        </button>
+      </div>
+      <p aria-live="polite" className="mt-2 text-xs text-muted">
+        {summary === null
+          ? "Enter at least one non-negative number."
+          : `${summary.used} response${summary.used === 1 ? "" : "s"} · median ${formatCurrency(
+              summary.value,
+              currency,
+            )}`}
+        {rejected > 0 ? ` · ${rejected} ignored` : ""}
+      </p>
+    </details>
+  );
 }
 
 export function PositioningSurface() {
@@ -262,6 +348,16 @@ export function PositioningSurface() {
                       </li>
                     ))}
                   </ul>
+                  <CompetitorValueSurvey
+                    competitorName={competitor.name}
+                    currency={currency}
+                    onApply={(segmentId, values) =>
+                      updateScenario((current) =>
+                        applyCompetitorValueSurvey(current, competitor.id, segmentId, values),
+                      )
+                    }
+                    segments={segments}
+                  />
                 </div>
               </li>
             ))}

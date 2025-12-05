@@ -1,5 +1,6 @@
 import { buildPositioningMap, type PositioningMap } from "@/lib/engine/competitive";
-import type { CompetitorDefinition } from "@/lib/engine/types";
+import { offerValueForFeatures } from "@/lib/engine/offers";
+import type { CompetitorDefinition, FeatureInteraction } from "@/lib/engine/types";
 
 import { activeDesign } from "./design-editing";
 import type { Scenario } from "./schemas";
@@ -153,6 +154,76 @@ export function setCompetitorOverallValue(
   };
 }
 
+export interface CompetitorValueSurveySummary {
+  /** Median stated account-level value across the accepted responses. */
+  value: number;
+  /** Count of finite, non-negative responses that were used. */
+  used: number;
+  /** Count of entries rejected as non-numeric or negative. */
+  rejected: number;
+}
+
+/**
+ * Parses a free-text survey paste (comma, whitespace, or newline separated)
+ * into per-respondent stated competitor values. Non-numeric and negative
+ * entries are counted as rejected rather than silently dropped.
+ */
+export function parseCompetitorValueSurvey(raw: string): { values: number[]; rejected: number } {
+  const tokens = raw
+    .split(/[\s,;]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+  const values: number[] = [];
+  let rejected = 0;
+  for (const token of tokens) {
+    const parsed = Number(token);
+    if (Number.isFinite(parsed) && parsed >= 0) values.push(parsed);
+    else rejected += 1;
+  }
+  return { values, rejected };
+}
+
+/**
+ * Summarizes stated per-respondent competitor values into one segment value.
+ * The median is used deliberately: the buyer model is median-centered (§4.1),
+ * so a robust central estimate matches how every other segment value is
+ * carried and resists a single outlier respondent. Returns `null` when no
+ * usable response remains.
+ */
+export function summarizeCompetitorValueSurvey(
+  responses: readonly number[],
+): CompetitorValueSurveySummary | null {
+  const used: number[] = [];
+  let rejected = 0;
+  for (const response of responses) {
+    if (Number.isFinite(response) && response >= 0) used.push(response);
+    else rejected += 1;
+  }
+  if (used.length === 0) return null;
+  const sorted = [...used].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const value = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  return { value, used: used.length, rejected };
+}
+
+/**
+ * The M-09 survey shortcut: translate a small set of stated competitor values
+ * for one segment into that segment's competitor value in a single action.
+ * It reuses `setCompetitorValueForSegment` so the per-segment cell edit stays
+ * the single source of truth; the survey is only a faster way to fill it. A
+ * survey with no usable response leaves the scenario unchanged.
+ */
+export function applyCompetitorValueSurvey(
+  scenario: Scenario,
+  competitorId: string,
+  segmentId: string,
+  responses: readonly number[],
+): Scenario {
+  const summary = summarizeCompetitorValueSurvey(responses);
+  if (summary === null) return scenario;
+  return setCompetitorValueForSegment(scenario, competitorId, segmentId, summary.value);
+}
+
 export function removeCompetitor(scenario: Scenario, competitorId: string): Scenario {
   return {
     ...scenario,
@@ -177,7 +248,14 @@ function tierAccountValueForSegment(
       segment.wtpBand.p50 * segment.featureAllocation[feature.id],
     ]),
   );
-  return tier.featureIds.reduce((total, featureId) => total + (perFeatureValue[featureId] ?? 0), 0);
+  // Reuse the envelope's value function (§4.1.1) so a tier's value on the
+  // positioning map matches the value it carries in Simulate to the last cent,
+  // including any non-additive interactions among its included features.
+  const interactions: FeatureInteraction[] = scenario.model.interactions.map((interaction) => ({
+    featureIds: interaction.featureIds,
+    value: interaction.valueFraction * segment.wtpBand.p50,
+  }));
+  return offerValueForFeatures(tier.featureIds, perFeatureValue, interactions);
 }
 
 /**

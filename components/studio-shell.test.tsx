@@ -471,6 +471,78 @@ describe("StudioShell", () => {
     expect(readout?.competitorLossShare).toBeGreaterThan(0);
   });
 
+  it("reads per-tier elasticity and cross-tier substitution in the Analyze workbench", () => {
+    render(<StudioShell version="0.19.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[2]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Elasticity" }));
+
+    expect(
+      screen.getByRole("heading", {
+        name: "How sensitive is each tier's demand to its price?",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getAllByRole("table", { name: "Own-price elasticity by active offer" }).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByTestId("substitution-heatmap").length).toBeGreaterThan(0);
+  });
+
+  it("presents the joint price search with local-search honesty framing", () => {
+    render(<StudioShell version="0.19.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Price search" }));
+
+    expect(
+      screen.getByRole("heading", { name: "A local search for more revenue near this menu" }),
+    ).toBeVisible();
+    expect(screen.getByText(/This is local search, not truth\./)).toBeVisible();
+    expect(screen.getByText("Current design MRR")).toBeVisible();
+  });
+
+  it("adds a non-additive feature interaction from the Model workbench", () => {
+    render(<StudioShell version="0.19.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    expect(
+      screen.getByRole("heading", { name: "Feature interactions (complements & substitutes)" }),
+    ).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText("New interaction value share"), {
+      target: { value: "25" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add interaction" }));
+
+    const interactions = scenarioStore.getState().scenario.model.interactions;
+    expect(interactions).toHaveLength(1);
+    expect(interactions[0].valueFraction).toBeCloseTo(0.25, 10);
+  });
+
+  it("fills a competitor's segment value from the survey shortcut median", () => {
+    render(<StudioShell version="0.19.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Positioning" }));
+    fireEvent.click(screen.getByTestId("positioning-add-competitor"));
+
+    const competitor = scenarioStore.getState().scenario.competitors[0];
+    const firstSegment = scenarioStore.getState().scenario.model.segments[0];
+
+    fireEvent.change(screen.getByLabelText(`Survey responses for ${competitor.name}`), {
+      target: { value: "90, 210, 150" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply median" }));
+
+    const updated = scenarioStore
+      .getState()
+      .scenario.competitors.find((entry) => entry.id === competitor.id);
+    expect(updated?.valueBySegment[firstSegment.id]).toBe(150);
+  });
+
   it("renders the active design as a theme-aware pricing-page mock", () => {
     render(<StudioShell version="1.1.0" />);
 
