@@ -393,6 +393,49 @@ per-seat baseline; T-USG-04 rejects non-finite or ordered-band violations; and
 the offer-expansion integration test that carries the surcharge through
 tier + add-on composites and per-seat interactions.
 
+### §4.16 Trials & time dynamics (extension)
+
+The extension lifts the single-period screening model to a multi-period one
+that captures the two effects that ship in v1: a **paid trial** during which
+buyers evaluate the offer, and **retention** month over month. Time steps are
+whole months. Notation for the extension only:
+
+- `t = 0 … T` — the period index. `t = 0` is the acquisition month.
+- `trialLength_s ∈ ℕ` — trial length (months) for segment `s`; may be 0 (no
+  trial).
+- `trialConversion_s ∈ [0, 1]` — probability that a segment `s` buyer who
+  selects a paid offer at `t = 0` converts to paid at `t = trialLength_s`. The
+  §4.2/§4.3 monthly economics are collected only from converted buyers.
+- `monthlyRetention_s ∈ [0, 1]` — probability a converted buyer remains from
+  one month to the next. Deterministic per segment.
+- `contractTerm` ∈ {`monthly`, `annual`} — annual applies retention only at the
+  12th month; monthly applies it every month. Annual bills up front but the
+  engine spreads revenue evenly (§2.1 v1: no discount modelling).
+
+Given a §4.3 monthly readout `M_s` for segment `s`, the multi-period MRR at
+period `t` is:
+
+```text
+mrr_s(t)
+  = 0                              for t < trialLength_s
+  = trialConversion_s · M_s        for t = trialLength_s
+  = trialConversion_s · M_s · monthlyRetention_s^(t − trialLength_s)   for t > trialLength_s
+```
+
+Cumulative revenue over `T` periods sums the monthly MRR (annual terms bill
+the same annualized total). LTV per acquired prospect is
+`trialConversion_s · ARPA_s · Σ_(k=0..T-trialLength_s) monthlyRetention_s^k`
+truncated at `T`. Aggregate KPIs sum over segments.
+
+Defaults preserve v1 behaviour: `trialLength_s = 0`, `trialConversion_s = 1`,
+`monthlyRetention_s = 1`, `contractTerm = monthly`, `T = 0` collapses to a
+single-period readout byte-identical to §4.3. The extension is opt-in.
+
+Required tests (`@spec §4.16`): T-TIME-01 the zero-default collapses to the
+§4.3 readout; T-TIME-02 trial delay zeroes revenue until conversion; T-TIME-03
+retention < 1 shrinks MRR geometrically; T-TIME-04 LTV equals the closed-form
+sum; T-TIME-05 annual contract accumulates revenue evenly across 12 months.
+
 ### §4.12 Numerical conventions
 
 Prices are non-negative; UI `σ_s` is `[0.05, 2.0]` with low/medium/high presets

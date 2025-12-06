@@ -109,6 +109,18 @@ export const featureInteractionSchema = z.strictObject({
   note: z.string().trim().max(200).optional(),
 });
 
+/**
+ * Optional per-segment time-dynamics parameters (§4.16). Missing = single-period
+ * behavior byte-identical to §4.3. `trialLength` is whole months; conversion
+ * and retention are point probabilities in [0, 1].
+ */
+export const timeDynamicsSchema = z.strictObject({
+  trialLengthMonths: z.number().int().min(0).max(24),
+  trialConversion: z.number().finite().min(0).max(1),
+  monthlyRetention: z.number().finite().min(0).max(1),
+  contractTerm: z.enum(["monthly", "annual"]),
+});
+
 export const segmentSchema = z.strictObject({
   id: identifierSchema,
   name: labelSchema,
@@ -124,6 +136,8 @@ export const segmentSchema = z.strictObject({
   }),
   /** Optional segment usage bands (§4.15). */
   usageBands: z.record(identifierSchema, usageBandSchema).optional(),
+  /** Optional segment time dynamics (§4.16). */
+  timeDynamics: timeDynamicsSchema.optional(),
 });
 
 const priceMetricSchema = z.enum(["flat", "per-seat"]);
