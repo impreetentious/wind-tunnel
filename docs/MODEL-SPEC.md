@@ -265,6 +265,40 @@ identify the model. Required tests: T-MXD-04 recovery on a simulated dataset
 with a known utility vector; T-MXD-05 the identifying constraint holds; T-MXD-06
 separated and nonIdentifiable statuses on adversarial fixtures.
 
+#### §4.10.3 Hierarchical Bayes for Conjoint (extension)
+
+`estimateHbConjoint` fits per-respondent utility vectors on top of a
+population-level normal prior with diagonal covariance:
+
+```text
+choice_it ∝ exp(x_it · β_r)                  (level 1, r = respondent(i))
+β_r ~ N(μ, diag(σ²))                          (level 2)
+μ_j ~ N(0, τ_μ²)                              (weakly informative)
+σ_j² ~ InverseGamma(a_0, b_0)                (weakly informative)
+```
+
+The kernel is Metropolis-within-Gibbs: a per-respondent random-walk Metropolis
+update on `β_r` under the level-1 log-likelihood and the level-2 prior,
+alternated with closed-form Gibbs draws for μ (normal-normal conjugate) and σ²
+(inverse-gamma conjugate). Random-walk proposal SDs adapt during warm-up using
+the batched-acceptance recipe (Roberts–Gelman–Gilks), targeting the
+0.15–0.44 acceptance band that keeps the sampler mixing without either
+collapsing or rejecting every move. Warm-up draws are discarded; the returned
+per-respondent β and population μ, σ are posterior means over the sampled
+iterations. Randomness enters only through the seeded `mulberry32` PRNG, so
+determinism holds under a fixed seed. No new dependency ships with this
+extension; the sampler is in-repo, matching the §15 M-04 mandate.
+
+HB is opt-in: the pooled MNL from §4.10 remains the default, shallower lens
+and always ships alongside HB. HB requires **two or more respondents**;
+single-respondent studies fall back to §4.10.
+
+Required tests (`@spec §4.10`): T-HBC-01 recovers the sign and rough magnitude
+of a synthetic population β on a 10-respondent, 6-task fixture; T-HBC-02
+returns one β posterior per respondent with matching observation counts;
+T-HBC-03 determinism under a fixed seed; T-HBC-04 rejects a single-respondent
+study; T-HBC-05 mean acceptance stays inside a healthy [0.05, 0.95] band.
+
 ### §4.11 Competitive price-value map and alternatives
 
 The map is segment-scoped, with value on X, price on Y, and zero-utility ray

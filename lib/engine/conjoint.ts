@@ -99,6 +99,22 @@ function assertUnique(values: readonly string[], label: string) {
   }
 }
 
+/** @internal — exported for the HB Conjoint sampler in `hb-conjoint.ts`. */
+export function conjointLayoutFor(study: ConjointStudy): ParameterLayout {
+  return layoutFor(study);
+}
+
+/** @internal — exported for the HB Conjoint sampler in `hb-conjoint.ts`. */
+export function conjointDesignVector(
+  study: ConjointStudy,
+  layout: ParameterLayout,
+  alternative: ConjointAlternative,
+): readonly number[] {
+  return vectorFor(study, layout, alternative);
+}
+
+export type ConjointParameterLayout = ParameterLayout;
+
 function layoutFor(study: ConjointStudy): ParameterLayout {
   if (study.attributes.length < 1 || study.attributes.length > 5) {
     throw new RangeError("Conjoint needs 1–5 non-price attributes.");
@@ -601,11 +617,13 @@ export interface GeneratedConjointDesign {
 export function generateConjointDesign(options: ConjointDesignOptions): GeneratedConjointDesign {
   if (!(Number.isInteger(options.taskCount) && options.taskCount > 0))
     throw new RangeError("Task count must be positive.");
-  if (!(
-    Number.isInteger(options.alternativesPerTask) &&
-    options.alternativesPerTask >= 2 &&
-    options.alternativesPerTask <= 5
-  )) {
+  if (
+    !(
+      Number.isInteger(options.alternativesPerTask) &&
+      options.alternativesPerTask >= 2 &&
+      options.alternativesPerTask <= 5
+    )
+  ) {
     throw new RangeError("Each conjoint task needs 2–5 concepts.");
   }
   const numericPrice = options.priceLevels !== undefined;
@@ -830,7 +848,8 @@ export function generateDEfficientConjointDesign(
     for (let iteration = 0; iteration < maxSwaps; iteration += 1) {
       let bestGain = 0;
       let bestSwap:
-        { i: number; ai: number; j: number; aj: number; attributeId: string } | undefined;
+        | { i: number; ai: number; j: number; aj: number; attributeId: string }
+        | undefined;
 
       for (let i = 0; i < currentTasks.length; i += 1) {
         for (let j = i; j < currentTasks.length; j += 1) {
