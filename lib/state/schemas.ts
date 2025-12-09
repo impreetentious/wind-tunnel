@@ -336,6 +336,20 @@ export const settingsSchema = z.strictObject({
   seed: z.number().int().min(0).max(4_294_967_295),
   currency: z.string().regex(/^[A-Z]{3}$/, "Use a three-letter ISO currency code."),
   theme: z.enum(["system", "light", "dark"]),
+  /**
+   * BCP-47 locale for `Intl.NumberFormat`. Backward-compatible default keeps
+   * pre-M-11 scenarios at `en-US`. Accepts a permissive shape: at least two
+   * lowercase letters, optionally hyphen-separated subtags. Invalid tags fall
+   * back at format time rather than throwing here — Intl silently ignores
+   * unknown extensions but rejects malformed BCP-47.
+   */
+  locale: z
+    .string()
+    .regex(
+      /^[a-zA-Z]{2,3}(-[A-Za-z0-9]{2,8})*$/,
+      "Use a BCP-47 locale tag, e.g. en-US, de-DE, ja-JP.",
+    )
+    .default("en-US"),
 });
 
 const modelSchema = z.strictObject({

@@ -39,7 +39,7 @@ export function createBlankScenario(): Scenario {
     activeDesignId: "blank-design",
     competitors: [],
     research: {},
-    settings: { seed: 240715, currency: "USD", theme: "system" },
+    settings: { seed: 240715, currency: "USD", theme: "system", locale: "en-US" },
   });
 }
 

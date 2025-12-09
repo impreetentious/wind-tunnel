@@ -9,7 +9,7 @@ export function scenarioBase(
   return {
     schemaVersion: 1,
     research: {},
-    settings: { seed: 240715, currency: "USD", theme: "system" },
+    settings: { seed: 240715, currency: "USD", theme: "system", locale: "en-US" },
     ...scenario,
   };
 }
