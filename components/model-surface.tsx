@@ -660,7 +660,7 @@ function TemplatePicker({ onStartBlank }: { onStartBlank: () => void }) {
             <h2 className="text-lg font-semibold text-ink">{template.title}</h2>
             <p className="mt-2 flex-1 text-sm leading-6 text-muted">{template.description}</p>
             <button
-              className="mt-5 min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong"
+              className="mt-5 min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-strong"
               onClick={() => chooseTemplate(template)}
               type="button"
             >

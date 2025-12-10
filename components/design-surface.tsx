@@ -478,7 +478,7 @@ export function DesignSurface() {
                   Offer a free tier
                 </label>
                 <button
-                  className="min-h-10 rounded-lg bg-accent px-3 text-sm font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-10 rounded-lg bg-accent px-3 text-sm font-semibold text-on-accent hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={design.tiers.length >= MAX_TIERS}
                   onClick={() => updateScenario(addTier)}
                   type="button"
