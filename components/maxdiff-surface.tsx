@@ -28,7 +28,7 @@ const defaultItems: readonly ItemDraft[] = [
 
 const inputClass = "min-h-10 rounded-lg border border-line bg-canvas-raised px-3 text-sm text-ink";
 const buttonPrimary =
-  "min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong";
+  "min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-strong";
 const buttonSecondary =
   "min-h-10 rounded-lg border border-line bg-canvas-raised px-4 text-sm font-semibold text-ink hover:border-accent";
 

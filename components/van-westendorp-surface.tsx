@@ -376,7 +376,7 @@ export function VanWestendorpSurface() {
           </label>
           <div className="mt-3 flex flex-wrap gap-3">
             <button
-              className="min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isIllustrative}
               onClick={saveSurveyCsv}
               type="button"
