@@ -2,66 +2,57 @@
 
 **A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
 
-**Status:** v0.19.14 — client-side pricing studio on `main`. §15 Batches 3–5 (usage-based pricing, trials/time dynamics, Hierarchical Bayes conjoint, scenario diffing, locale formatting, PNG/slide export) are engine/state/content-complete and unit-tested (**223 tests**), but deliberately **not yet wired into the workbenches**. The full local gate is green (typecheck, lint, format, tests, privacy, build, bundle-size 318.3 KiB gzip, web-vitals, spec-coverage); tri-browser Playwright is 44/44 on the wired surfaces. WCAG 2.1 AA is a stated _intent_, not an audited claim. Static export; not yet deployed.
-
 ## The idea
 
 Most SaaS packaging is decided by gut and competitor-copying. But Good/Better/Best isn't decoration — it's a _screening mechanism_ (second-degree price discrimination): a menu designed so buyers with different willingness-to-pay sort themselves into the right tier. Once you write your assumptions down — who the segments are, what they'd pay, which features they value — the menu's consequences stop being opinions. They can be computed.
 
 Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a billing tool and not an optimizer that needs live revenue data. It's useful before your first customer exists: a think-before-you-ship reasoning layer for the highest-leverage decision most SaaS teams make on vibes.
 
-## Product target (v1.0 core + v1.1 extensions)
+## What it does
 
-- **Model** — now available: buyer segments with P50-centred size and WTP bands, within-segment buyer spread, a keyboard-navigable segment × feature value matrix, provenance tags, and immediate engine-backed KPIs. The three template scenarios provide a practical first run.
-- **Design** — now available: editable tiers, feature fences, free tier, add-ons, flat or per-seat pricing, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, and directional behavioral considerations without inventing numeric effects.
-- **Simulate** — now available: closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall, and a 400-point residual price sweep for each tier. The mechanism diagram, A/B comparison, and user-facing competitor-loss share follow in v1.1.
-- **Analyze — Uncertainty** — now available: seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates, and a tornado chart that tells you _which assumption to validate first_.
-- **Analyze — Research** — now available: survey-first Van Westendorp PSM with manual/CSV input, exclusion reporting, cumulative curves, interpolated points, and a clearly labeled illustrative mode. The v1.1 extensions add Choice-Based Conjoint, MaxDiff-lite, and bundling economics.
-- **Analyze — Positioning** — now available: competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI wired into the wind tunnel.
-- **Communicate** — v1.0 ships the exportable Pricing Decision Record; the pricing-page mock follows in v1.1.
+- **Model** — buyer segments with P50-centred size and willingness-to-pay bands, within-segment buyer spread, a keyboard-navigable segment × feature value matrix, provenance tags, and immediate engine-backed KPIs. Three template scenarios give you a practical first run.
+- **Design** — editable tiers, feature fences, free tier, add-ons, flat or per-seat pricing, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, and directional behavioral considerations without inventing numeric effects.
+- **Simulate** — closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall, and a 400-point residual price sweep for each tier.
+- **Analyze — Uncertainty** — seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates, and a tornado chart that tells you _which assumption to validate first_.
+- **Analyze — Research** — survey-first Van Westendorp price sensitivity with manual/CSV input, exclusion reporting, cumulative curves, interpolated points, and a clearly labeled illustrative mode. Choice-based conjoint, MaxDiff and bundling economics are available alongside it.
+- **Analyze — Elasticity and price search** — own-price and revenue elasticity, a cross-tier substitution heatmap, and a price search that reports the best menu it found by local search, presented as a candidate rather than a proven optimum.
+- **Analyze — Positioning** — competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI.
+- **Communicate** — an exportable Pricing Decision Record and a pricing-page mock.
 
-The economics is the point: the planned engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Its release gate requires every formula to be tested against closed-form results and a value-conservation identity to hold on every simulation. See `docs/MODEL-SPEC.md` for the normative math contract.
+The economics is the point: the engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Every formula is tested against closed-form results, and a value-conservation identity must hold on every simulation. `docs/MODEL-SPEC.md` states the math in full.
 
 ## What it is not
 
 No accounts, no server, no telemetry, no data connectors. Fully client-side: your assumptions stay in your browser; compact model/design configurations can share as URLs, while full survey data travels only in an explicit JSON export.
 
+## Limitations
+
+- **Some engines are not reachable from the interface.** Usage-based pricing, trials and multi-period time dynamics, hierarchical-Bayes conjoint estimation, scenario version-diffing, and PNG/slide export are implemented, tested, and specified in the math spec, but no screen exposes them.
+- **Assumptions in, assumptions out.** There is no market data and no calibration against your actual revenue. The engine is exact given your inputs; it has no opinion about whether those inputs are right.
+- **Accessibility** is built to WCAG 2.1 AA and checked with automated axe scans across three browsers in both themes. It has not been independently audited.
+
 ## Stack
 
-Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind CSS · Zustand · Zod — fully client-side, with no server. Vercel is the selected deployment target; it is not connected or deployed yet, and the future static bundle remains portable to any static host. The plan requires light + dark themes, WCAG 2.1 AA intent with a recorded audit before any stronger claim, hand-rolled SVG visualization, Vitest + fast-check property tests against the economics contract, and Playwright end-to-end checks.
-
-## Roadmap
-
-| Phase   | Delivers                                                                 | Status                                                                           |
-| ------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| P0      | Scaffold, CI, deployed shell                                             | Locally complete; remote CI + deploy pending owner                               |
-| P1–P2   | Economics engine (selection, KPIs, surplus, sweeps) + math spec          | P2 locally complete                                                              |
-| P3      | Scenarios: persistence, import/export, share-by-URL, templates           | P3 locally complete                                                              |
-| P4      | Model surface: segments, bands, value matrix, templates                  | P4 locally complete                                                              |
-| P5      | Design surface + design linter                                           | Locally complete                                                                 |
-| P6a     | **v1.0 core:** live wind-tunnel reveal                                   | Locally complete                                                                 |
-| P7a     | **v1.0 core:** Monte Carlo + tornado                                     | Locally complete                                                                 |
-| P7b     | **v1.0 core:** Van Westendorp                                            | Locally complete                                                                 |
-| P8      | **v1.0 core:** Pricing Decision Record export                            | Locally complete                                                                 |
-| P9      | **v1.0 core:** hardening, accessibility & performance audit → **v1.0.0** | Partial: automated gates + docs done; manual matrix, user test, live URL pending |
-| P6b/P8b | **v1.1 extensions:** mechanism + A/B and pricing-page mock               | Locally complete                                                                 |
-| P7c–P7e | **v1.1 extensions:** bundling, CBC + MaxDiff, competitive positioning    | Locally complete                                                                 |
+Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind CSS · Zustand · Zod · hand-rolled SVG visualization · Vitest + fast-check · Playwright. Fully client-side, with no server. The static bundle is portable to any static host.
 
 ## Project docs
 
-- `docs/MODEL-SPEC.md` — the math contract (extracted in Phase 1; every engine test cites it).
+- `docs/MODEL-SPEC.md` — the normative math specification the engine implements.
 - `docs/STATIC-HOST-HEADERS.md` — CSP and equivalent static-host security headers.
+- `docs/DATA-LIFECYCLE.md` — every persistence surface, its retention model, and its recovery path.
 
 ## Run locally
 
-Use the Node version pinned in `.nvmrc`, then install the exact dependency graph and start the static shell:
+Requires Node `24.11.1` (see `.nvmrc`).
 
 ```sh
 npm ci
 npm run dev
 ```
 
-Before a change is ready for review, run:
+Open `http://localhost:3000`.
+
+## Verify
 
 ```sh
 npm run typecheck
@@ -72,8 +63,22 @@ npm run build
 npm run e2e
 ```
 
-`npm run build` produces the portable static bundle in `out/` and applies the 360 KiB gzip client-JavaScript gate (raised from 320 KiB to carry the §15 parked-scope mission). The browser check serves that export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist.
+`npm run e2e` serves the static export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist.
+
+Individual checks can also be run on their own: `npm run privacy`, `npm run bundle-size`, `npm run web-vitals`, `npm run spec-coverage`.
+
+## Build and deploy
+
+```sh
+npm run build
+```
+
+This emits a portable static site in `out/` — it also runs the privacy scan and enforces a 360 KiB gzip client-JavaScript budget as part of the build. `npm start` serves that build locally. The output serves from any static host; `docs/STATIC-HOST-HEADERS.md` gives the security headers to set there.
 
 ## License
 
 [MIT](LICENSE) © 2025 Sidakpreet Singh
+
+---
+
+**Version:** v0.20.0
