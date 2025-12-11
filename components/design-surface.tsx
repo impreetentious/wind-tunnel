@@ -3,6 +3,8 @@
 import { useMemo } from "react";
 
 import { GlossaryPopover } from "@/components/glossary-popover";
+import { TimeDynamicsEditor } from "@/components/time-dynamics-editor";
+import { UsagePricingEditor } from "@/components/usage-pricing-editor";
 import { linterExplainers } from "@/content/linter-copy";
 import type { LinterFinding } from "@/lib/engine/linter";
 import {
@@ -500,6 +502,9 @@ export function DesignSurface() {
               ))}
             </div>
           </section>
+
+          <UsagePricingEditor />
+          <TimeDynamicsEditor />
 
           <section
             aria-labelledby="fences-title"

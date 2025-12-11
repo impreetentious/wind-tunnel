@@ -205,6 +205,25 @@ describe("P3 scenario schema and codecs", () => {
     outOfRange.model.interactions = [{ featureIds: [a.id, b.id], valueFraction: 2 }];
     expect(scenarioSchema.safeParse(outOfRange).success).toBe(false);
   });
+
+  // @spec §4.15 — usage references must remain valid across scenario transitions.
+  it("cross-refines usage metrics, segment bands, and metered offers together", () => {
+    const scenario = cloneTemplate();
+    scenario.model.usageMetrics = [{ id: "api-calls", name: "API calls", unitLabel: "calls" }];
+    scenario.model.segments[0].usageBands = { "api-calls": { p10: 100, p50: 200, p90: 400 } };
+    scenario.designs[0].tiers[0].usagePricing = [
+      { metricId: "api-calls", perUnitPrice: 0.02, includedUnits: 100 },
+    ];
+    expect(scenarioSchema.safeParse(scenario).success).toBe(true);
+
+    const unknownBand = cloneTemplate();
+    unknownBand.model.segments[0].usageBands = { ghost: { p10: 1, p50: 2, p90: 3 } };
+    expect(scenarioSchema.safeParse(unknownBand).success).toBe(false);
+
+    const unknownLine = cloneTemplate();
+    unknownLine.designs[0].tiers[0].usagePricing = [{ metricId: "ghost", perUnitPrice: 1 }];
+    expect(scenarioSchema.safeParse(unknownLine).success).toBe(false);
+  });
 });
 
 describe("P3 scenario state", () => {

@@ -3,6 +3,7 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
 
 import { GlossaryPopover } from "@/components/glossary-popover";
+import { UsageMetricEditor } from "@/components/usage-metric-editor";
 import type { EconomicsReadout } from "@/lib/engine/types";
 import {
   addInteraction,
@@ -986,6 +987,7 @@ export function ModelSurface() {
       )}
       <ValueMatrix scenario={scenario} />
       <InteractionsEditor scenario={scenario} />
+      <UsageMetricEditor />
     </section>
   );
 }
