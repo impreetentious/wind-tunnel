@@ -1,6 +1,7 @@
 import { lintDesign, type LinterAddOn, type LinterTier } from "@/lib/engine/linter";
 
 import { activeDesign } from "./design-editing";
+import { formatMoney, formatPercent } from "./formatting";
 import { simulateScenarioDesign } from "./scenario-economics";
 import type { Scenario } from "./schemas";
 
@@ -21,6 +22,9 @@ export function lintScenarioDesign(scenario: Scenario) {
       seatCount: segment.seatCount,
     })),
     baseline,
+    formatMoney: (value) =>
+      formatMoney(Math.abs(value), scenario.settings.currency, scenario.settings.locale),
+    formatPercent: (value) => formatPercent(value, scenario.settings.locale),
     simulate: (menu) => {
       const readout = simulateScenarioDesign(scenario, {
         ...design,

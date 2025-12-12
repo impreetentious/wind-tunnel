@@ -3,13 +3,14 @@ import { describe, expect, it } from "vitest";
 import { plgCollaborationTemplate } from "./templates/plg-collaboration";
 import { buildPricingDecisionRecord } from "./decision-record";
 import { addCompetitor, setCompetitorPrice } from "./positioning";
+import { scenarioStore } from "./scenario-store";
 
 describe("pricing decision record", () => {
   it("composes a deterministic, engine-backed Markdown artifact", () => {
     const record = buildPricingDecisionRecord(plgCollaborationTemplate, "2026-07-17", 200);
 
     expect(record.markdown).toContain("# Pricing Decision Record — PLG collaboration tool");
-    expect(record.markdown).toContain("Generated 2026-07-17 · Seed 240715 · USD");
+    expect(record.markdown).toContain("Generated 2026-07-17 · Seed 240,715 · USD");
     expect(record.markdown).toContain("## Assumptions and provenance");
     expect(record.markdown).toContain("## Simulated economics");
     expect(record.markdown).toContain("## Sensitivity and validation priorities");
@@ -60,5 +61,27 @@ describe("pricing decision record", () => {
     expect(
       buildPricingDecisionRecord(plgCollaborationTemplate, "2026-07-17", 200).markdown,
     ).not.toContain("## Competitive positioning");
+  });
+
+  it("uses the selected locale throughout the Markdown record", () => {
+    const localized = {
+      ...plgCollaborationTemplate,
+      settings: {
+        ...plgCollaborationTemplate.settings,
+        locale: "de-DE",
+        currency: "EUR",
+      },
+    };
+
+    const previous = scenarioStore.getState().scenario;
+    scenarioStore.setState({ scenario: localized });
+    try {
+      const record = buildPricingDecisionRecord(localized, "2026-07-17", 200);
+      expect(record.markdown).toContain("Seed 240.715 · EUR");
+      expect(record.markdown).toContain("Within-segment spread (σ) | — | 0,");
+      expect(record.markdown).toContain("€");
+    } finally {
+      scenarioStore.setState({ scenario: previous });
+    }
   });
 });

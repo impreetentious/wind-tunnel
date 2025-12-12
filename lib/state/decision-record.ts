@@ -12,6 +12,7 @@ import {
   uncertaintyParametersForScenario,
 } from "./scenario-economics";
 import { lintScenarioDesign } from "./scenario-linter";
+import { currentScenarioLocale } from "./formatting";
 import type { Scenario } from "./schemas";
 
 export const DECISION_RECORD_DRAW_COUNT = 1_000;
@@ -75,11 +76,11 @@ export interface PricingDecisionRecord {
 }
 
 function formatNumber(value: number, maximumFractionDigits = 1) {
-  return new Intl.NumberFormat("en-US", { maximumFractionDigits }).format(value);
+  return new Intl.NumberFormat(currentScenarioLocale(), { maximumFractionDigits }).format(value);
 }
 
 export function formatRecordMoney(value: number, currency: string) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(currentScenarioLocale(), {
     style: "currency",
     currency,
     maximumFractionDigits: Math.abs(value) < 100 ? 1 : 0,
@@ -87,7 +88,7 @@ export function formatRecordMoney(value: number, currency: string) {
 }
 
 export function formatRecordPercent(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(currentScenarioLocale(), {
     style: "percent",
     maximumFractionDigits: 1,
   }).format(value);
@@ -147,7 +148,7 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
   const lines: string[] = [
     `# Pricing Decision Record — ${scenario.name}`,
     "",
-    `Generated ${record.generatedOn} · Seed ${scenario.settings.seed} · ${currency} · Scenario status: ${scenario.status}`,
+    `Generated ${record.generatedOn} · Seed ${formatNumber(scenario.settings.seed, 0)} · ${currency} · Scenario status: ${scenario.status}`,
     "",
     "> This record reports what the stated assumptions imply. It is not a claim that the model found a universally correct price.",
     "",
@@ -158,7 +159,7 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
       ? `Across ${formatNumber(uncertainty.drawCount, 0)} seeded assumption draws, modeled MRR spans ${formatRecordMoney(uncertainty.p10, currency)} at P10 to ${formatRecordMoney(uncertainty.p90, currency)} at P90.`
       : "An uncertainty summary is unavailable until the scenario has buyer assumptions.",
     record.findings.length > 0
-      ? `The deterministic critic reports ${record.findings.length} finding${record.findings.length === 1 ? "" : "s"}; each is listed below without an invented uplift estimate.`
+      ? `The deterministic critic reports ${formatNumber(record.findings.length, 0)} finding${record.findings.length === 1 ? "" : "s"}; each is listed below without an invented uplift estimate.`
       : "No deterministic linter rule is currently firing.",
     "",
     "## Assumptions and provenance",
@@ -288,7 +289,7 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
         ? "**SIMULATED — not evidence.** These responses are a teaching dataset derived from model WTP assumptions."
         : "Fielded survey responses are reported as research evidence; ordering violations are excluded rather than repaired.",
       "",
-      `Responses: ${research.responseCount} total · ${research.validCount} valid · ${research.excludedCount} excluded.`,
+      `Responses: ${formatNumber(research.responseCount, 0)} total · ${formatNumber(research.validCount, 0)} valid · ${formatNumber(research.excludedCount, 0)} excluded.`,
       "",
       "| PSM marker | Price |",
       "| --- | ---: |",
@@ -305,7 +306,7 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
     lines.push(
       "## Conjoint (pooled MNL)",
       "",
-      `Status: **${conjoint.status}** · Respondents: ${conjoint.respondentCount} · Observations: ${conjoint.observationCount}${conjoint.hitRate !== undefined ? ` · Hit rate ${formatRecordPercent(conjoint.hitRate)}` : ""}.`,
+      `Status: **${conjoint.status}** · Respondents: ${formatNumber(conjoint.respondentCount, 0)} · Observations: ${formatNumber(conjoint.observationCount, 0)}${conjoint.hitRate !== undefined ? ` · Hit rate ${formatRecordPercent(conjoint.hitRate)}` : ""}.`,
       "",
       conjoint.bridgeEnabled
         ? "The numeric price coefficient is significantly negative under the pooled 90% gate; WTP contrasts can be inspected."
@@ -319,7 +320,7 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
       );
       for (const partWorth of conjoint.partWorths) {
         lines.push(
-          `| ${tableCell(partWorth.attributeId)} | ${tableCell(partWorth.level)} | ${partWorth.estimate.toFixed(3)} | ${partWorth.standardError.toFixed(3)} | [${partWorth.ci90[0].toFixed(3)}, ${partWorth.ci90[1].toFixed(3)}] |`,
+          `| ${tableCell(partWorth.attributeId)} | ${tableCell(partWorth.level)} | ${formatNumber(partWorth.estimate, 3)} | ${formatNumber(partWorth.standardError, 3)} | [${formatNumber(partWorth.ci90[0], 3)}, ${formatNumber(partWorth.ci90[1], 3)}] |`,
         );
       }
       lines.push("");
@@ -337,7 +338,7 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
       );
       for (const score of maxDiff.scores) {
         lines.push(
-          `| ${tableCell(score.itemId)} | ${score.appearances} | ${score.bestCount} | ${score.worstCount} | ${score.normalizedScore.toFixed(1)} |`,
+          `| ${tableCell(score.itemId)} | ${formatNumber(score.appearances, 0)} | ${formatNumber(score.bestCount, 0)} | ${formatNumber(score.worstCount, 0)} | ${formatNumber(score.normalizedScore, 1)} |`,
         );
       }
       lines.push("");
@@ -348,7 +349,7 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
     lines.push(
       "## Competitive positioning",
       "",
-      `${positioning.competitorCount} competitor${positioning.competitorCount === 1 ? "" : "s"} are active in the simulation. Competitor choice is recorded as lost catalog potential — never as revenue or own-buyer surplus.`,
+      `${formatNumber(positioning.competitorCount, 0)} competitor${positioning.competitorCount === 1 ? "" : "s"} are active in the simulation. Competitor choice is recorded as lost catalog potential — never as revenue or own-buyer surplus.`,
       "",
       ...(positioning.lossShare === undefined
         ? []

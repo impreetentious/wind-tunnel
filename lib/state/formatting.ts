@@ -15,7 +15,18 @@
  * boundary (the settings schema) rather than defensively per format call.
  */
 
+import { scenarioStore } from "./scenario-store";
+
 const formatterCache = new Map<string, Intl.NumberFormat>();
+
+/**
+ * UI-only compatibility bridge for legacy presentation helpers. It reads the
+ * current durable scenario setting, so old readout components can participate
+ * in the locale switch while their formatting moves to the shared helpers.
+ */
+export function currentScenarioLocale(): string {
+  return scenarioStore.getState().scenario.settings.locale;
+}
 
 function cacheKey(locale: string, options: Intl.NumberFormatOptions): string {
   return `${locale}|${JSON.stringify(options)}`;
@@ -66,6 +77,15 @@ export function formatPercent(value: number, locale = "en-US", maximumFractionDi
 export function formatCount(value: number, locale = "en-US", maximumFractionDigits = 0): string {
   if (!Number.isFinite(value)) return "—";
   return getFormatter(locale, { maximumFractionDigits }).format(value);
+}
+
+export function formatNumber(
+  value: number,
+  locale = "en-US",
+  options: Intl.NumberFormatOptions = {},
+): string {
+  if (!Number.isFinite(value)) return "—";
+  return getFormatter(locale, options).format(value);
 }
 
 /**

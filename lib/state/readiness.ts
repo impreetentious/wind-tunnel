@@ -9,6 +9,7 @@
  * Zod-parsed shape (not the engine).
  */
 
+import { formatNumber } from "./formatting";
 import type { Scenario } from "./schemas";
 
 export type ReadinessLevel = "ok" | "warning" | "blocker";
@@ -89,7 +90,11 @@ export function evaluateScenarioReadiness(scenario: Scenario): readonly Readines
       checks.push({
         id: `wtp-band-wide-${segment.id}`,
         level: "warning",
-        title: `${segment.name}: WTP P10/P90 spread is ${wtpRatio.toFixed(1)}×`,
+        title: `${segment.name}: WTP P10/P90 spread is ${formatNumber(
+          wtpRatio,
+          scenario.settings.locale,
+          { maximumFractionDigits: 1 },
+        )}×`,
         detail:
           "A very wide P10/P90 band is fine as an admission of uncertainty, but if it is above ~6× the tornado will point at this segment above all else. Narrow the band with an interview or a benchmark before defending the decision.",
       });

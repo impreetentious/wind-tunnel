@@ -79,4 +79,14 @@ describe("P5 scenario linter integration", () => {
     expect(findings.map((finding) => finding.id)).toEqual(["E7"]);
     expect(findings[0].metrics?.lossShare).toBeGreaterThan(0.25);
   });
+
+  it("formats user-facing linter metrics with the scenario locale and currency", () => {
+    const scenario = competitorFixture();
+    scenario.settings.locale = "de-DE";
+    scenario.settings.currency = "EUR";
+
+    const finding = lintScenarioDesign(scenario).find((entry) => entry.id === "E7");
+    expect(finding?.message).toContain("€");
+    expect(finding?.message).not.toContain("$");
+  });
 });

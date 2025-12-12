@@ -46,6 +46,8 @@ export interface DesignLinterInput {
   addOns: readonly LinterAddOn[];
   segments: readonly LinterSegment[];
   baseline: EconomicsReadout;
+  formatMoney?: (value: number) => string;
+  formatPercent?: (value: number) => string;
   /** Supplies an independently re-expanded menu for deterministic counterfactuals. */
   simulate: (menu: {
     tiers: readonly LinterTier[];
@@ -150,6 +152,8 @@ function revenueForOffer(
  */
 export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
   const findings: LinterFinding[] = [];
+  const displayMoney = input.formatMoney ?? money;
+  const displayPercent = input.formatPercent ?? percent;
   const offers = [...input.tiers, ...input.addOns];
   const hasFreeTier = input.tiers.some((tier) => tier.price === 0);
 
@@ -250,7 +254,7 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
       id: "E4",
       severity: "warning",
       title: "Large downgrade mass",
-      message: `${segment.id} has ${percent(shareOfBuyers)} of own buying mass below ${maximum.name}. The ${money(priceGap)} price gap and ${missing.length > 0 ? featureNames(missing, input.features).join(", ") : "value fence"} explain the downgrade path (about ${money(lowerRevenue)} MRR in lower-value choices).`,
+      message: `${segment.id} has ${displayPercent(shareOfBuyers)} of own buying mass below ${maximum.name}. The ${displayMoney(priceGap)} price gap and ${missing.length > 0 ? featureNames(missing, input.features).join(", ") : "value fence"} explain the downgrade path (about ${displayMoney(lowerRevenue)} MRR in lower-value choices).`,
       metrics: { shareOfBuyers, lowerValueMrr: lowerRevenue },
       segmentIds: [segment.id],
     });
@@ -271,7 +275,7 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
       id: "E5",
       severity: recoveredShare > FREE_LEAKAGE_WARNING_THRESHOLD ? "warning" : "info",
       title: "Free tier leakage",
-      message: `${freeTier.name} absorbs ${percent(absorbedShare)} of would-be paid demand; removing it would ${recoveredMrr >= 0 ? "recover" : "cost"} about ${money(recoveredMrr)} MRR.`,
+      message: `${freeTier.name} absorbs ${displayPercent(absorbedShare)} of would-be paid demand; removing it would ${recoveredMrr >= 0 ? "recover" : "cost"} about ${displayMoney(recoveredMrr)} MRR.`,
       metrics: { absorbedShare, recoveredMrr },
     });
   }
@@ -287,7 +291,7 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
         id: "E6",
         severity: "warning",
         title: "Add-on cannibalizes the menu",
-        message: `${addOn.name} has a net MRR contribution of ${money(netContribution)} after buyers re-sort without it. Consider a different fence or price.`,
+        message: `${addOn.name} has a net MRR contribution of ${displayMoney(netContribution)} after buyers re-sort without it. Consider a different fence or price.`,
         metrics: { netContribution },
       });
     }
@@ -319,7 +323,7 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
         id: "E7",
         severity: "warning",
         title: "Competitor takes material potential",
-        message: `${competitor?.name ?? competitorId} takes ${percent(lossShare)} of ${segment.id} potential (about ${money(loss)}). It beats ${beaten.length > 0 ? beaten.join(", ") : "the current own menu"} on the envelope.`,
+        message: `${competitor?.name ?? competitorId} takes ${displayPercent(lossShare)} of ${segment.id} potential (about ${displayMoney(loss)}). It beats ${beaten.length > 0 ? beaten.join(", ") : "the current own menu"} on the envelope.`,
         metrics: { lossShare, competitorLoss: loss },
         segmentIds: [segment.id],
       });
@@ -359,7 +363,7 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
         id: "B2",
         severity: "info",
         title: "Top tier is a weak anchor",
-        message: `${tier?.name ?? "The top tier"} takes ${percent(topShare)} of buyers and ${percent(topMrrShare)} of MRR. Prune it, or position it deliberately as an anchor or decoy rather than expecting a modeled uplift.`,
+        message: `${tier?.name ?? "The top tier"} takes ${displayPercent(topShare)} of buyers and ${displayPercent(topMrrShare)} of MRR. Prune it, or position it deliberately as an anchor or decoy rather than expecting a modeled uplift.`,
         citation: "Tversky & Kahneman (1974) — anchoring heuristic",
         metrics: { topShare, topMrrShare },
       });
