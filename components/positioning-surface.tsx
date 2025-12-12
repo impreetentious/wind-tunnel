@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { GlossaryPopover } from "@/components/glossary-popover";
+import { summarizeUsageCost } from "@/lib/engine/usage";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 import {
   addCompetitor,
@@ -190,6 +191,50 @@ export function PositioningSurface() {
           honest trade-off signals — no interpolated market offer is invented.
         </p>
       </header>
+
+      {segmentId && scenario.model.usageMetrics.length > 0 && design ? (
+        <section
+          className="rounded-2xl border border-line bg-canvas p-5"
+          data-tour="positioning-usage-price"
+        >
+          <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">
+            Usage-price lens
+          </p>
+          <h3 className="mt-1 text-lg font-semibold text-ink">
+            What this segment actually expects to pay
+          </h3>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            The map still compares competitor list prices with their stated value. This companion
+            readout exposes the current segment’s expected P50 usage surcharge so a metered tier is
+            not positioned as if its base price were the whole bill.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {design.tiers.map((tier) => {
+              const segment = scenario.model.segments.find((entry) => entry.id === segmentId);
+              const surcharge = summarizeUsageCost({
+                usagePricing: tier.usagePricing,
+                usageBands: segment?.usageBands ?? {},
+              });
+              return (
+                <article
+                  className="rounded-xl border border-line bg-canvas-raised p-4"
+                  key={tier.id}
+                >
+                  <h4 className="font-semibold text-ink">{tier.name}</h4>
+                  <p className="mt-1 tabular-nums text-ink">
+                    {formatCurrency(tier.price + surcharge, currency)}{" "}
+                    <span className="text-xs text-muted">expected / month</span>
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    Base {formatCurrency(tier.price, currency)} + usage{" "}
+                    {formatCurrency(surcharge, currency, 2)}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       {noSegments ? (
         <div className="rounded-2xl border border-dashed border-line bg-canvas-raised p-6 text-sm leading-6 text-muted">

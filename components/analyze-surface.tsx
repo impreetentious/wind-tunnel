@@ -7,10 +7,21 @@ import { ElasticitySurface } from "./elasticity-surface";
 import { OptimizerSurface } from "./optimizer-surface";
 import { PositioningSurface } from "./positioning-surface";
 import { ResearchSurface } from "./research-surface";
+import { TimeSurface } from "./time-surface";
 import { UncertaintySurface } from "./uncertainty-surface";
+import { UsageSurface } from "./usage-surface";
 
-type AnalyzeView = "uncertainty" | "elasticity" | "optimize" | "research" | "positioning";
-const analyzeViews = ["uncertainty", "elasticity", "optimize", "research", "positioning"] as const;
+type AnalyzeView =
+  "uncertainty" | "elasticity" | "optimize" | "research" | "positioning" | "usage" | "time";
+const analyzeViews = [
+  "uncertainty",
+  "elasticity",
+  "optimize",
+  "research",
+  "positioning",
+  "usage",
+  "time",
+] as const;
 
 export function AnalyzeSurface() {
   const [view, setView] = useState<AnalyzeView>("uncertainty");
@@ -26,6 +37,8 @@ export function AnalyzeSurface() {
               ["optimize", "Price search"],
               ["research", "Research"],
               ["positioning", "Positioning"],
+              ["usage", "Usage"],
+              ["time", "Time"],
             ] as const
           ).map(([id, label]) => {
             const selected = view === id;
@@ -72,8 +85,12 @@ export function AnalyzeSurface() {
           <OptimizerSurface />
         ) : view === "research" ? (
           <ResearchSurface />
-        ) : (
+        ) : view === "positioning" ? (
           <PositioningSurface />
+        ) : view === "usage" ? (
+          <UsageSurface />
+        ) : (
+          <TimeSurface />
         )}
       </div>
     </section>
