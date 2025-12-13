@@ -8,6 +8,8 @@ import {
   formatRecordPercent,
   type PricingDecisionRecord,
 } from "@/lib/state/decision-record";
+import { MODEL_LIMITS } from "@/lib/state/readiness";
+import { currentScenarioLocale } from "@/lib/state/formatting";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 
 function localIsoDate() {
@@ -76,7 +78,7 @@ function PricingRecord({ record }: { record: PricingDecisionRecord }) {
   return (
     <article
       aria-labelledby="decision-record-document-title"
-      className="decision-record rounded-2xl border border-line bg-canvas px-5 py-7 sm:px-8"
+      className="decision-record decision-record--board rounded-2xl border-2 border-line bg-canvas px-5 py-7 shadow-[var(--shadow)] sm:px-8"
       data-testid="decision-record-document"
     >
       <header>
@@ -106,8 +108,8 @@ function PricingRecord({ record }: { record: PricingDecisionRecord }) {
         <RecordKpis record={record} />
         {uncertainty ? (
           <p className="mt-4 text-sm leading-6 text-muted">
-            Across {uncertainty.drawCount.toLocaleString("en-US")} seeded draws, modeled MRR spans{" "}
-            {formatRecordMoney(uncertainty.p10, currency)} at P10 to{" "}
+            Across {uncertainty.drawCount.toLocaleString(currentScenarioLocale())} seeded draws,
+            modeled MRR spans {formatRecordMoney(uncertainty.p10, currency)} at P10 to{" "}
             {formatRecordMoney(uncertainty.p90, currency)} at P90. These are simulated percentiles,
             not confidence intervals.
           </p>
@@ -138,9 +140,9 @@ function PricingRecord({ record }: { record: PricingDecisionRecord }) {
                       {segment.name}
                     </th>
                     <td className="px-3 py-3 text-right tabular-nums text-ink">
-                      {segment.prospectBand.p10.toLocaleString()} /{" "}
-                      {segment.prospectBand.p50.toLocaleString()} /{" "}
-                      {segment.prospectBand.p90.toLocaleString()}
+                      {segment.prospectBand.p10.toLocaleString(currentScenarioLocale())} /{" "}
+                      {segment.prospectBand.p50.toLocaleString(currentScenarioLocale())} /{" "}
+                      {segment.prospectBand.p90.toLocaleString(currentScenarioLocale())}
                     </td>
                     <td className="px-3 py-3 text-right tabular-nums text-ink">
                       {formatRecordMoney(segment.wtpBand.p10, currency)} /{" "}
@@ -274,6 +276,24 @@ function PricingRecord({ record }: { record: PricingDecisionRecord }) {
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="mt-8" aria-labelledby="record-limits-title">
+        <h3 className="text-xl font-semibold text-ink" id="record-limits-title">
+          Model limits and interpretation
+        </h3>
+        <p className="mt-2 text-sm leading-6 text-muted">
+          These boundaries travel with the Decision Record so an exported conclusion is not mistaken
+          for a data-connected forecast or a universal price recommendation.
+        </p>
+        <ul className="mt-4 grid gap-3">
+          {MODEL_LIMITS.map((limit) => (
+            <li className="rounded-xl border border-line p-4" key={limit.id}>
+              <p className="text-sm font-semibold text-ink">{limit.title}</p>
+              <p className="mt-1 text-sm leading-6 text-muted">{limit.body}</p>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="mt-8" aria-labelledby="record-alternatives-title">

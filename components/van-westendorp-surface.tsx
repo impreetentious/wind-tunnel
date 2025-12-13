@@ -15,6 +15,7 @@ import {
   VAN_WESTENDORP_DEMO_CSV,
   vanWestendorpCsv,
 } from "@/lib/state/vanwest";
+import { currentScenarioLocale } from "@/lib/state/formatting";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 
 type ChartMode = "chart" | "table";
@@ -27,7 +28,7 @@ const rawCurves = [
 ] as const;
 
 function formatCurrency(value: number, currency: string, maximumFractionDigits = 1) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(currentScenarioLocale(), {
     style: "currency",
     currency,
     maximumFractionDigits,
@@ -35,9 +36,10 @@ function formatCurrency(value: number, currency: string, maximumFractionDigits =
 }
 
 function formatPercent(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 0 }).format(
-    value,
-  );
+  return new Intl.NumberFormat(currentScenarioLocale(), {
+    style: "percent",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function MarkerCard({ point, currency }: { point: VanWestendorpPoint; currency: string }) {

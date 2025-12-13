@@ -19,6 +19,7 @@ import {
   type ConjointBridgeMapping,
 } from "@/lib/state/conjoint";
 import { formatRecordMoney, formatRecordPercent } from "@/lib/state/decision-record";
+import { formatNumber } from "@/lib/state/formatting";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 import type { ConjointStudyRecord } from "@/lib/state/schemas";
 
@@ -540,11 +541,23 @@ export function ConjointSurface() {
               <p className="mt-3 text-sm text-muted">
                 Price coefficient{" "}
                 <span className="tabular-nums text-ink">
-                  {estimate.priceCoefficient.estimate.toFixed(4)}
+                  {formatNumber(estimate.priceCoefficient.estimate, scenario.settings.locale, {
+                    maximumFractionDigits: 4,
+                  })}
                 </span>{" "}
-                (SE {estimate.priceCoefficient.standardError.toFixed(4)}, 90% CI [
-                {estimate.priceCoefficient.ci90[0].toFixed(4)},{" "}
-                {estimate.priceCoefficient.ci90[1].toFixed(4)}]).
+                (SE{" "}
+                {formatNumber(estimate.priceCoefficient.standardError, scenario.settings.locale, {
+                  maximumFractionDigits: 4,
+                })}
+                , 90% CI [
+                {formatNumber(estimate.priceCoefficient.ci90[0], scenario.settings.locale, {
+                  maximumFractionDigits: 4,
+                })}
+                ,{" "}
+                {formatNumber(estimate.priceCoefficient.ci90[1], scenario.settings.locale, {
+                  maximumFractionDigits: 4,
+                })}
+                ]).
               </p>
             ) : null}
           </section>

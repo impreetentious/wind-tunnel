@@ -11,6 +11,7 @@ import {
   scenarioWithMaxDiffStudy,
   scoreMaxDiffRecord,
 } from "@/lib/state/maxdiff";
+import { formatNumber } from "@/lib/state/formatting";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 import type { MaxDiffStudyRecord } from "@/lib/state/schemas";
 
@@ -32,7 +33,7 @@ const buttonPrimary =
 const buttonSecondary =
   "min-h-10 rounded-lg border border-line bg-canvas-raised px-4 text-sm font-semibold text-ink hover:border-accent";
 
-function ScoresChart({ scores }: { scores: readonly MaxDiffScore[] }) {
+function ScoresChart({ scores, locale }: { scores: readonly MaxDiffScore[]; locale: string }) {
   const width = 620;
   const rowHeight = 26;
   const left = 160;
@@ -67,7 +68,9 @@ function ScoresChart({ scores }: { scores: readonly MaxDiffScore[] }) {
                 y={y + 4}
               />
               <text fill="var(--ink)" fontSize="12" x={left + barWidth + 6} y={y + 16}>
-                {score.normalizedScore.toFixed(1)}
+                {formatNumber(score.normalizedScore, locale, {
+                  maximumFractionDigits: 1,
+                })}
               </text>
             </g>
           );
@@ -341,7 +344,9 @@ export function MaxDiffSurface() {
                 ? "Raw score = (best − worst) / appearances. The shift moves the minimum to zero before renormalizing."
                 : `Validation error: ${result.error}`}
             </p>
-            {result.ok ? <ScoresChart scores={result.scores} /> : null}
+            {result.ok ? (
+              <ScoresChart locale={scenario.settings.locale} scores={result.scores} />
+            ) : null}
           </section>
         ) : null}
 

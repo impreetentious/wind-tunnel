@@ -8,6 +8,7 @@ import {
   type BundlingRegimeResult,
 } from "@/lib/engine/bundling";
 import { formatRecordMoney } from "@/lib/state/decision-record";
+import { currentScenarioLocale } from "@/lib/state/formatting";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 
 function price(value: number | undefined, currency: string) {
@@ -225,7 +226,8 @@ export function BundlingSurface() {
               </p>
               <p className="mt-2 text-sm leading-6 text-muted">{priceSummary(regime, currency)}</p>
               <p className="mt-3 text-xs text-muted">
-                {regime.evaluatedMenus.toLocaleString("en-US")} valid menus evaluated
+                {regime.evaluatedMenus.toLocaleString(currentScenarioLocale())} valid menus
+                evaluated
               </p>
             </section>
           );
