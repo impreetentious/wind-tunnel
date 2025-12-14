@@ -4,23 +4,28 @@ import { useMemo, useState } from "react";
 
 import type { OfferElasticity, SegmentElasticityReadout } from "@/lib/engine/elasticity";
 import { elasticityForScenario } from "@/lib/state/elasticity";
+import { currentScenarioLocale, formatNumber } from "@/lib/state/formatting";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 
 type SubstitutionView = "heatmap" | "table";
 
 function formatElasticity(value: number | undefined) {
   if (value === undefined || !Number.isFinite(value)) return "—";
-  return value.toFixed(2);
+  return formatNumber(value, currentScenarioLocale(), {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function formatPercent(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 }).format(
-    value,
-  );
+  return new Intl.NumberFormat(currentScenarioLocale(), {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function formatCurrency(value: number, currency: string) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(currentScenarioLocale(), {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
@@ -310,7 +315,10 @@ function SegmentElasticityCard({
           <h2 className="mt-1 text-xl font-semibold tracking-[-0.03em] text-ink">{segmentName}</h2>
         </div>
         <span className="rounded-full bg-canvas-raised px-3 py-1 text-xs font-medium text-muted">
-          σ {readout.sigma.toFixed(2)}
+          σ{" "}
+          {formatNumber(readout.sigma, currentScenarioLocale(), {
+            maximumFractionDigits: 2,
+          })}
         </span>
       </div>
 

@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 
 import type { JointOptimizerResult } from "@/lib/engine/optimizer";
 import { activeDesign } from "@/lib/state/design-editing";
+import { currentScenarioLocale } from "@/lib/state/formatting";
 import { applyOptimizedPrices, optimizeScenarioPrices } from "@/lib/state/optimizer";
 import type { Scenario } from "@/lib/state/schemas";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 
 function formatCurrency(value: number, currency: string) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(currentScenarioLocale(), {
     style: "currency",
     currency,
     maximumFractionDigits: 0,

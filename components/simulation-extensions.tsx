@@ -6,6 +6,7 @@ import { lognormalPdf, lognormalQuantile, scaleDistribution } from "@/lib/engine
 import type { ExpandedOffer, SegmentEconomicsReadout } from "@/lib/engine/types";
 import { selectActiveDesign } from "@/lib/state/design-editing";
 import { formatRecordMoney, formatRecordPercent } from "@/lib/state/decision-record";
+import { formatNumber } from "@/lib/state/formatting";
 import { runScenarioMonteCarlo, simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 import type { Scenario } from "@/lib/state/schemas";
@@ -35,7 +36,7 @@ function mechanismDomain(segment: SegmentEconomicsReadout) {
   };
 }
 
-function MechanismChart({ segment }: { segment: SegmentEconomicsReadout }) {
+function MechanismChart({ segment, locale }: { segment: SegmentEconomicsReadout; locale: string }) {
   const { xMax, yMin, yMax } = mechanismDomain(segment);
   const left = 8;
   const right = 96;
@@ -124,7 +125,10 @@ function MechanismChart({ segment }: { segment: SegmentEconomicsReadout }) {
               x={x(breakpoint)}
               y="64"
             >
-              ε {breakpoint.toFixed(3)}
+              ε{" "}
+              {formatNumber(breakpoint, locale, {
+                maximumFractionDigits: 3,
+              })}
             </text>
           </g>
         ))}
@@ -148,7 +152,7 @@ function MechanismChart({ segment }: { segment: SegmentEconomicsReadout }) {
   );
 }
 
-function MechanismTable({ segment }: { segment: SegmentEconomicsReadout }) {
+function MechanismTable({ segment, locale }: { segment: SegmentEconomicsReadout; locale: string }) {
   return (
     <div className="mt-5 overflow-x-auto">
       <table
@@ -172,16 +176,28 @@ function MechanismTable({ segment }: { segment: SegmentEconomicsReadout }) {
                 {interval.offer.name}
               </th>
               <td className="px-3 py-3 text-right tabular-nums text-ink">
-                {interval.offer.value.toFixed(2)}
+                {formatNumber(interval.offer.value, locale, {
+                  maximumFractionDigits: 2,
+                })}
               </td>
               <td className="px-3 py-3 text-right tabular-nums text-ink">
-                {interval.offer.effectivePrice.toFixed(2)}
+                {formatNumber(interval.offer.effectivePrice, locale, {
+                  maximumFractionDigits: 2,
+                })}
               </td>
               <td className="px-3 py-3 text-right tabular-nums text-ink">
-                {Number.isFinite(interval.lower) ? Math.max(0, interval.lower).toFixed(6) : "−∞"}
+                {Number.isFinite(interval.lower)
+                  ? formatNumber(Math.max(0, interval.lower), locale, {
+                      maximumFractionDigits: 6,
+                    })
+                  : "−∞"}
               </td>
               <td className="px-3 py-3 text-right tabular-nums text-ink">
-                {Number.isFinite(interval.upper) ? interval.upper.toFixed(6) : "∞"}
+                {Number.isFinite(interval.upper)
+                  ? formatNumber(interval.upper, locale, {
+                      maximumFractionDigits: 6,
+                    })
+                  : "∞"}
               </td>
               <td className="px-3 py-3 text-right tabular-nums text-ink">
                 {formatRecordPercent(interval.share)}
@@ -258,7 +274,11 @@ export function MechanismSurface({ scenario }: { scenario: Scenario }) {
         </div>
       </div>
       <p className="mt-4 text-sm font-semibold text-ink">{segmentName ?? segment.id}</p>
-      {table ? <MechanismTable segment={segment} /> : <MechanismChart segment={segment} />}
+      {table ? (
+        <MechanismTable locale={scenario.settings.locale} segment={segment} />
+      ) : (
+        <MechanismChart locale={scenario.settings.locale} segment={segment} />
+      )}
     </section>
   );
 }

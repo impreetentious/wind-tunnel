@@ -19,6 +19,7 @@ import {
   type QuantileBand,
 } from "@/lib/state/model-editing";
 import { scenarioStore, useScenarioStore } from "@/lib/state/scenario-store";
+import { formatMoney, formatNumber, formatPercent } from "@/lib/state/formatting";
 import { simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { scenarioTemplates } from "@/lib/state/templates";
 import type { Scenario } from "@/lib/state/schemas";
@@ -28,21 +29,6 @@ type Provenance = Segment["provenance"]["prospectCount"];
 type MatrixMode = "allocation" | "direct";
 
 const emptyProvenance = { kind: "guess", confidence: "low" } as const;
-
-function formatCurrency(value: number, currency: string, maximumFractionDigits = 0) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-    maximumFractionDigits,
-  }).format(value);
-}
-
-function formatPercent(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "percent",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
 
 function modelReadout(scenario: Scenario): EconomicsReadout | null {
   const design = scenario.designs.find((candidate) => candidate.id === scenario.activeDesignId);
@@ -69,11 +55,14 @@ function ModelKpiRail({ scenario }: { scenario: Scenario }) {
   }
 
   const metrics = [
-    ["MRR", formatCurrency(readout.mrr, scenario.settings.currency)],
-    ["Paid conversion", formatPercent(readout.paidConversion)],
-    ["ARPA", formatCurrency(readout.arpa, scenario.settings.currency)],
-    ["Capture rate", formatPercent(readout.captureRate)],
-    ["Potential value", formatCurrency(readout.potential, scenario.settings.currency)],
+    ["MRR", formatMoney(readout.mrr, scenario.settings.currency, scenario.settings.locale)],
+    ["Paid conversion", formatPercent(readout.paidConversion, scenario.settings.locale)],
+    ["ARPA", formatMoney(readout.arpa, scenario.settings.currency, scenario.settings.locale)],
+    ["Capture rate", formatPercent(readout.captureRate, scenario.settings.locale)],
+    [
+      "Potential value",
+      formatMoney(readout.potential, scenario.settings.currency, scenario.settings.locale),
+    ],
   ];
 
   return (
@@ -170,7 +159,15 @@ function P50BandEditor({
   );
 }
 
-function WtpDensityStrip({ segment, currency }: { segment: Segment; currency: string }) {
+function WtpDensityStrip({
+  segment,
+  currency,
+  locale,
+}: {
+  segment: Segment;
+  currency: string;
+  locale: string;
+}) {
   const sigma = Math.max(0.08, segment.withinSegmentSigma);
   const points = Array.from({ length: 41 }, (_, index) => {
     const x = (index / 40) * 100;
@@ -186,10 +183,15 @@ function WtpDensityStrip({ segment, currency }: { segment: Segment; currency: st
         <p className="text-xs font-semibold text-ink">
           Buyer-value density <GlossaryPopover term="spread" />
         </p>
-        <p className="text-xs text-muted">σ {segment.withinSegmentSigma.toFixed(2)}</p>
+        <p className="text-xs text-muted">
+          σ{" "}
+          {formatNumber(segment.withinSegmentSigma, locale, {
+            maximumFractionDigits: 2,
+          })}
+        </p>
       </div>
       <svg
-        aria-label={`${segment.name} willingness-to-pay density around a ${formatCurrency(segment.wtpBand.p50, currency)} median`}
+        aria-label={`${segment.name} willingness-to-pay density around a ${formatMoney(segment.wtpBand.p50, currency, locale)} median`}
         className="mt-2 h-10 w-full text-accent"
         preserveAspectRatio="none"
         role="img"
@@ -208,9 +210,9 @@ function WtpDensityStrip({ segment, currency }: { segment: Segment; currency: st
         />
       </svg>
       <div className="mt-1 flex justify-between text-[11px] tabular-nums text-muted">
-        <span>{formatCurrency(segment.wtpBand.p10, currency)}</span>
-        <span>Median {formatCurrency(segment.wtpBand.p50, currency)}</span>
-        <span>{formatCurrency(segment.wtpBand.p90, currency)}</span>
+        <span>{formatMoney(segment.wtpBand.p10, currency, locale)}</span>
+        <span>Median {formatMoney(segment.wtpBand.p50, currency, locale)}</span>
+        <span>{formatMoney(segment.wtpBand.p90, currency, locale)}</span>
       </div>
     </div>
   );
@@ -357,7 +359,11 @@ function SegmentCard({ segment, scenario }: { segment: Segment; scenario: Scenar
             onChange={(wtpBand) => updateSegment((current) => ({ ...current, wtpBand }))}
             unit={scenario.settings.currency}
           />
-          <WtpDensityStrip currency={scenario.settings.currency} segment={segment} />
+          <WtpDensityStrip
+            currency={scenario.settings.currency}
+            locale={scenario.settings.locale}
+            segment={segment}
+          />
           <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
             <label className="text-xs font-medium text-muted">
               Within-segment spread <GlossaryPopover term="spread" />
@@ -375,7 +381,13 @@ function SegmentCard({ segment, scenario }: { segment: Segment; scenario: Scenar
                 <option value="low">Low variation</option>
                 <option value="medium">Medium variation</option>
                 <option value="high">High variation</option>
-                <option value="custom">Custom ({segment.withinSegmentSigma.toFixed(2)})</option>
+                <option value="custom">
+                  Custom (
+                  {formatNumber(segment.withinSegmentSigma, scenario.settings.locale, {
+                    maximumFractionDigits: 2,
+                  })}
+                  )
+                </option>
               </select>
             </label>
             <label className="text-xs font-medium text-muted">
@@ -536,7 +548,7 @@ function ValueMatrix({ scenario }: { scenario: Scenario }) {
                   <span className="block">{segment.name}</span>
                   <span className="mt-1 block font-normal text-muted">
                     {mode === "allocation"
-                      ? `Total ${formatCurrency(segment.wtpBand.p50, scenario.settings.currency)}`
+                      ? `Total ${formatMoney(segment.wtpBand.p50, scenario.settings.currency, scenario.settings.locale)}`
                       : "$/account/month"}
                   </span>
                 </th>

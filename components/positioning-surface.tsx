@@ -21,21 +21,19 @@ import {
 } from "@/lib/state/positioning";
 import { simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { activeDesign } from "@/lib/state/design-editing";
+import { currentScenarioLocale } from "@/lib/state/formatting";
 import type { PriceMetric } from "@/lib/engine/types";
 
 type ChartMode = "chart" | "table";
 
 const currencyFormatters = new Map<string, Intl.NumberFormat>();
-const percentFormatter = new Intl.NumberFormat("en-US", {
-  style: "percent",
-  maximumFractionDigits: 1,
-});
 
 function formatCurrency(value: number, currency: string, digits = 0) {
-  const key = `${currency}:${digits}`;
+  const locale = currentScenarioLocale();
+  const key = `${locale}:${currency}:${digits}`;
   let formatter = currencyFormatters.get(key);
   if (!formatter) {
-    formatter = new Intl.NumberFormat("en-US", {
+    formatter = new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       maximumFractionDigits: digits,
@@ -46,7 +44,10 @@ function formatCurrency(value: number, currency: string, digits = 0) {
 }
 
 function formatPercent(value: number) {
-  return percentFormatter.format(value);
+  return new Intl.NumberFormat(currentScenarioLocale(), {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function CompetitorValueSurvey({

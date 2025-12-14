@@ -14,6 +14,7 @@ import type {
   TierPriceSweep,
 } from "@/lib/engine/types";
 import { activeDesign } from "@/lib/state/design-editing";
+import { currentScenarioLocale } from "@/lib/state/formatting";
 import { priceSweepInputForDesign, simulateScenarioDesign } from "@/lib/state/scenario-economics";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 import type { GlossaryTermId } from "@/content/glossary";
@@ -29,17 +30,12 @@ const dotColors = ["#0072b2", "#009e73", "#d55e00", "#cc79a7", "#e69f00", "#56b4
 const waterfallColors = ["#0072b2", "#009e73", "#e69f00", "#d55e00", "#cc79a7"];
 const currencyFormatters = new Map<string, Intl.NumberFormat>();
 const compactCurrencyFormatters = new Map<string, Intl.NumberFormat>();
-const percentFormatter = new Intl.NumberFormat("en-US", {
-  style: "percent",
-  maximumFractionDigits: 1,
-});
-const countFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-
 function formatCurrency(value: number, currency: string, maximumFractionDigits = 0) {
-  const key = `${currency}:${maximumFractionDigits}`;
+  const locale = currentScenarioLocale();
+  const key = `${locale}:${currency}:${maximumFractionDigits}`;
   let formatter = currencyFormatters.get(key);
   if (!formatter) {
-    formatter = new Intl.NumberFormat("en-US", {
+    formatter = new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       maximumFractionDigits,
@@ -50,23 +46,28 @@ function formatCurrency(value: number, currency: string, maximumFractionDigits =
 }
 
 function formatPercent(value: number) {
-  return percentFormatter.format(value);
+  return new Intl.NumberFormat(currentScenarioLocale(), {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function formatCount(value: number) {
-  return countFormatter.format(value);
+  return new Intl.NumberFormat(currentScenarioLocale(), { maximumFractionDigits: 0 }).format(value);
 }
 
 function shortCurrency(value: number, currency: string) {
-  let formatter = compactCurrencyFormatters.get(currency);
+  const locale = currentScenarioLocale();
+  const key = `${locale}:${currency}`;
+  let formatter = compactCurrencyFormatters.get(key);
   if (!formatter) {
-    formatter = new Intl.NumberFormat("en-US", {
+    formatter = new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       notation: "compact",
       maximumFractionDigits: 1,
     });
-    compactCurrencyFormatters.set(currency, formatter);
+    compactCurrencyFormatters.set(key, formatter);
   }
   return formatter.format(value);
 }

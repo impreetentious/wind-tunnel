@@ -9,6 +9,7 @@ import {
   uncertaintyParametersForScenario,
   type ScenarioUncertaintyParameter,
 } from "@/lib/state/scenario-economics";
+import { currentScenarioLocale } from "@/lib/state/formatting";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 
 type ChartMode = "chart" | "table";
@@ -17,7 +18,7 @@ const drawCounts = [200, 500, 1_000, 2_000, 5_000] as const;
 const EPSILON = 1e-9;
 
 function formatCurrency(value: number, currency: string, maximumFractionDigits = 0) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(currentScenarioLocale(), {
     style: "currency",
     currency,
     maximumFractionDigits,
@@ -30,13 +31,14 @@ function formatSignedCurrency(value: number, currency: string) {
 }
 
 function formatPercent(value: number) {
-  return new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 1 }).format(
-    value,
-  );
+  return new Intl.NumberFormat(currentScenarioLocale(), {
+    style: "percent",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function formatCount(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
+  return new Intl.NumberFormat(currentScenarioLocale()).format(value);
 }
 
 function ChartToggle({ mode, onChange }: { mode: ChartMode; onChange: (mode: ChartMode) => void }) {
