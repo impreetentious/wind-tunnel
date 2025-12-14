@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.20.8",
+  "version": "0.21.0",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -9,8 +9,8 @@
     "start": "node scripts/serve-static.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write . --ignore-unknown",
-    "format:check": "prettier --check . --ignore-unknown",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "playwright test",
