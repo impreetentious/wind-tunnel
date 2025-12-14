@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { DesignSurface } from "@/components/design-surface";
 import { ModelSurface } from "@/components/model-surface";
 import { AnalyzeSurface } from "@/components/analyze-surface";
+import { ChangeConsequence } from "@/components/change-consequence";
 import { ShareSurface } from "@/components/share-surface";
 import { handleHorizontalTabKey } from "@/components/tab-keyboard";
 import { WindTunnelSurface } from "@/components/wind-tunnel-surface";
+import { LocaleMenu } from "@/components/locale-menu";
+import { SaveConfidence } from "@/components/save-confidence";
+import { TutorialOverlay } from "@/components/tutorial-overlay";
+import type { TutorialSurface } from "@/content/tutorial";
 import { decodeShareHash, scenarioFromSharePayload } from "@/lib/state/codec";
 import {
   attachScenarioAutosave,
@@ -88,6 +93,19 @@ export function StudioShell({ version }: { version: string }) {
   const setMessage = useScenarioStore((state) => state.setMessage);
   const [systemTheme, setSystemTheme] = useState<EffectiveTheme>("light");
   const effectiveTheme = settings.theme === "system" ? systemTheme : settings.theme;
+  const navigateTutorial = useCallback((surface: TutorialSurface) => {
+    setActiveTab(
+      surface === "positioning" || surface === "analyze"
+        ? "Analyze"
+        : surface === "simulate"
+          ? "Simulate"
+          : surface === "model"
+            ? "Model"
+            : surface === "design"
+              ? "Design"
+              : "Share",
+    );
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia?.("(prefers-color-scheme: dark)");
@@ -136,7 +154,7 @@ export function StudioShell({ version }: { version: string }) {
             <p className="text-xs text-muted">Pricing &amp; packaging studio</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <span className="rounded-full bg-amber-soft px-3 py-2 text-xs font-semibold tracking-[0.08em] text-amber uppercase">
             Seed · {settings.seed}
           </span>
@@ -145,6 +163,8 @@ export function StudioShell({ version }: { version: string }) {
             onChange={(theme) => setSettings({ theme })}
             theme={settings.theme}
           />
+          <LocaleMenu />
+          <TutorialOverlay onNavigate={navigateTutorial} />
         </div>
       </header>
 
@@ -166,6 +186,10 @@ export function StudioShell({ version }: { version: string }) {
       ) : null}
 
       <section className="mt-5 flex flex-1 flex-col overflow-hidden rounded-3xl border border-line bg-canvas-raised shadow-[var(--shadow)]">
+        <div className="no-print flex flex-wrap items-center justify-between gap-3 border-b border-line bg-canvas px-4 py-3">
+          <ChangeConsequence />
+          <SaveConfidence />
+        </div>
         <nav
           aria-label="Studio sections"
           className="no-print overflow-x-auto border-b border-line px-2 pt-2"

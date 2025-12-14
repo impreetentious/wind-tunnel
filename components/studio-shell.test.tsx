@@ -60,6 +60,21 @@ describe("StudioShell", () => {
     expect(screen.getByText("Give buyers something to choose.")).toBeVisible();
   });
 
+  it("applies the locale menu to the live model readout", () => {
+    render(<StudioShell version="0.1.0" />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+
+    fireEvent.change(screen.getByLabelText("Scenario locale"), { target: { value: "de-DE" } });
+
+    expect(scenarioStore.getState().scenario.settings).toMatchObject({
+      locale: "de-DE",
+      currency: "EUR",
+    });
+    expect(screen.getByText("MRR").nextElementSibling).toHaveTextContent("€");
+    fireEvent.click(screen.getByRole("tab", { name: /^Analyze$/ }));
+    expect(screen.getByTestId("monte-carlo-p50")).toHaveTextContent("€");
+  });
+
   it("implements roving keyboard focus across studio and nested tabs", () => {
     render(<StudioShell version="1.0.0" />);
 
@@ -73,6 +88,8 @@ describe("StudioShell", () => {
     const record = screen.getByRole("tab", { name: "Decision Record" });
     record.focus();
     fireEvent.keyDown(record, { key: "ArrowRight" });
+    expect(screen.getByRole("tab", { name: "Decision support", selected: true })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Decision support" }), { key: "ArrowRight" });
     expect(screen.getByRole("tab", { name: "Pricing page", selected: true })).toHaveFocus();
     fireEvent.keyDown(screen.getByRole("tab", { name: "Pricing page" }), { key: "End" });
     expect(screen.getByRole("tab", { name: "Scenario transfer", selected: true })).toHaveFocus();
@@ -107,6 +124,7 @@ describe("StudioShell", () => {
     expect(
       screen.getByLabelText("Shared workspaces value for Scaling organisations"),
     ).toHaveFocus();
+    expect(screen.getByText(/wtpBand\.p\d+ changed; it refreshes buyer selection/)).toBeVisible();
   });
 
   it("keeps model confidence bands P50-centred with inline validation", () => {

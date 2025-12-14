@@ -81,4 +81,4 @@ This emits a portable static site in `out/` — it also runs the privacy scan an
 
 ---
 
-**Version:** v0.20.6
+**Version:** v0.20.7
