@@ -14,19 +14,22 @@
  * 3. The static shell's total inline payload is below a ceiling so the
  *    document itself does not become the LCP element for slow devices.
  *
- * True runtime Web Vitals (LCP, INP, CLS) still need Playwright + Chromium in
- * CI — this static gate is the fast local heuristic that flags obvious
- * regressions. Ledger D-43 records the intent: this is a first pass, tightened
- * only when a real measurement disagrees with a green result here.
+ * The companion `e2e/web-vitals.spec.ts` measures a true cold-cache Chromium
+ * visit (LCP, CLS, INP and an input-to-two-paints interaction) after this fast
+ * structural check. `npm run web-vitals` runs both gates.
  */
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 const outRoot = "out";
-const SHELL_HTML_MAX_BYTES = 220 * 1024; // Inline HTML shell + inlined critical CSS.
-const SCRIPT_TAG_MAX_COUNT = 40; // First-load script chunks (Next static export splits aggressively).
-const PRELOAD_TAG_MAX_COUNT = 40;
+// Calibrated against the 0.20.0 static export (2025-12-11): the largest
+// shell is 14.2 KiB with 14 scripts and 2 preloads. The headroom permits a
+// small, intentional feature increment while catching a meaningful bootstrap
+// regression before it reaches the runtime Web Vitals check below.
+const SHELL_HTML_MAX_BYTES = 20 * 1024;
+const SCRIPT_TAG_MAX_COUNT = 16;
+const PRELOAD_TAG_MAX_COUNT = 3;
 
 async function findHtml(directory) {
   const entries = await readdir(directory, { withFileTypes: true });

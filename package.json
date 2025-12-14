@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.20.7",
+  "version": "0.20.8",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -16,7 +16,7 @@
     "e2e": "playwright test",
     "privacy": "node scripts/check-runtime-privacy.mjs",
     "bundle-size": "node scripts/check-bundle-size.mjs",
-    "web-vitals": "node scripts/check-web-vitals.mjs",
+    "web-vitals": "node scripts/check-web-vitals.mjs && playwright test e2e/web-vitals.spec.ts --project=chromium",
     "spec-coverage": "node scripts/spec-coverage.mjs"
   },
   "dependencies": {
