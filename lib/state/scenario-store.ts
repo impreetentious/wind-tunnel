@@ -4,8 +4,10 @@ import { temporal, type TemporalState } from "zundo";
 
 import { exportScenario, importScenario, type CodecResult } from "./codec";
 import { scenarioSchema, type Scenario, type ScenarioSettings } from "./schemas";
+import { appendScenarioSnapshot, type ScenarioSnapshot } from "./scenario-diff";
 
 export const SCENARIO_STORAGE_KEY = "wind-tunnel.scenario.v1";
+export const SCENARIO_HISTORY_STORAGE_KEY = "wind-tunnel.scenario-history.v1";
 export const AUTOSAVE_DELAY_MS = 300;
 
 export interface ScenarioStore {
@@ -22,6 +24,55 @@ type ScenarioHistory = Pick<ScenarioStore, "scenario">;
 export interface ScenarioStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+}
+
+function readScenarioHistory(storage: ScenarioStorage): readonly ScenarioSnapshot[] {
+  try {
+    const source = storage.getItem(SCENARIO_HISTORY_STORAGE_KEY);
+    if (!source) return [];
+    const parsed: unknown = JSON.parse(source);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .flatMap((entry): ScenarioSnapshot[] => {
+        if (!entry || typeof entry !== "object") return [];
+        const candidate = entry as Partial<ScenarioSnapshot>;
+        if (
+          typeof candidate.id !== "string" ||
+          typeof candidate.label !== "string" ||
+          typeof candidate.createdAt !== "string"
+        )
+          return [];
+        const scenario = scenarioSchema.safeParse(candidate.scenario);
+        return scenario.success
+          ? [
+              {
+                id: candidate.id,
+                label: candidate.label,
+                createdAt: candidate.createdAt,
+                scenario: scenario.data,
+              },
+            ]
+          : [];
+      })
+      .slice(0, 20);
+  } catch {
+    return [];
+  }
+}
+
+export function loadScenarioHistory(storage: ScenarioStorage): readonly ScenarioSnapshot[] {
+  return readScenarioHistory(storage);
+}
+
+function persistScenarioSnapshot(storage: ScenarioStorage, scenario: Scenario): void {
+  const history = appendScenarioSnapshot(readScenarioHistory(storage), {
+    id: `snapshot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    label: scenario.name,
+    createdAt: new Date().toISOString(),
+    scenario,
+  });
+  storage.setItem(SCENARIO_HISTORY_STORAGE_KEY, JSON.stringify(history));
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("wind-tunnel:history"));
 }
 
 export type ScenarioStoreApi = StoreApi<ScenarioStore> & {
@@ -130,6 +181,7 @@ export function attachScenarioAutosave(
     timer = setTimeout(() => {
       try {
         storage.setItem(SCENARIO_STORAGE_KEY, exportScenario(scenarioToSave));
+        persistScenarioSnapshot(storage, scenarioToSave);
       } catch {
         store
           .getState()

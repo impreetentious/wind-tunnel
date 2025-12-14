@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { DecisionRecordSurface } from "@/components/decision-record-surface";
+import { DecisionSupportSurface } from "@/components/decision-support-surface";
 import { PricingPageSurface } from "@/components/pricing-page-surface";
 import { handleHorizontalTabKey } from "@/components/tab-keyboard";
 import {
@@ -14,8 +15,8 @@ import {
 } from "@/lib/state/codec";
 import { scenarioStore, useScenarioStore } from "@/lib/state/scenario-store";
 
-type ShareView = "record" | "pricing" | "transfer";
-const shareViews = ["record", "pricing", "transfer"] as const;
+type ShareView = "record" | "support" | "pricing" | "transfer";
+const shareViews = ["record", "support", "pricing", "transfer"] as const;
 
 function ScenarioTransferSurface() {
   const scenario = useScenarioStore((state) => state.scenario);
@@ -206,6 +207,7 @@ export function ShareSurface() {
           {(
             [
               ["record", "Decision Record"],
+              ["support", "Decision support"],
               ["pricing", "Pricing page"],
               ["transfer", "Scenario transfer"],
             ] as const
@@ -248,6 +250,8 @@ export function ShareSurface() {
       >
         {view === "record" ? (
           <DecisionRecordSurface />
+        ) : view === "support" ? (
+          <DecisionSupportSurface />
         ) : view === "pricing" ? (
           <PricingPageSurface />
         ) : (

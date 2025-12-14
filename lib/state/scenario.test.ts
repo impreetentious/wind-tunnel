@@ -11,6 +11,8 @@ import {
 import {
   attachScenarioAutosave,
   createScenarioStore,
+  loadScenarioHistory,
+  SCENARIO_HISTORY_STORAGE_KEY,
   SCENARIO_STORAGE_KEY,
 } from "./scenario-store";
 import {
@@ -273,6 +275,8 @@ describe("P3 scenario state", () => {
     const saved = storage.getItem(SCENARIO_STORAGE_KEY);
     expect(saved).not.toBeNull();
     expect(saved).toContain("Persisted edit");
+    expect(storage.getItem(SCENARIO_HISTORY_STORAGE_KEY)).toContain("Persisted edit");
+    expect(loadScenarioHistory(storage)).toHaveLength(1);
     stopAutosave();
   });
 });

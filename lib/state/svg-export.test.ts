@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderSlideBundle, serializeSvgElement } from "./svg-export";
+import { buildStoredZip, renderSlideBundle, serializeSvgElement } from "./svg-export";
 
 function makeSvg(): SVGSVGElement {
   const namespace = "http://www.w3.org/2000/svg";
@@ -49,5 +49,19 @@ describe("SVG export helpers (M-12)", () => {
   it("renders a zero-slide bundle without throwing", () => {
     const html = renderSlideBundle({ title: "Empty", slides: [] });
     expect(html).toContain("<title>Empty</title>");
+  });
+
+  it("packages slide images and their index as a real ZIP archive", () => {
+    const zip = buildStoredZip([
+      { name: "slide-01.png", data: new Uint8Array([1, 2, 3, 4]) },
+      { name: "index.html", data: new TextEncoder().encode("<h1>Deck</h1>") },
+    ]);
+    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    const binaryText = new TextDecoder("latin1").decode(zip);
+
+    expect(view.getUint32(0, true)).toBe(0x04034b50);
+    expect(view.getUint32(zip.length - 22, true)).toBe(0x06054b50);
+    expect(binaryText).toContain("slide-01.png");
+    expect(binaryText).toContain("index.html");
   });
 });
