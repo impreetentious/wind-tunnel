@@ -12,13 +12,7 @@ import { UncertaintySurface } from "./uncertainty-surface";
 import { UsageSurface } from "./usage-surface";
 
 type AnalyzeView =
-  | "uncertainty"
-  | "elasticity"
-  | "optimize"
-  | "research"
-  | "positioning"
-  | "usage"
-  | "time";
+  "uncertainty" | "elasticity" | "optimize" | "research" | "positioning" | "usage" | "time";
 const analyzeViews = [
   "uncertainty",
   "elasticity",

@@ -43,7 +43,7 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 
 ## Run locally
 
-Requires Node `24.11.1` (see `.nvmrc`).
+Requires Node `24.14.0` (see `.nvmrc`).
 
 ```sh
 npm ci
@@ -77,8 +77,8 @@ This emits a portable static site in `out/` — it also runs the privacy scan an
 
 ## License
 
-[MIT](LICENSE) © 2025 Sidakpreet Singh
+[MIT](LICENSE) © 2025-2026 Sidakpreet Singh
 
 ---
 
-**Version:** v0.21.0
+**Version:** v0.21.1
