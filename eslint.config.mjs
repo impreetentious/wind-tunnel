@@ -10,7 +10,7 @@ const forbiddenEngineImports = [
   /^(?:\.\.\/)+lib\/state(?:\/|$)/,
 ];
 
-const enginePurityRule = {
+export const enginePurityRule = {
   meta: {
     type: "problem",
     docs: {

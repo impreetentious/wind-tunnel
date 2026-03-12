@@ -30,6 +30,9 @@ jobs:
       - run: npm run format:check
       - run: npm run test
       - run: npm run spec-coverage
+      # §7 — lib/engine branch coverage is a gate, not a report. It fails below
+      # 90%, and the fix is more tests rather than a lower threshold.
+      - run: npm run coverage
       - run: npm run build
       # Static half of `npm run web-vitals`; the Playwright half is one of the
       # specs `npm run e2e` already runs, so running it here would duplicate it.

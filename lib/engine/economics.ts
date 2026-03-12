@@ -309,9 +309,9 @@ export function sweepTierPrice(input: TierPriceSweepInput): TierPriceSweep {
     ...input.segments.map((segment) => {
       const value = catalogValue(segment);
       if (tier.priceMetric === "flat") return value;
-      if (!(
-        Number.isFinite(segment.offerExpansion.seatCount) && segment.offerExpansion.seatCount > 0
-      )) {
+      if (
+        !(Number.isFinite(segment.offerExpansion.seatCount) && segment.offerExpansion.seatCount > 0)
+      ) {
         throw new RangeError(`Per-seat sweep segment “${segment.id}” must have at least one seat.`);
       }
       return value / segment.offerExpansion.seatCount;
