@@ -27,7 +27,7 @@ No accounts, no server, no telemetry, no data connectors. Fully client-side: you
 
 ## Limitations
 
-- **Advanced conjoint estimation is intentionally separate from the default screen.** The deterministic hierarchical-Bayes sampler is implemented, tested, and specified in the math spec; the user-facing research flow stays on the faster pooled MNL model.
+- **Advanced conjoint estimation is opt-in, not the default screen.** Pooled MNL is what the research flow estimates automatically. The deterministic hierarchical-Bayes sampler runs only when you ask for per-respondent part-worths, because it is slow enough to be felt, and it is offered only once the pooled fit is identifiable — HB on a degenerate design returns numbers that are confident and wrong. The D-efficient task generator is likewise a choice alongside the random-balanced default, and reports when its search failed to beat that baseline.
 - **Assumptions in, assumptions out.** There is no market data and no calibration against your actual revenue. The engine is exact given your inputs; it has no opinion about whether those inputs are right.
 - **Accessibility** is built to WCAG 2.1 AA and checked with automated axe scans across three browsers in both themes. It has not been independently audited.
 
@@ -81,4 +81,4 @@ This emits a portable static site in `out/` — it also runs the privacy scan an
 
 ---
 
-**Version:** v0.22.0
+**Version:** v0.22.1

@@ -4,13 +4,19 @@ import { useMemo, useState } from "react";
 
 import { GlossaryPopover } from "@/components/glossary-popover";
 import type { ConjointEstimate } from "@/lib/engine/conjoint";
-import { generateConjointDesign } from "@/lib/engine/conjoint";
+import {
+  generateConjointDesign,
+  generateDEfficientConjointDesign,
+  type DEfficientDesignResult,
+} from "@/lib/engine/conjoint";
+import type { HbConjointResult } from "@/lib/engine/hb-conjoint";
 import {
   applyConjointBridge,
   buildSyntheticConjointStudy,
   CONJOINT_DEMO_CSV,
   conjointCsv,
   estimateConjointRecord,
+  estimateHbConjointRecord,
   makeConjointStudy,
   parseConjointCsv,
   scenarioWithConjointStudy,
@@ -129,6 +135,18 @@ export function ConjointSurface() {
   const [priceRaw, setPriceRaw] = useState("10, 30, 50");
   const [seed, setSeed] = useState(1708);
   const [designError, setDesignError] = useState<string | undefined>();
+  // M-05 — the D-efficient generator can degrade to its random-balanced
+  // baseline. That outcome is reported, never swallowed (§4.10 addendum).
+  const [designMethod, setDesignMethod] = useState<"random-balanced" | "d-efficient">(
+    "random-balanced",
+  );
+  const [designReport, setDesignReport] = useState<
+    | Pick<
+        DEfficientDesignResult,
+        "status" | "logDeterminant" | "baselineLogDeterminant" | "swapCount" | "starts"
+      >
+    | undefined
+  >();
 
   const [csv, setCsv] = useState(() => (record ? conjointCsv(record.observations) : ""));
   const [csvErrors, setCsvErrors] = useState<readonly { line: number; message: string }[]>([]);
@@ -148,6 +166,21 @@ export function ConjointSurface() {
   const estimateError =
     estimation && "estimateError" in estimation ? estimation.estimateError : undefined;
 
+  // M-04 — HB is the one estimator whose runtime can breach §3.5's interaction
+  // budget, so it is state set by an explicit click, never a useMemo.
+  //
+  // The result carries the record it was computed from. Any change to the
+  // study — new design, cleared study, re-imported CSV — produces a new record
+  // object, so the stale posterior stops matching and simply is not rendered.
+  // That is cheaper and harder to get wrong than clearing it in every handler.
+  const [hbState, setHb] = useState<
+    | { kind: "result"; record: ConjointStudyRecord; value: HbConjointResult }
+    | { kind: "error"; record: ConjointStudyRecord; message: string }
+    | undefined
+  >();
+  const [hbRunning, setHbRunning] = useState(false);
+  const hb = hbState && hbState.record === record ? hbState : undefined;
+
   const [segmentId, setSegmentId] = useState(() => scenario.model.segments[0]?.id ?? "");
   const [mapping, setMapping] = useState<
     Record<string, { featureId: string; referenceLevel: string; targetLevel: string }>
@@ -156,6 +189,7 @@ export function ConjointSurface() {
 
   const buildDesign = () => {
     setDesignError(undefined);
+    setDesignReport(undefined);
     setMessage(null);
     const attributes = toEngineAttributes(drafts).filter(
       (attribute) => attribute.id && attribute.levels.length >= 2,
@@ -170,14 +204,28 @@ export function ConjointSurface() {
       return;
     }
     try {
-      const design = generateConjointDesign({
+      const designOptions = {
         attributes,
         taskCount,
         alternativesPerTask: alternatives,
         priceLevels,
         includeNone,
         seed,
-      });
+      };
+      let design;
+      if (designMethod === "d-efficient") {
+        const dEfficient = generateDEfficientConjointDesign(designOptions);
+        design = dEfficient;
+        setDesignReport({
+          status: dEfficient.status,
+          logDeterminant: dEfficient.logDeterminant,
+          baselineLogDeterminant: dEfficient.baselineLogDeterminant,
+          swapCount: dEfficient.swapCount,
+          starts: dEfficient.starts,
+        });
+      } else {
+        design = generateConjointDesign(designOptions);
+      }
       const study = makeConjointStudy(design, { attributes, numericPrice: true }, []);
       updateScenario((current) => scenarioWithConjointStudy(current, study));
       setCsv("");
@@ -185,6 +233,25 @@ export function ConjointSurface() {
     } catch (error) {
       setDesignError(error instanceof Error ? error.message : "Design generation failed.");
     }
+  };
+
+  const runHb = () => {
+    if (!record) return;
+    setHbRunning(true);
+    // Yield one frame so the running state paints before the sampler blocks.
+    window.setTimeout(() => {
+      try {
+        setHb({ kind: "result", record, value: estimateHbConjointRecord(record) });
+      } catch (error) {
+        setHb({
+          kind: "error",
+          record,
+          message: error instanceof Error ? error.message : "HB estimation failed on this design.",
+        });
+      } finally {
+        setHbRunning(false);
+      }
+    }, 0);
   };
 
   const loadSyntheticStudy = () => {
@@ -427,6 +494,37 @@ export function ConjointSurface() {
             Include a “none of these” alternative
           </label>
 
+          <fieldset className="mt-4">
+            <legend className="text-sm font-medium text-ink">Design generator</legend>
+            <div className="mt-2 flex flex-wrap gap-4">
+              {(
+                [
+                  ["random-balanced", "Random-balanced", "Level-balanced draw at the given seed."],
+                  [
+                    "d-efficient",
+                    "D-efficient",
+                    "Modified-Fedorov swaps that maximise log|X′X| across restarts.",
+                  ],
+                ] as const
+              ).map(([value, label, hint]) => (
+                <label className="inline-flex items-start gap-2 text-sm text-ink" key={value}>
+                  <input
+                    checked={designMethod === value}
+                    className="mt-1 h-4 w-4 accent-[var(--accent)]"
+                    name="conjoint-design-method"
+                    onChange={() => setDesignMethod(value)}
+                    type="radio"
+                    value={value}
+                  />
+                  <span>
+                    <span className="font-medium">{label}</span>
+                    <span className="block text-xs text-muted">{hint}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
           <div className="mt-4 flex flex-wrap gap-3">
             <button className={buttonPrimary} onClick={buildDesign} type="button">
               Generate task design
@@ -450,6 +548,27 @@ export function ConjointSurface() {
               role="alert"
             >
               {designError}
+            </p>
+          ) : null}
+          {designReport ? (
+            <p
+              className="mt-3 rounded-lg border border-line bg-canvas-raised p-3 text-sm leading-6 text-ink"
+              data-testid="conjoint-design-report"
+              role="status"
+            >
+              <span className="font-medium">
+                {designReport.status === "improved"
+                  ? "D-efficient search improved on the random-balanced baseline."
+                  : designReport.status === "unimprovable"
+                    ? "No swap improved the baseline — this design is already D-optimal within the swap neighbourhood."
+                    : "D-efficient search found no improvement; the random-balanced baseline was kept."}
+              </span>{" "}
+              <span className="text-muted">
+                log|X′X| {designReport.logDeterminant.toFixed(3)} vs baseline{" "}
+                {designReport.baselineLogDeterminant.toFixed(3)} · {designReport.swapCount} accepted
+                swap{designReport.swapCount === 1 ? "" : "s"} across {designReport.starts} restart
+                {designReport.starts === 1 ? "" : "s"}.
+              </span>
             </p>
           ) : null}
         </section>
@@ -560,6 +679,88 @@ export function ConjointSurface() {
                 ]).
               </p>
             ) : null}
+
+            <div className="mt-5 border-t border-line pt-4">
+              <h3 className="text-base font-semibold text-ink">
+                Per-respondent part-worths (hierarchical Bayes)
+              </h3>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
+                The estimates above pool every respondent into one set of coefficients. HB draws a
+                separate posterior per respondent around a shared population mean, which is what
+                reveals preference heterogeneity. It is a Metropolis-within-Gibbs sampler and takes
+                noticeably longer than the pooled fit, so it only runs when asked.
+              </p>
+              {estimate.status === "ok" ? (
+                <>
+                  <button
+                    className={`${buttonSecondary} mt-3`}
+                    disabled={hbRunning}
+                    onClick={runHb}
+                    type="button"
+                  >
+                    {hbRunning ? "Sampling…" : "Estimate per-respondent part-worths (slow)"}
+                  </button>
+                  {hb?.kind === "error" ? (
+                    <p
+                      className="mt-3 rounded-lg border border-amber bg-amber-soft p-3 text-sm text-ink"
+                      role="alert"
+                    >
+                      {hb.message}
+                    </p>
+                  ) : null}
+                  {hb?.kind === "result" ? (
+                    <div className="mt-4" data-testid="conjoint-hb-result">
+                      <p className="text-sm text-muted">
+                        {hb.value.respondents.length} respondent posteriors over{" "}
+                        {hb.value.iterations} iterations · mean acceptance{" "}
+                        <span className="tabular-nums text-ink">
+                          {formatRecordPercent(hb.value.meanAcceptance)}
+                        </span>
+                        .
+                      </p>
+                      <div className="mt-3 overflow-x-auto">
+                        <table className="w-full min-w-[32rem] text-left text-sm">
+                          <thead className="text-xs uppercase tracking-wide text-muted">
+                            <tr>
+                              <th className="py-2 pr-4 font-medium">Parameter</th>
+                              <th className="py-2 pr-4 font-medium">Population mean</th>
+                              <th className="py-2 font-medium">Between-respondent SD</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-ink">
+                            {hb.value.parameterLabels.map((label, index) => (
+                              <tr className="border-t border-line" key={label}>
+                                <td className="py-2 pr-4">{label}</td>
+                                <td className="py-2 pr-4 tabular-nums">
+                                  {formatNumber(
+                                    hb.value.posteriorMeanMu[index],
+                                    scenario.settings.locale,
+                                    { maximumFractionDigits: 3 },
+                                  )}
+                                </td>
+                                <td className="py-2 tabular-nums">
+                                  {formatNumber(
+                                    Math.sqrt(hb.value.posteriorMeanSigma[index]),
+                                    scenario.settings.locale,
+                                    { maximumFractionDigits: 3 },
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className="mt-3 rounded-lg border border-line bg-canvas-raised p-3 text-sm leading-6 text-muted">
+                  Unavailable while the pooled fit is not identifiable. HB would still return
+                  numbers on this design, but they would be confident and wrong — fix the pooled
+                  estimate first.
+                </p>
+              )}
+            </div>
           </section>
         ) : null}
 

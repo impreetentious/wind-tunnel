@@ -82,7 +82,7 @@ function makeSyntheticStudy(seed: number): {
   };
 }
 
-describe("HB Conjoint sampler (@spec §4.10)", () => {
+describe("HB Conjoint sampler (@spec §4.10.3)", () => {
   it("T-HBC-01 recovers a population β sign and rough magnitude on a synthetic fixture", () => {
     const { study } = makeSyntheticStudy(1);
     const result = estimateHbConjoint(study, { seed: 7, warmup: 200, samples: 400 });
@@ -133,5 +133,53 @@ describe("HB Conjoint sampler (@spec §4.10)", () => {
     // The classic RWM sweet spot is 0.15–0.5; assert we do not collapse or reject constantly.
     expect(result.meanAcceptance).toBeGreaterThan(0.05);
     expect(result.meanAcceptance).toBeLessThan(0.95);
+  });
+});
+
+// §4.10.3's sampler is only meaningful across respondents, and it consumes a
+// study built by the caller rather than by the design generator — so the
+// pooling boundary and the malformed-observation paths both need pinning.
+describe("HB Conjoint input guards", () => {
+  // @spec §4.10.3 T-HBC-G1
+  it("rejects non-positive sample counts and negative warmup", () => {
+    const { study } = makeSyntheticStudy(11);
+    expect(() => estimateHbConjoint(study, { samples: 0 })).toThrow(RangeError);
+    expect(() => estimateHbConjoint(study, { warmup: -1 })).toThrow(RangeError);
+  });
+
+  // @spec §4.10.3 T-HBC-G2
+  it("needs at least two respondents to have a population to pool over", () => {
+    const { study } = makeSyntheticStudy(12);
+    const first = study.observations[0].respondentId;
+    const single = {
+      ...study,
+      observations: study.observations.filter((observation) => observation.respondentId === first),
+    };
+    expect(() => estimateHbConjoint(single, { warmup: 5, samples: 5 })).toThrow(
+      /at least two respondents/i,
+    );
+  });
+
+  // @spec §4.10.3 T-HBC-G3
+  it("rejects observations that reference an unknown task or alternative", () => {
+    const { study } = makeSyntheticStudy(13);
+    const unknownTask = {
+      ...study,
+      observations: [{ ...study.observations[0], taskId: "absent" }, ...study.observations],
+    };
+    expect(() => estimateHbConjoint(unknownTask, { warmup: 5, samples: 5 })).toThrow(
+      /unknown task/i,
+    );
+
+    const unknownAlternative = {
+      ...study,
+      observations: [
+        { ...study.observations[0], chosenAlternativeId: "absent" },
+        ...study.observations,
+      ],
+    };
+    expect(() => estimateHbConjoint(unknownAlternative, { warmup: 5, samples: 5 })).toThrow(
+      /unknown alternative/i,
+    );
   });
 });

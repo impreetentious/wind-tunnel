@@ -13,14 +13,11 @@ import {
   type ConjointStudy,
   type ConjointTask,
 } from "./conjoint";
-import { mulberry32 } from "./montecarlo";
-
-const attributes: ConjointAttribute[] = [
-  { id: "speed", name: "Speed", levels: ["low", "medium", "high"] },
-  { id: "support", name: "Support", levels: ["self", "priority", "dedicated"] },
-  { id: "security", name: "Security", levels: ["basic", "sso", "audit"] },
-];
-const trueBeta = [0.4, 0.1, 0.3, -0.2, -0.1, 0.25, -0.03, -0.5];
+import {
+  recoveryAttributes as attributes,
+  recoveryStudy,
+  recoveryTrueBeta as trueBeta,
+} from "./conjoint-fixtures";
 
 function encoded(alternative: ConjointAlternative) {
   if (alternative.none) return [0, 0, 0, 0, 0, 0, 0, 1];
@@ -31,49 +28,6 @@ function encoded(alternative: ConjointAlternative) {
   }
   result.push(alternative.price ?? 0, 0);
   return result;
-}
-
-function sampleChoice(task: ConjointTask, beta: readonly number[], random: () => number) {
-  const utilities = task.alternatives.map((alternative) =>
-    encoded(alternative).reduce((sum, value, index) => sum + value * beta[index], 0),
-  );
-  const max = Math.max(...utilities);
-  const weights = utilities.map((utility) => Math.exp(utility - max));
-  const target = random() * weights.reduce((sum, value) => sum + value, 0);
-  let cumulative = 0;
-  for (let index = 0; index < weights.length; index += 1) {
-    cumulative += weights[index];
-    if (target <= cumulative) return task.alternatives[index].id;
-  }
-  return task.alternatives.at(-1)?.id ?? "none";
-}
-
-function recoveryStudy(respondents = 500) {
-  const design = generateConjointDesign({
-    attributes,
-    taskCount: 18,
-    alternativesPerTask: 3,
-    priceLevels: [10, 30, 50],
-    includeNone: true,
-    seed: 1708,
-  });
-  const random = mulberry32(987654321);
-  const observations: ConjointObservation[] = [];
-  for (let respondent = 0; respondent < respondents; respondent += 1) {
-    for (const task of design.tasks) {
-      observations.push({
-        respondentId: `r${respondent}`,
-        taskId: task.id,
-        chosenAlternativeId: sampleChoice(task, trueBeta, random),
-      });
-    }
-  }
-  return {
-    attributes,
-    tasks: design.tasks,
-    observations,
-    numericPrice: true,
-  } satisfies ConjointStudy;
 }
 
 function expectPositiveDefinite(matrix: readonly (readonly number[])[]) {
@@ -334,7 +288,7 @@ describe("D-efficient conjoint design generator", () => {
     return Math.max(...counts) - Math.min(...counts) <= 1;
   }
 
-  // @spec §4.10 T-CNJ-09
+  // @spec §4.10.1 T-CNJ-09
   it("weakly improves the random-balanced baseline determinant", () => {
     const design = generateDEfficientConjointDesign({
       attributes: smallAttributes,
@@ -400,5 +354,284 @@ describe("D-efficient conjoint design generator", () => {
     const second = generateDEfficientConjointDesign(optionsA);
     expect(second.logDeterminant).toBeCloseTo(first.logDeterminant, 9);
     expect(second.swapCount).toBe(first.swapCount);
+  });
+});
+
+// §4.10's contract is as much about what it refuses as what it estimates. A
+// pooled MNL that quietly accepts a malformed design produces coefficients that
+// look ordinary and are meaningless, so each refusal below is pinned by the
+// error it raises or the status it returns.
+describe("P8 conjoint design and estimation contracts", () => {
+  const attribute = (id: string, levels: string[]): ConjointAttribute => ({
+    id,
+    name: id,
+    levels,
+  });
+  const simpleAttributes = [attribute("speed", ["low", "high"])];
+
+  function studyOf(
+    tasks: ConjointTask[],
+    observations: ConjointObservation[],
+    overrides: Partial<ConjointStudy> = {},
+  ): ConjointStudy {
+    return {
+      attributes: simpleAttributes,
+      tasks,
+      observations,
+      numericPrice: false,
+      ...overrides,
+    };
+  }
+
+  // T-CNJ-13 @spec §4.10
+  it("bounds the attribute and level counts", () => {
+    expect(() => estimateConjoint(studyOf([], [], { attributes: [] }))).toThrow(RangeError);
+    expect(() =>
+      estimateConjoint(
+        studyOf([], [], {
+          attributes: Array.from({ length: 6 }, (_, index) => attribute(`a${index}`, ["x", "y"])),
+        }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      estimateConjoint(studyOf([], [], { attributes: [attribute("solo", ["only"])] })),
+    ).toThrow(RangeError);
+    expect(() =>
+      estimateConjoint(
+        studyOf([], [], { attributes: [attribute("wide", ["a", "b", "c", "d", "e"])] }),
+      ),
+    ).toThrow(RangeError);
+  });
+
+  // T-CNJ-14 @spec §4.10
+  it("requires unique, non-empty attribute ids and level names", () => {
+    expect(() =>
+      estimateConjoint(
+        studyOf([], [], {
+          attributes: [attribute("dup", ["a", "b"]), attribute("dup", ["c", "d"])],
+        }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      estimateConjoint(studyOf([], [], { attributes: [attribute("", ["a", "b"])] })),
+    ).toThrow(RangeError);
+    expect(() =>
+      estimateConjoint(studyOf([], [], { attributes: [attribute("same", ["a", "a"])] })),
+    ).toThrow(RangeError);
+  });
+
+  // T-CNJ-15 @spec §4.10
+  it("requires tasks, observations, and at least two alternatives per task", () => {
+    expect(() => estimateConjoint(studyOf([], []))).toThrow(RangeError);
+
+    const oneAlternative: ConjointTask = {
+      id: "t1",
+      alternatives: [{ id: "a", levels: { speed: "low" } }],
+    };
+    expect(() =>
+      estimateConjoint(
+        studyOf([oneAlternative], [{ respondentId: "r1", taskId: "t1", chosenAlternativeId: "a" }]),
+      ),
+    ).toThrow(RangeError);
+  });
+
+  // T-CNJ-16 @spec §4.10
+  it("rejects duplicate ids and duplicate concepts within a task", () => {
+    const duplicateIds: ConjointTask = {
+      id: "t1",
+      alternatives: [
+        { id: "a", levels: { speed: "low" } },
+        { id: "a", levels: { speed: "high" } },
+      ],
+    };
+    expect(() =>
+      estimateConjoint(
+        studyOf([duplicateIds], [{ respondentId: "r1", taskId: "t1", chosenAlternativeId: "a" }]),
+      ),
+    ).toThrow(RangeError);
+
+    const duplicateConcepts: ConjointTask = {
+      id: "t1",
+      alternatives: [
+        { id: "a", levels: { speed: "low" } },
+        { id: "b", levels: { speed: "low" } },
+      ],
+    };
+    expect(() =>
+      estimateConjoint(
+        studyOf(
+          [duplicateConcepts],
+          [{ respondentId: "r1", taskId: "t1", chosenAlternativeId: "a" }],
+        ),
+      ),
+    ).toThrow(RangeError);
+
+    const duplicateTaskIds: ConjointTask[] = [
+      {
+        id: "t1",
+        alternatives: [
+          { id: "a", levels: { speed: "low" } },
+          { id: "b", levels: { speed: "high" } },
+        ],
+      },
+      {
+        id: "t1",
+        alternatives: [
+          { id: "c", levels: { speed: "low" } },
+          { id: "d", levels: { speed: "high" } },
+        ],
+      },
+    ];
+    expect(() =>
+      estimateConjoint(
+        studyOf(duplicateTaskIds, [{ respondentId: "r1", taskId: "t1", chosenAlternativeId: "a" }]),
+      ),
+    ).toThrow(RangeError);
+  });
+
+  // T-CNJ-17 @spec §4.10
+  it("rejects observations that reference an unknown task or alternative", () => {
+    const tasks: ConjointTask[] = [
+      {
+        id: "t1",
+        alternatives: [
+          { id: "a", levels: { speed: "low" } },
+          { id: "b", levels: { speed: "high" } },
+        ],
+      },
+    ];
+    expect(() =>
+      estimateConjoint(
+        studyOf(tasks, [{ respondentId: "r1", taskId: "absent", chosenAlternativeId: "a" }]),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      estimateConjoint(
+        studyOf(tasks, [{ respondentId: "r1", taskId: "t1", chosenAlternativeId: "absent" }]),
+      ),
+    ).toThrow(RangeError);
+  });
+
+  // T-CNJ-18 @spec §4.10
+  it("rejects an alternative with a missing level or an invalid numeric price", () => {
+    const missingLevel: ConjointTask = {
+      id: "t1",
+      alternatives: [
+        { id: "a", levels: {} },
+        { id: "b", levels: { speed: "high" } },
+      ],
+    };
+    expect(() =>
+      estimateConjoint(
+        studyOf([missingLevel], [{ respondentId: "r1", taskId: "t1", chosenAlternativeId: "b" }]),
+      ),
+    ).toThrow(RangeError);
+
+    const badPrice: ConjointTask = {
+      id: "t1",
+      alternatives: [
+        { id: "a", levels: { speed: "low" }, price: -5 },
+        { id: "b", levels: { speed: "high" }, price: 10 },
+      ],
+    };
+    expect(() =>
+      estimateConjoint(
+        studyOf([badPrice], [{ respondentId: "r1", taskId: "t1", chosenAlternativeId: "b" }], {
+          numericPrice: true,
+        }),
+      ),
+    ).toThrow(RangeError);
+  });
+
+  // T-CNJ-19 @spec §4.10 — a rank-deficient design must be reported, not fitted.
+  it("reports a non-identifiable design rather than returning coefficients", () => {
+    // `tier` never varies, so its design column is identically zero after the
+    // reference-alternative differencing: two free parameters, one of which is
+    // unidentified.
+    const tasks: ConjointTask[] = Array.from({ length: 6 }, (_, index) => ({
+      id: `t${index}`,
+      alternatives: [
+        { id: `${index}-low`, levels: { speed: "low", tier: "basic" } },
+        { id: `${index}-high`, levels: { speed: "high", tier: "basic" } },
+      ],
+    }));
+    const observations: ConjointObservation[] = tasks.map((task, index) => ({
+      respondentId: `r${index}`,
+      taskId: task.id,
+      chosenAlternativeId: index % 2 === 0 ? `${index}-low` : `${index}-high`,
+    }));
+    const estimate = estimateConjoint(
+      studyOf(tasks, observations, {
+        attributes: [attribute("speed", ["low", "high"]), attribute("tier", ["basic", "pro"])],
+      }),
+    );
+    expect(estimate.status).toBe("nonIdentifiable");
+    expect(estimate.partWorths).toBeUndefined();
+    expect(estimate.bridgeEnabled).toBe(false);
+  });
+
+  // T-CNJ-20 @spec §4.10
+  //
+  // NOTE: this pins observed behaviour, and it is not the behaviour §4.10's
+  // `separated` state describes. With one binary attribute and every choice
+  // going the same way, the gradient reaches GRADIENT_TOLERANCE (1e-8) at
+  // |beta| ~= 10.3, which is below the `separated` guard's `coefficientNorm >
+  // 15`. So a perfectly separated design converges and reports `ok` with a
+  // large coefficient rather than reporting separation. Verified up to 40
+  // identical tasks. Whether the guard's threshold should move is a §4.10
+  // decision, not a test fix — this test exists so the current behaviour is at
+  // least visible rather than assumed.
+  it("converges with a large coefficient when one level always wins", () => {
+    const tasks: ConjointTask[] = Array.from({ length: 40 }, (_, index) => ({
+      id: `t${index}`,
+      alternatives: [
+        { id: `${index}-low`, levels: { speed: "low" } },
+        { id: `${index}-high`, levels: { speed: "high" } },
+      ],
+    }));
+    const observations: ConjointObservation[] = tasks.map((task, index) => ({
+      respondentId: `r${index}`,
+      taskId: task.id,
+      chosenAlternativeId: `${index}-high`,
+    }));
+    const estimate = estimateConjoint(studyOf(tasks, observations));
+
+    expect(estimate.status).toBe("ok");
+    const speedHigh = estimate.partWorths?.find(
+      (row) => row.attributeId === "speed" && row.level === "high",
+    );
+    expect(speedHigh?.estimate ?? 0).toBeGreaterThan(5);
+  });
+
+  // T-CNJ-21 @spec §4.10 — the bridge gate is one-sided and must state its reason.
+  it("disables the WTP bridge when there is no numeric price column", () => {
+    const estimate = estimateConjoint(recoveryStudy(200));
+    expect(estimate.status).toBe("ok");
+    expect(estimate.bridgeEnabled).toBe(true);
+
+    const noPrice = estimateConjoint({
+      ...recoveryStudy(200),
+      numericPrice: false,
+    });
+    expect(noPrice.bridgeEnabled).toBe(false);
+    expect(noPrice.bridgeReason).toMatch(/numeric account-month price column is required/i);
+  });
+
+  // T-CNJ-22 @spec §4.10
+  it("validates the design generator's own bounds", () => {
+    const options = {
+      attributes: simpleAttributes,
+      taskCount: 8,
+      alternativesPerTask: 2,
+      seed: 1,
+    };
+    expect(() => generateConjointDesign({ ...options, taskCount: 0 })).toThrow(RangeError);
+    expect(() => generateConjointDesign({ ...options, alternativesPerTask: 1 })).toThrow(
+      RangeError,
+    );
+    expect(() => generateDEfficientConjointDesign({ ...options, starts: 0 })).toThrow(RangeError);
+    expect(() => generateDEfficientConjointDesign({ ...options, maxSwaps: -1 })).toThrow(
+      RangeError,
+    );
   });
 });

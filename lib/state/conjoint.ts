@@ -8,6 +8,11 @@ import {
   type ConjointStudy,
   type ConjointTask,
 } from "@/lib/engine/conjoint";
+import {
+  estimateHbConjoint,
+  type HbConjointOptions,
+  type HbConjointResult,
+} from "@/lib/engine/hb-conjoint";
 import { mulberry32 } from "@/lib/engine/montecarlo";
 
 import { resizeBandAtP50 } from "./model-editing";
@@ -285,6 +290,22 @@ export function conjointStudyForEngine(record: ConjointStudyRecord): ConjointStu
 
 export function estimateConjointRecord(record: ConjointStudyRecord): ConjointEstimate {
   return estimateConjoint(conjointStudyForEngine(record));
+}
+
+/**
+ * M-04 — per-respondent part-worths via the HB sampler (@spec §4.10.3).
+ *
+ * Deliberately NOT wrapped in a memo or effect: this is the only estimator in
+ * the product with a runtime cost that can breach §3.5's interaction budget, so
+ * it runs only from an explicit user action. Callers must gate on the pooled
+ * estimate being `ok` — HB on a non-identifiable design produces confident
+ * nonsense rather than an error.
+ */
+export function estimateHbConjointRecord(
+  record: ConjointStudyRecord,
+  overrides: Partial<HbConjointOptions> = {},
+): HbConjointResult {
+  return estimateHbConjoint(conjointStudyForEngine(record), overrides);
 }
 
 export function scenarioWithConjointStudy(
