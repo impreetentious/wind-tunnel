@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { fitLognormalBand } from "./stats";
-import { runMonteCarlo } from "./montecarlo";
+import {
+  empiricalPercentile,
+  MAX_MONTE_CARLO_DRAWS,
+  MIN_MONTE_CARLO_DRAWS,
+  mulberry32,
+  runMonteCarlo,
+} from "./montecarlo";
 import type { MonteCarloInput } from "./types";
 
 function fixture(overrides: Partial<MonteCarloInput> = {}): MonteCarloInput {
@@ -162,5 +168,150 @@ describe("P7a seeded Monte Carlo uncertainty", () => {
         challengerWinRate: 0,
       },
     ]);
+  });
+});
+
+// §4.8's validation contract is the part that decides whether a bad scenario is
+// rejected or silently simulated. Each case below pins one refusal, plus the
+// two degenerate paths (a collapsed band and an injected PRNG) that a seeded
+// happy-path fixture never reaches.
+describe("P7a Monte Carlo input validation and degenerate paths", () => {
+  // T-MC-06 @spec §4.8
+  it("rejects a seed that is not a uint32", () => {
+    for (const seed of [-1, 1.5, 4_294_967_296, Number.NaN]) {
+      expect(() => runMonteCarlo(fixture({ seed }))).toThrow(RangeError);
+    }
+  });
+
+  // T-MC-07 @spec §4.8
+  it("rejects draw counts outside the documented bounds", () => {
+    for (const drawCount of [
+      MIN_MONTE_CARLO_DRAWS - 1,
+      MAX_MONTE_CARLO_DRAWS + 1,
+      1_000.5,
+      Number.NaN,
+    ]) {
+      expect(() => runMonteCarlo(fixture({ drawCount }))).toThrow(RangeError);
+    }
+    // The bounds themselves are inclusive.
+    expect(() => runMonteCarlo(fixture({ drawCount: MIN_MONTE_CARLO_DRAWS }))).not.toThrow();
+  });
+
+  // T-MC-08 @spec §4.8
+  it("rejects empty, duplicated, or unnamed parameter and design lists", () => {
+    expect(() => runMonteCarlo(fixture({ parameters: [] }))).toThrow(RangeError);
+    expect(() => runMonteCarlo(fixture({ designs: [] }))).toThrow(RangeError);
+
+    const band = { p10: 50, p50: 100, p90: 200 };
+    expect(() =>
+      runMonteCarlo(
+        fixture({
+          parameters: [
+            { id: "dup", label: "A", band },
+            { id: "dup", label: "B", band },
+          ],
+        }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      runMonteCarlo(fixture({ parameters: [{ id: "", label: "Blank", band }] })),
+    ).toThrow(RangeError);
+
+    expect(() =>
+      runMonteCarlo(
+        fixture({
+          designs: [
+            { id: "dup", label: "A" },
+            { id: "dup", label: "B" },
+          ],
+          referenceDesignId: "dup",
+        }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      runMonteCarlo(fixture({ designs: [{ id: "", label: "Blank" }], referenceDesignId: "" })),
+    ).toThrow(RangeError);
+  });
+
+  // T-MC-09 @spec §4.8
+  it("requires the reference design to be one of the designs", () => {
+    expect(() => runMonteCarlo(fixture({ referenceDesignId: "absent" }))).toThrow(RangeError);
+  });
+
+  // T-MC-10 @spec §4.8
+  it("rejects bands that are unordered, non-positive, or not geometrically centred", () => {
+    const cases = [
+      { p10: 200, p50: 100, p90: 50 },
+      { p10: 0, p50: 0, p90: 200 },
+      { p10: 50, p50: Number.POSITIVE_INFINITY, p90: 200 },
+      // Ordered and positive, but P50 is not sqrt(P10·P90).
+      { p10: 50, p50: 120, p90: 200 },
+    ];
+    for (const band of cases) {
+      expect(() => runMonteCarlo(fixture({ parameters: [{ id: "p", label: "P", band }] }))).toThrow(
+        RangeError,
+      );
+    }
+  });
+
+  // T-MC-11 @spec §4.8 — a collapsed band is a constant, not a degenerate draw.
+  it("holds a zero-width band at its P50 across every draw", () => {
+    const result = runMonteCarlo(
+      fixture({
+        parameters: [
+          { id: "fixed", label: "Fixed", band: { p10: 100, p50: 100, p90: 100 } },
+          { id: "wtp", label: "WTP", band: { p10: 50, p50: 100, p90: 200 } },
+        ],
+        evaluate: (_designId, values) => values.fixed * values.wtp,
+      }),
+    );
+    expect(result.draws.every((draw) => draw.parameterValues.fixed === 100)).toBe(true);
+  });
+
+  // T-MC-12 @spec §4.8
+  it("rejects an evaluator that returns a negative or non-finite MRR", () => {
+    expect(() => runMonteCarlo(fixture({ evaluate: () => -1 }))).toThrow(RangeError);
+    expect(() => runMonteCarlo(fixture({ evaluate: () => Number.NaN }))).toThrow(RangeError);
+  });
+
+  // T-MC-13 @spec §4.1
+  it("interpolates percentiles and refuses an empty or out-of-range request", () => {
+    const values = [10, 20, 30, 40];
+    expect(empiricalPercentile(values, 0)).toBe(10);
+    expect(empiricalPercentile(values, 1)).toBe(40);
+    // Rank 0.5 × 3 = 1.5 → midway between 20 and 30.
+    expect(empiricalPercentile(values, 0.5)).toBeCloseTo(25, 12);
+
+    expect(() => empiricalPercentile([], 0.5)).toThrow(RangeError);
+    expect(() => empiricalPercentile(values, -0.1)).toThrow(RangeError);
+    expect(() => empiricalPercentile(values, 1.1)).toThrow(RangeError);
+  });
+
+  // T-MC-14b @spec §4.12 — an injected PRNG is still held to the [0, 1) contract.
+  it("rejects an injected PRNG that leaves the unit interval", () => {
+    for (const bad of [1, -0.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => runMonteCarlo(fixture({ randomFactory: () => () => bad }))).toThrow(RangeError);
+    }
+    // The open upper bound is exclusive; exactly 0 is accepted and clamped.
+    expect(() => runMonteCarlo(fixture({ randomFactory: () => () => 0 }))).not.toThrow();
+  });
+
+  // T-MC-14c @spec §4.8 — an unlabelled parameter falls back to its id in errors.
+  it("names an unlabelled parameter by its id when its band is malformed", () => {
+    expect(() =>
+      runMonteCarlo(
+        fixture({
+          parameters: [{ id: "bare", label: "", band: { p10: 200, p50: 100, p90: 50 } }],
+        }),
+      ),
+    ).toThrow(/bare/);
+  });
+
+  // T-MC-14 @spec §4.12 — mulberry32 is the only randomness source in the engine.
+  it("produces a deterministic uint32-seeded stream in [0, 1)", () => {
+    const stream = Array.from({ length: 64 }, mulberry32(7));
+    expect(stream.every((value) => value >= 0 && value < 1)).toBe(true);
+    expect(Array.from({ length: 64 }, mulberry32(7))).toEqual(stream);
+    expect(Array.from({ length: 64 }, mulberry32(8))).not.toEqual(stream);
   });
 });

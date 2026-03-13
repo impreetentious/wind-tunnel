@@ -10,8 +10,9 @@ an owner action.
 - [ ] `npm run lint`
 - [ ] `npm run format:check`
 - [ ] `npm run test`
+- [ ] Review every seeded-engine golden snapshot diff; it is a model-change review event, not noise.
 - [ ] `npm run spec-coverage`
-- [ ] `npm run build` (privacy scan plus ≤320 KiB gzip gate)
+- [ ] `npm run build` (privacy scan plus the 360 KiB gzip gate enforced by `scripts/check-bundle-size.mjs`)
 - [ ] `npm run e2e` in Chromium, Firefox, and WebKit
 - [ ] `npm audit` returns no release-blocking production finding
 - [ ] `git diff --check` and a fresh changed-file review are clean

@@ -299,3 +299,64 @@ describe("buildPositioningMap", () => {
     expect(map.dominance[0].tierId).toBe("pro");
   });
 });
+
+// Competitor rows are free-text user input, so §4.5's positioning map has to
+// refuse a malformed rival rather than plot it at NaN. The degenerate σ = 0
+// case is included because it takes a separate ray branch entirely.
+describe("competitive positioning guards", () => {
+  function positioning(overrides: Record<string, unknown> = {}) {
+    return {
+      segmentId: "teams",
+      seatCount: 4,
+      sigma: 0.4,
+      competitors: [competitor("rival", 200, 30, { priceMetric: "per-seat" as const })],
+      tiers: [{ id: "pro", name: "Pro", price: 100, priceMetric: "flat" as const, value: 180 }] as
+        PositioningTierPoint[] | unknown,
+      ...overrides,
+    } as Parameters<typeof buildPositioningMap>[0];
+  }
+
+  // @spec §4.5 T-CMP-G1
+  it("rejects a map with no segment ID or a sub-unit seat count", () => {
+    expect(() => buildPositioningMap(positioning({ segmentId: "" }))).toThrow(RangeError);
+    for (const seatCount of [0, 0.5, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => buildPositioningMap(positioning({ seatCount }))).toThrow(RangeError);
+    }
+  });
+
+  // @spec §4.5 T-CMP-G2
+  it("rejects a malformed competitor", () => {
+    const cases = [
+      competitor("", 200, 30),
+      { ...competitor("rival", 200, 30), name: "" },
+      competitor("rival", -1, 30),
+      competitor("rival", Number.NaN, 30),
+      competitor("rival", 200, -1),
+      competitor("rival", 200, Number.POSITIVE_INFINITY),
+    ];
+    for (const bad of cases) {
+      expect(() => buildPositioningMap(positioning({ competitors: [bad] }))).toThrow(RangeError);
+    }
+  });
+
+  // @spec §4.5 T-CMP-G3
+  it("rejects a non-finite or negative sigma for the break-even rays", () => {
+    for (const sigma of [-0.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => breakEvenRays(sigma)).toThrow(RangeError);
+    }
+  });
+
+  // @spec §4.5 T-CMP-G4 — a point-mass segment has one ray, repeated.
+  it("collapses every break-even ray to slope 1 when sigma is zero", () => {
+    const rays = breakEvenRays(0);
+    expect(rays.map((ray) => ray.label)).toEqual(["p10", "p50", "p90"]);
+    expect(rays.every((ray) => ray.slope === 1)).toBe(true);
+  });
+
+  // @spec §4.5 T-CMP-G5
+  it("returns an empty frontier for no competitors", () => {
+    expect(paretoFrontier([])).toEqual([]);
+    const map = buildPositioningMap(positioning({ competitors: [] }));
+    expect(map.frontier).toEqual([]);
+  });
+});

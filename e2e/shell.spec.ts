@@ -601,7 +601,7 @@ test("the MaxDiff demo study scores items into normalized importance", async ({ 
   await page.getByRole("button", { name: "Load demo CSV" }).click();
   await page.getByRole("button", { name: "Analyze pasted responses" }).click();
 
-  await expect(page.getByRole("heading", { name: "Normalized importance" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Importance lenses$/ })).toBeVisible();
   await expect(page.getByTestId("maxdiff-scores-chart")).toBeVisible();
   await expectNoSeriousAxeViolations(page);
 });

@@ -324,6 +324,54 @@ describe("StudioShell", () => {
     expect(screen.getByTestId("bundling-verdict")).toHaveTextContent("$2.0 above pure components");
   });
 
+  // M-04 / M-05 — both engines shipped with no consumer. These assert they are
+  // reachable from the shipped UI, not merely present in lib/engine.
+  it("generates a D-efficient design and reports how it compared to the baseline", () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Research" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Conjoint" }));
+
+    // Random-balanced is the default and reports nothing extra.
+    expect(screen.getByRole("radio", { name: /Random-balanced/ })).toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Generate task design" }));
+    expect(screen.queryByTestId("conjoint-design-report")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: /D-efficient/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Generate task design" }));
+
+    // The status is surfaced whichever way the search went — never swallowed.
+    const report = screen.getByTestId("conjoint-design-report");
+    expect(report).toBeVisible();
+    expect(report).toHaveTextContent(/log\|X′X\|/);
+    expect(report).toHaveTextContent(
+      /D-efficient search improved|already D-optimal|no improvement; the random-balanced baseline was kept/,
+    );
+  });
+
+  it("estimates per-respondent part-worths only on explicit request", async () => {
+    render(<StudioShell version="1.1.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Research" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Conjoint" }));
+    fireEvent.click(screen.getByRole("button", { name: "Load synthetic study" }));
+
+    // Nothing has sampled yet — HB must never run on render (§3.5).
+    expect(screen.queryByTestId("conjoint-hb-result")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Estimate per-respondent part-worths (slow)" }),
+    );
+
+    const panel = await screen.findByTestId("conjoint-hb-result", undefined, { timeout: 30_000 });
+    expect(panel).toBeVisible();
+    expect(screen.getByText(/respondent posteriors over/)).toBeVisible();
+  });
+
   it("recovers synthetic part-worths and bridges them onto the selected value-matrix cells", () => {
     render(<StudioShell version="1.1.0" />);
 
@@ -412,8 +460,20 @@ describe("StudioShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Load demo CSV" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze pasted responses" }));
 
-    expect(screen.getByRole("heading", { name: "Normalized importance" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Importance lenses" })).toBeVisible();
+    // M-06 — the MNL lens is additive. Counting scores stay the default view so
+    // the shipped interpretation never silently changes underneath a reader.
+    expect(screen.getByRole("button", { name: "Counting scores" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(screen.getByTestId("maxdiff-scores-chart")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "MNL lens" }));
+    expect(screen.getByRole("button", { name: "MNL lens" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("surfaces validation errors while importing a complete scenario", () => {

@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 
-import type { MaxDiffResult, MaxDiffScore } from "@/lib/engine/maxdiff";
+import {
+  estimateMaxDiffMnl,
+  type MaxDiffMnlEstimate,
+  type MaxDiffResult,
+  type MaxDiffScore,
+} from "@/lib/engine/maxdiff";
 import {
   MAX_DIFF_DEMO_CSV,
   makeMaxDiffStudy,
@@ -97,6 +102,7 @@ export function MaxDiffSurface() {
   const [designError, setDesignError] = useState<string | undefined>();
   const [csv, setCsv] = useState(() => (record ? maxDiffCsv(record.responses) : ""));
   const [csvErrors, setCsvErrors] = useState<readonly { line: number; message: string }[]>([]);
+  const [lens, setLens] = useState<"counting" | "mnl">("counting");
 
   const result: MaxDiffResult | undefined = useMemo(() => {
     if (!record || record.responses.length === 0) return undefined;
@@ -109,6 +115,15 @@ export function MaxDiffSurface() {
         error: error instanceof Error ? error.message : "This stored study cannot be scored.",
       };
     }
+  }, [record]);
+
+  const mnl: MaxDiffMnlEstimate | undefined = useMemo(() => {
+    if (!record || record.responses.length === 0) return undefined;
+    return estimateMaxDiffMnl(
+      record.items.map((item) => item.id),
+      record.tasks,
+      record.responses,
+    );
   }, [record]);
 
   const generateDesign = () => {
@@ -336,16 +351,42 @@ export function MaxDiffSurface() {
 
         {result ? (
           <section className="mt-6 rounded-2xl border border-line bg-canvas p-5">
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-ink">
-              Normalized importance
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
-              {result.ok
-                ? "Raw score = (best − worst) / appearances. The shift moves the minimum to zero before renormalizing."
-                : `Validation error: ${result.error}`}
-            </p>
-            {result.ok ? (
-              <ScoresChart locale={scenario.settings.locale} scores={result.scores} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold tracking-[-0.03em] text-ink">
+                Importance lenses
+              </h2>
+              <div aria-label="MaxDiff analysis lens" className="flex gap-2" role="group">
+                <button
+                  aria-pressed={lens === "counting"}
+                  className={lens === "counting" ? buttonPrimary : buttonSecondary}
+                  onClick={() => setLens("counting")}
+                  type="button"
+                >
+                  Counting scores
+                </button>
+                <button
+                  aria-pressed={lens === "mnl"}
+                  className={lens === "mnl" ? buttonPrimary : buttonSecondary}
+                  onClick={() => setLens("mnl")}
+                  type="button"
+                >
+                  MNL lens
+                </button>
+              </div>
+            </div>
+            {lens === "counting" ? (
+              <>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted">
+                  {result.ok
+                    ? "Raw score = (best − worst) / appearances. The shift moves the minimum to zero before renormalizing."
+                    : `Validation error: ${result.error}`}
+                </p>
+                {result.ok ? (
+                  <ScoresChart locale={scenario.settings.locale} scores={result.scores} />
+                ) : null}
+              </>
+            ) : mnl ? (
+              <MnlLens estimate={mnl} locale={scenario.settings.locale} />
             ) : null}
           </section>
         ) : null}
@@ -357,6 +398,68 @@ export function MaxDiffSurface() {
         ) : null}
       </div>
     </section>
+  );
+}
+
+function MnlLens({ estimate, locale }: { estimate: MaxDiffMnlEstimate; locale: string }) {
+  if (estimate.status !== "ok" || !estimate.utilities || !estimate.normalizedShares) {
+    return (
+      <p
+        className="mt-3 rounded-lg border border-amber bg-amber-soft p-3 text-sm text-ink"
+        role="status"
+      >
+        MNL lens unavailable: {estimate.reason}
+      </p>
+    );
+  }
+  const shares = new Map(estimate.normalizedShares.map((share) => [share.itemId, share.share]));
+  return (
+    <div className="mt-4">
+      <p className="max-w-3xl text-sm leading-6 text-muted">
+        Joint MNL estimates best and worst picks together. Utilities are sum-to-zero identified; 90%
+        intervals are model-based uncertainty, not a replacement for the counting scores.
+      </p>
+      <p className="mt-2 text-xs text-muted">
+        {estimate.respondentCount} respondents · {estimate.observationCount} choice observations ·{" "}
+        {estimate.iterations} iterations
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table aria-label="MaxDiff MNL utilities" className="min-w-full text-left text-sm">
+          <thead className="border-b border-line text-muted">
+            <tr>
+              <th className="p-2">Item</th>
+              <th className="p-2">Utility</th>
+              <th className="p-2">SE</th>
+              <th className="p-2">90% CI</th>
+              <th className="p-2">Model share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {estimate.utilities.map((utility) => (
+              <tr className="border-b border-line/60" key={utility.itemId}>
+                <th className="p-2 font-medium text-ink">{utility.itemId}</th>
+                <td className="p-2">
+                  {formatNumber(utility.utility, locale, { maximumFractionDigits: 3 })}
+                </td>
+                <td className="p-2">
+                  {formatNumber(utility.standardError, locale, { maximumFractionDigits: 3 })}
+                </td>
+                <td className="p-2">
+                  [{formatNumber(utility.ci90[0], locale, { maximumFractionDigits: 3 })},{" "}
+                  {formatNumber(utility.ci90[1], locale, { maximumFractionDigits: 3 })}]
+                </td>
+                <td className="p-2">
+                  {formatNumber((shares.get(utility.itemId) ?? 0) * 100, locale, {
+                    maximumFractionDigits: 1,
+                  })}
+                  %
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
