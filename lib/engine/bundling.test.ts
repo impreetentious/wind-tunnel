@@ -119,3 +119,64 @@ describe("bundling analyzer", () => {
     expect(seller.mrr).toBe(15);
   });
 });
+
+// §4.6's regimes are only comparable if each one is evaluated on a menu that is
+// actually valid for it. These pin the refusals — a components menu missing a
+// price, or a mixed menu whose bundle costs more than buying both parts, which
+// would make the "bundle" a strictly dominated decoy rather than a bundle.
+describe("bundling menu validity", () => {
+  // @spec §4.6 T-BND-G1
+  it("rejects an empty or malformed segment list", () => {
+    expect(() => analyzeBundling({ ...canonical, segments: [] })).toThrow(RangeError);
+    expect(() =>
+      analyzeBundling({
+        ...canonical,
+        segments: [canonical.segments[0], { ...canonical.segments[0] }],
+      }),
+    ).toThrow(RangeError);
+    expect(() =>
+      analyzeBundling({
+        ...canonical,
+        segments: [{ ...canonical.segments[0], id: "" }],
+      }),
+    ).toThrow(RangeError);
+
+    for (const field of ["prospectCount", "sigma", "valueA", "valueB"] as const) {
+      for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() =>
+          analyzeBundling({
+            ...canonical,
+            segments: [{ ...canonical.segments[0], [field]: bad }],
+          }),
+        ).toThrow(RangeError);
+      }
+    }
+  });
+
+  // @spec §4.6 T-BND-G2
+  it("requires both component prices for a pure-components menu", () => {
+    expect(() => evaluateBundlingRegime(canonical, "components", { a: 5 })).toThrow(RangeError);
+    expect(() => evaluateBundlingRegime(canonical, "components", { b: 5 })).toThrow(RangeError);
+    expect(() => evaluateBundlingRegime(canonical, "components", {})).toThrow(RangeError);
+    expect(() => evaluateBundlingRegime(canonical, "components", { a: 5, b: 5 })).not.toThrow();
+  });
+
+  // @spec §4.6 T-BND-G3
+  it("requires a bundle price for a pure-bundle menu", () => {
+    expect(() => evaluateBundlingRegime(canonical, "pure-bundle", {})).toThrow(RangeError);
+    expect(() => evaluateBundlingRegime(canonical, "pure-bundle", { bundle: 9 })).not.toThrow();
+  });
+
+  // @spec §4.6 T-BND-G4
+  it("rejects a mixed menu that is empty or prices the bundle above its parts", () => {
+    expect(() => evaluateBundlingRegime(canonical, "mixed", {})).toThrow(RangeError);
+    expect(() => evaluateBundlingRegime(canonical, "mixed", { a: 5, b: 5, bundle: 11 })).toThrow(
+      RangeError,
+    );
+    expect(() =>
+      evaluateBundlingRegime(canonical, "mixed", { a: 5, b: 5, bundle: 9 }),
+    ).not.toThrow();
+    // A partial mixed menu is legal — it degenerates to one component plus a bundle.
+    expect(() => evaluateBundlingRegime(canonical, "mixed", { a: 5, bundle: 9 })).not.toThrow();
+  });
+});

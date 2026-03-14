@@ -102,7 +102,7 @@ describe("offer expansion", () => {
 describe("non-additive feature interactions", () => {
   const featureValues = { a: 100, b: 60, c: 40 };
 
-  // @spec §4.1 — an interaction contributes only when both features are present.
+  // @spec §4.1.1 — an interaction contributes only when both features are present.
   it("applies a pair adjustment only to offers holding both features", () => {
     const interactions: FeatureInteraction[] = [{ featureIds: ["a", "b"], value: 25 }];
     expect(interactionValueForFeatures(["a", "b", "c"], interactions)).toBe(25);
@@ -223,5 +223,121 @@ describe("non-additive feature interactions", () => {
     expect(byId.get("tier:base")?.value).toBe(100);
     // Composite holds "a" and "b": additive 160 + interaction 30 = 190.
     expect(byId.get("tier:base+addons:plus")?.value).toBe(190);
+  });
+});
+
+// §4.2's expansion is the first thing every other engine consumes, so its caps
+// and completeness checks are the earliest place a malformed catalog can be
+// stopped. A missing feature value in particular would otherwise silently
+// expand to NaN value and poison every downstream readout.
+describe("offer expansion guards", () => {
+  const featureValues = { core: 100, analytics: 60 };
+  const tier: TierDefinition = {
+    id: "pro",
+    name: "Pro",
+    price: 50,
+    priceMetric: "flat",
+    featureIds: ["core"],
+  };
+
+  function expansion(overrides: Record<string, unknown> = {}) {
+    return expandOffers({
+      seatCount: 4,
+      featureValues,
+      tiers: [tier],
+      includeCompetitors: false,
+      ...overrides,
+    } as Parameters<typeof expandOffers>[0]);
+  }
+
+  // @spec §4.2 T-OFR-G1
+  it("rejects a malformed seat count", () => {
+    for (const seatCount of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => expansion({ seatCount })).toThrow(RangeError);
+    }
+  });
+
+  // @spec §4.2 T-OFR-G2
+  it("enforces the documented catalog caps", () => {
+    const tiers = Array.from({ length: 6 }, (_, index) => ({ ...tier, id: `t${index}` }));
+    expect(() => expansion({ tiers })).toThrow(/At most 5 tiers/);
+
+    const addOns = Array.from({ length: 4 }, (_, index) => ({
+      id: `x${index}`,
+      name: `X${index}`,
+      price: 5,
+      priceMetric: "flat" as const,
+      featureIds: ["analytics"],
+    }));
+    expect(() => expansion({ addOns })).toThrow(/At most 3 add-ons/);
+
+    const competitors = Array.from({ length: 7 }, (_, index) => ({
+      id: `c${index}`,
+      name: `C${index}`,
+      price: 40,
+      priceMetric: "flat" as const,
+      value: 120,
+    }));
+    expect(() => expansion({ competitors, includeCompetitors: true })).toThrow(
+      /At most 6 competitors/,
+    );
+  });
+
+  // @spec §4.2 T-OFR-G3
+  it("rejects duplicate or blank ids in any collection", () => {
+    expect(() => expansion({ tiers: [tier, { ...tier }] })).toThrow(RangeError);
+    expect(() => expansion({ tiers: [{ ...tier, id: "" }] })).toThrow(RangeError);
+  });
+
+  // @spec §4.2 T-OFR-G4
+  it("rejects a tier referencing a feature with no value", () => {
+    expect(() => expansion({ tiers: [{ ...tier, featureIds: ["absent"] }] })).toThrow(
+      /Missing value for feature/,
+    );
+    expect(() => expansion({ featureValues: { core: Number.NaN }, tiers: [tier] })).toThrow(
+      RangeError,
+    );
+    expect(() => expansion({ featureValues: { core: -10 }, tiers: [tier] })).toThrow(RangeError);
+  });
+
+  // @spec §4.2 T-OFR-G5 — a self-pair or absent side contributes nothing.
+  it("ignores interactions that are not fully present, and rejects non-finite ones", () => {
+    expect(interactionValueForFeatures(["core"], [])).toBe(0);
+    expect(
+      interactionValueForFeatures(["core"], [{ featureIds: ["core", "core"], value: 25 }]),
+    ).toBe(0);
+    expect(
+      interactionValueForFeatures(["core"], [{ featureIds: ["core", "analytics"], value: 25 }]),
+    ).toBe(0);
+    expect(
+      interactionValueForFeatures(
+        ["core", "analytics"],
+        [{ featureIds: ["core", "analytics"], value: 25 }],
+      ),
+    ).toBe(25);
+    expect(() =>
+      interactionValueForFeatures(
+        ["core", "analytics"],
+        [{ featureIds: ["core", "analytics"], value: Number.NaN }],
+      ),
+    ).toThrow(RangeError);
+  });
+
+  // @spec §4.2 T-OFR-G7 — usage pricing is optional; absent means zero cost.
+  it("adds no usage cost when a tier declares no usage pricing", () => {
+    const withoutUsage = expansion({ tiers: [{ ...tier, usagePricing: [] }] });
+    const baseline = expansion();
+    const find = (offers: ReturnType<typeof expandOffers>) =>
+      offers.find((offer) => offer.id === "pro")?.effectivePrice;
+    expect(find(withoutUsage)).toBe(find(baseline));
+  });
+
+  // @spec §4.2 T-OFR-G6 — substitutes may reduce value, but never below zero.
+  it("floors offer value at zero", () => {
+    expect(
+      offerValueForFeatures(["core", "analytics"], featureValues, [
+        { featureIds: ["core", "analytics"], value: -1_000 },
+      ]),
+    ).toBe(0);
   });
 });

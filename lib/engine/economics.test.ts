@@ -553,3 +553,72 @@ describe("screening oracle", () => {
     expect(result.segments[1].selection.selectedAtMedianId).toBe("pro");
   });
 });
+
+// The economics layer is downstream of everything the user can edit, so a bad
+// segment must be refused at the boundary rather than propagated into a readout
+// that looks plausible. Each case pins one refusal in §4.4/§4.6.
+describe("economics input validation", () => {
+  function segment(overrides: Partial<SegmentEconomicsInput> = {}): SegmentEconomicsInput {
+    return {
+      id: "teams",
+      prospectCount: 100,
+      sigma: 0.4,
+      fullCatalogValue: 200,
+      offers: [offer("pro", 150, 60), outside],
+      ...overrides,
+    };
+  }
+
+  // @spec §4.4 T-ECO-G1
+  it("rejects a segment with no ID or a malformed magnitude", () => {
+    expect(() => simulateSegmentEconomics(segment({ id: "" }))).toThrow(RangeError);
+    for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => simulateSegmentEconomics(segment({ prospectCount: bad }))).toThrow(RangeError);
+      expect(() => simulateSegmentEconomics(segment({ fullCatalogValue: bad }))).toThrow(
+        RangeError,
+      );
+      expect(() => simulateSegmentEconomics(segment({ sigma: bad }))).toThrow(RangeError);
+    }
+  });
+
+  // @spec §4.4 T-ECO-G2
+  it("requires at least one segment for a scenario readout", () => {
+    expect(() => simulateEconomics({ segments: [] })).toThrow(RangeError);
+  });
+
+  // @spec §4.6 T-ECO-G3
+  it("refuses to counterfactually remove the outside option", () => {
+    const input = { segments: [segment()] };
+    expect(() => removeOfferCounterfactual(input, "")).toThrow(RangeError);
+    expect(() => removeOfferCounterfactual(input, "outside")).toThrow(RangeError);
+  });
+
+  // @spec §4.6 T-ECO-G4 — removing an absent offer is a no-op, not an error.
+  it("reports a zero delta when the removed offer is not in the menu", () => {
+    const counterfactual = removeOfferCounterfactual({ segments: [segment()] }, "absent");
+    // `-0` is the honest result of negating a zero delta; compare by value.
+    expect(counterfactual.mrrChangeWhenRemoved).toBeCloseTo(0, 12);
+    expect(counterfactual.removedOfferContribution).toBeCloseTo(0, 12);
+  });
+
+  // @spec §4.6 T-ECO-G5
+  it("rejects a sweep with no segments, a missing tier, or an inconsistent list price", () => {
+    expect(() => sweepTierPrice(basicSweepInput({ segments: [] }))).toThrow(RangeError);
+    expect(() => sweepTierPrice(basicSweepInput({ tierId: "absent" }))).toThrow(RangeError);
+
+    const base = basicSweepInput();
+    const second = {
+      ...base.segments[0],
+      id: "enterprise",
+      offerExpansion: {
+        ...base.segments[0].offerExpansion,
+        tiers: base.segments[0].offerExpansion.tiers.map((tier) =>
+          tier.id === "pro" ? { ...tier, price: 99 } : tier,
+        ),
+      },
+    };
+    expect(() => sweepTierPrice({ ...base, segments: [base.segments[0], second] })).toThrow(
+      RangeError,
+    );
+  });
+});

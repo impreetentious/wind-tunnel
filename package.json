@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.22.2",
+  "version": "0.22.3",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -36,7 +36,7 @@
     "@tailwindcss/postcss": "4.2.1",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
-    "@types/node": "25.3.0",
+    "@types/node": "25.3.1",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitest/coverage-v8": "^4.0.18",
