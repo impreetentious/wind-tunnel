@@ -62,9 +62,7 @@ async function readDownload(download: import("@playwright/test").Download) {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-// §6 traceability: E2E-01…E2E-09 are the test titles below. E2E-10 (decision-record
-// Markdown download + print CSS) is covered by the E2E-08 download assertion plus the
-// print-media flow below.
+// §6 traceability: E2E-01…E2E-10 are named test titles below.
 test("E2E-01: the static shell is accessible, private, and theme-aware", async ({ page }) => {
   const unexpectedRequests: string[] = [];
 
@@ -512,7 +510,7 @@ test("the shell reflows to 320 CSS pixels without page-level horizontal scrollin
   await expectNoSeriousAxeViolations(page);
 });
 
-test("print media keeps the decision record and drops the non-document controls", async ({
+test("E2E-10: the decision record exports current modeled numbers and prints cleanly", async ({
   page,
 }) => {
   await page.goto("/");
@@ -520,6 +518,13 @@ test("print media keeps the decision record and drops the non-document controls"
   await page.getByRole("tab", { name: "Share" }).click();
   await page.getByRole("button", { name: "Generate current record" }).click();
   await expect(page.getByTestId("decision-record-document")).toBeVisible();
+
+  const download = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download Markdown" }).click(),
+  ]).then(([event]) => event);
+  const markdown = await readDownload(download);
+  expect(markdown).toMatch(/\| MRR \| \$[\d,]+ \|/);
 
   await page.emulateMedia({ media: "print" });
   await expect(page.getByTestId("decision-record-document")).toBeVisible();
