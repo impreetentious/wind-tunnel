@@ -3,12 +3,13 @@ import { join } from "node:path";
 
 const root = process.cwd();
 const spec = await readFile(join(root, "docs", "MODEL-SPEC.md"), "utf8");
-const sections = [...spec.matchAll(/^### §(4\.\d+) /gm)].map((match) => match[1]);
+const sections = [...spec.matchAll(/^#{3,4} §(4\.\d+(?:\.\d+)?) /gm)].map((match) => match[1]);
 // §4.10 shipped with P7d-1/P7d-2; §4.11 is required from P7e (positioning surface).
 // §4.13 (elasticity) and §4.14 (joint optimizer) are required from §15 Batch 1 (S36).
 // §4.15 (usage) and §4.16 (trials/time) are required from §15 Batch 3.
 const requiredSections = new Set([
   "4.1",
+  "4.1.1",
   "4.2",
   "4.3",
   "4.4",
@@ -18,6 +19,9 @@ const requiredSections = new Set([
   "4.8",
   "4.9",
   "4.10",
+  "4.10.1",
+  "4.10.2",
+  "4.10.3",
   "4.11",
   "4.12",
   "4.13",
@@ -51,7 +55,7 @@ const tests = await findTests(root);
 const citations = new Map(sections.map((section) => [section, 0]));
 for (const test of tests) {
   const source = await readFile(test, "utf8");
-  for (const match of source.matchAll(/@spec §(4\.\d+)/g)) {
+  for (const match of source.matchAll(/@spec §(4\.\d+(?:\.\d+)?)/g)) {
     citations.set(match[1], (citations.get(match[1]) ?? 0) + 1);
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.22.4",
+  "version": "0.22.5",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -13,6 +13,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "perf:conjoint": "vitest run --config vitest.perf.config.ts",
     "e2e": "playwright test",
     "privacy": "node scripts/check-runtime-privacy.mjs",
     "bundle-size": "node scripts/check-bundle-size.mjs",

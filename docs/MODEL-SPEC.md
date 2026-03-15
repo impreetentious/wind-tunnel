@@ -1,8 +1,8 @@
 # Wind Tunnel Model Specification
 
-This is the authoritative mathematical contract for the pricing engine. Its section numbering
-intentionally remains stable so tests can cite individual requirements. Money is modeled as
-floating dollars, not accounting currency units.
+This is the authoritative mathematical contract for the pricing engine. Its
+section numbering is stable so tests can cite individual requirements. Money is
+modeled as floating dollars, not accounting currency units.
 
 ## §4. Economic model contract
 
