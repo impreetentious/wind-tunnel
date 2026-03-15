@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { simulateEconomics } from "./economics";
 import { lintDesign, type DesignLinterInput, type LinterTier } from "./linter";
 import { expandOffers } from "./offers";
-import type { EconomicsReadout, SegmentEconomicsReadout } from "./types";
+import type { EconomicsReadout, SegmentEconomicsInput, SegmentEconomicsReadout } from "./types";
 
 const features = [
   { id: "a", name: "Workflow" },
@@ -357,5 +357,74 @@ describe("P5 deterministic design linter", () => {
       ],
     );
     expect(ids(input)).toEqual([]);
+  });
+});
+
+// §4.9's E7 (competitor takes material potential) and the σ = 0 value moments
+// are the linter paths a lognormal fixture never exercises: a point-mass
+// segment resolves selection by a single median pick rather than by
+// integrating shares, so it runs entirely different arithmetic.
+describe("P5 linter — point-mass segments and competitor loss", () => {
+  function competitiveSegment(sigma: number): SegmentEconomicsInput {
+    return {
+      id: "segment",
+      prospectCount: 1_000,
+      fullCatalogValue: 200,
+      sigma,
+      offers: expandOffers({
+        seatCount: 1,
+        featureValues: { a: 100, b: 100 },
+        tiers: [
+          { id: "pro", name: "Pro", price: 190, priceMetric: "flat", featureIds: ["a", "b"] },
+        ],
+        competitors: [{ id: "rival", name: "Rival", price: 20, priceMetric: "flat", value: 190 }],
+        includeCompetitors: true,
+      }),
+    };
+  }
+
+  function competitiveInput(sigma: number): DesignLinterInput {
+    const simulate = () => simulateEconomics({ segments: [competitiveSegment(sigma)] });
+    return {
+      features,
+      tiers: [{ id: "pro", name: "Pro", price: 190, priceMetric: "flat", featureIds: ["a", "b"] }],
+      addOns: [],
+      segments: [{ id: "segment", name: "Core segment", seatCount: 1 }],
+      baseline: simulate(),
+      simulate,
+    };
+  }
+
+  // @spec §4.9 T-LNT-10
+  it("flags a cheap dominant competitor in a point-mass segment", () => {
+    const findings = lintDesign(competitiveInput(0));
+    const e7 = findings.find((finding) => finding.id === "E7");
+    expect(e7).toBeDefined();
+    expect(e7?.message).toMatch(/Rival takes/);
+    // A point-mass segment loses all of its potential to the winner.
+    expect(e7?.metrics?.lossShare ?? 0).toBeGreaterThan(0.9);
+  });
+
+  // @spec §4.9 T-LNT-11
+  it("flags the same competitor when the segment has dispersion", () => {
+    const findings = lintDesign(competitiveInput(0.4));
+    const e7 = findings.find((finding) => finding.id === "E7");
+    expect(e7).toBeDefined();
+    expect(e7?.metrics?.lossShare ?? 0).toBeGreaterThan(0);
+  });
+
+  // @spec §4.9 T-LNT-12 — the E1 "in no offer" wording, not the "in every offer" one.
+  it("uses the absent-feature wording when a fence appears in no offer", () => {
+    const findings = lintDesign(
+      directInput({
+        features: [{ id: "ghost", name: "Ghost feature" }],
+        tiers: [
+          { id: "free", name: "Free", price: 0, priceMetric: "flat", featureIds: [] },
+          { id: "paid", name: "Paid", price: 10, priceMetric: "flat", featureIds: [] },
+        ],
+      }),
+    );
+    const e1 = findings.find((finding) => finding.id === "E1");
+    expect(e1?.message).toMatch(/is not in any current offer/);
   });
 });

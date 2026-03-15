@@ -139,3 +139,40 @@ describe("joint price optimizer", () => {
     ).toThrow(/at least one segment/);
   });
 });
+
+// A joint search over a tier that does not exist in every segment would price
+// something the model never sells, so §4.14 refuses the input rather than
+// returning an optimum that cannot be acted on.
+describe("joint optimizer input guards", () => {
+  const segments = [segment("smb", 200, 0.5, 80)];
+  const tiers = [{ tierId: "pro", currentPrice: 60, priceMetric: "flat" as const }];
+
+  // @spec §4.14 T-OPT-G1
+  it("requires at least one tier and one segment", () => {
+    expect(() => optimizeJointPrices({ segments, tiers: [], seed: 1 })).toThrow(RangeError);
+    expect(() => optimizeJointPrices({ segments: [], tiers, seed: 1 })).toThrow(RangeError);
+  });
+
+  // @spec §4.14 T-OPT-G2
+  it("rejects a tier with no id or a malformed current price", () => {
+    expect(() =>
+      optimizeJointPrices({ segments, tiers: [{ ...tiers[0], tierId: "" }], seed: 1 }),
+    ).toThrow(RangeError);
+    for (const currentPrice of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        optimizeJointPrices({ segments, tiers: [{ ...tiers[0], currentPrice }], seed: 1 }),
+      ).toThrow(RangeError);
+    }
+  });
+
+  // @spec §4.14 T-OPT-G3
+  it("rejects a tier that is missing from any segment", () => {
+    expect(() =>
+      optimizeJointPrices({
+        segments,
+        tiers: [{ tierId: "absent", currentPrice: 30, priceMetric: "flat" }],
+        seed: 1,
+      }),
+    ).toThrow(/missing from segment/);
+  });
+});

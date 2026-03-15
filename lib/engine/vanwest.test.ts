@@ -75,3 +75,64 @@ describe("Van Westendorp price sensitivity meter", () => {
     expect(result.acceptableRange).toBeUndefined();
   });
 });
+
+// §4.7 is explicit that degenerate PSM data yields *undefined* markers rather
+// than invented prices. These pin the paths that produce them: no valid
+// responses at all, a single respondent (no curve to cross), and an exact
+// crossing that needs no interpolation.
+describe("Van Westendorp degenerate data", () => {
+  const response = (tooCheap: number, cheap: number, expensive: number, tooExpensive: number) => ({
+    tooCheap,
+    cheap,
+    expensive,
+    tooExpensive,
+  });
+
+  // T-VW-G1 @spec §4.7
+  it("drops non-finite and negative prices as violations", () => {
+    const { validResponses, violations } = validateVanWestendorpResponses([
+      response(Number.NaN, 10, 20, 30),
+      response(-1, 10, 20, 30),
+      response(5, 10, 20, Number.POSITIVE_INFINITY),
+      response(5, 10, 20, 30),
+    ]);
+    expect(validResponses).toHaveLength(1);
+    expect(violations).toHaveLength(3);
+    expect(violations[0].reason).toMatch(/finite, non-negative/);
+  });
+
+  // T-VW-G2 @spec §4.7
+  it("returns undefined markers when nothing survives validation", () => {
+    const result = analyzeVanWestendorp([response(Number.NaN, 10, 20, 30)]);
+    expect(result.curves).toEqual([]);
+    for (const marker of Object.values(result.points)) {
+      expect(marker.price).toBeUndefined();
+    }
+    expect(result.acceptableRange).toBeUndefined();
+  });
+
+  // T-VW-G3 @spec §4.7
+  it("returns undefined markers for an empty response set", () => {
+    const result = analyzeVanWestendorp([]);
+    expect(result.validResponses).toEqual([]);
+    expect(result.curves).toEqual([]);
+    expect(Object.values(result.points).every((marker) => marker.price === undefined)).toBe(true);
+  });
+
+  // T-VW-G4 @spec §4.7 — a lone respondent still yields four price points, so
+  // the curves cross; every marker must land inside that respondent's own
+  // range rather than being extrapolated beyond it.
+  it("keeps a single respondent's crossings inside their own price range", () => {
+    const result = analyzeVanWestendorp([response(5, 10, 20, 30)]);
+    expect(result.validResponses).toHaveLength(1);
+    expect(result.curves.length).toBeGreaterThan(0);
+    for (const marker of Object.values(result.points)) {
+      if (marker.price === undefined) continue;
+      expect(marker.price).toBeGreaterThanOrEqual(5);
+      expect(marker.price).toBeLessThanOrEqual(30);
+    }
+    if (result.acceptableRange) {
+      expect(result.acceptableRange.low).toBeLessThanOrEqual(result.acceptableRange.high);
+    }
+  });
+});

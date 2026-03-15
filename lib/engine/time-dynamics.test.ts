@@ -94,3 +94,76 @@ describe("time dynamics (@spec §4.16)", () => {
     expect(() => projectTimeDynamics({ segments: [baseSegment], periods: -1 })).toThrow(/periods/);
   });
 });
+
+// §4.13's projection takes user-entered rates, so its unit-interval and
+// integer guards are the boundary that stops a 150% retention or a fractional
+// month producing a plausible-looking curve. The zero-buyer and zero-retention
+// paths are separate arithmetic branches, not just extreme values.
+describe("time dynamics guards and degenerate paths", () => {
+  // T-TIME-G1 @spec §4.13
+  it("rejects rates outside [0, 1]", () => {
+    for (const field of ["trialConversion", "monthlyRetention"] as const) {
+      for (const bad of [-0.1, 1.1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() =>
+          projectTimeDynamics({ segments: [{ ...baseSegment, [field]: bad }], periods: 3 }),
+        ).toThrow(RangeError);
+      }
+    }
+  });
+
+  // T-TIME-G2 @spec §4.13
+  it("rejects non-integer or negative period and term counts", () => {
+    expect(() => projectTimeDynamics({ segments: [baseSegment], periods: -1 })).toThrow(RangeError);
+    expect(() => projectTimeDynamics({ segments: [baseSegment], periods: 2.5 })).toThrow(
+      RangeError,
+    );
+    expect(() =>
+      projectTimeDynamics({ segments: [{ ...baseSegment, trialLength: -1 }], periods: 3 }),
+    ).toThrow(RangeError);
+    expect(() =>
+      projectTimeDynamics({ segments: [{ ...baseSegment, trialLength: 1.5 }], periods: 3 }),
+    ).toThrow(RangeError);
+  });
+
+  // T-TIME-G3 @spec §4.13
+  it("rejects a malformed MRR or selector count", () => {
+    for (const field of ["monthlyMrr", "paidSelectors"] as const) {
+      for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+        expect(() =>
+          projectTimeDynamics({ segments: [{ ...baseSegment, [field]: bad }], periods: 3 }),
+        ).toThrow(RangeError);
+      }
+    }
+  });
+
+  // T-TIME-G4 @spec §4.13 — nobody converts, so there is no revenue to retain.
+  it("produces a flat zero curve when conversion is zero", () => {
+    const result = projectTimeDynamics({
+      segments: [{ ...baseSegment, trialLength: 2, trialConversion: 0 }],
+      periods: 4,
+    });
+    expect(result.points.every((point) => point.mrr === 0)).toBe(true);
+    expect(result.cumulativeRevenue).toBe(0);
+    expect(result.segments[0].ltvPerAcquired).toBe(0);
+  });
+
+  // T-TIME-G5 @spec §4.13 — total churn after the first paid month.
+  it("drops to zero revenue when retention is zero", () => {
+    const result = projectTimeDynamics({
+      segments: [{ ...baseSegment, monthlyRetention: 0 }],
+      periods: 3,
+    });
+    expect(result.points[0].mrr).toBe(1_000);
+    expect(result.points.slice(1).every((point) => point.mrr === 0)).toBe(true);
+  });
+
+  // T-TIME-G6 @spec §4.13 — no acquired buyers means LTV is undefined, not NaN.
+  it("reports zero LTV rather than dividing by zero selectors", () => {
+    const result = projectTimeDynamics({
+      segments: [{ ...baseSegment, paidSelectors: 0 }],
+      periods: 3,
+    });
+    expect(result.segments[0].ltvPerAcquired).toBe(0);
+    expect(Number.isNaN(result.cumulativeRevenue)).toBe(false);
+  });
+});
