@@ -63,7 +63,7 @@ export function UsageMetricEditor() {
       <div className="mt-5 grid gap-4">
         {metrics.map((metric) => (
           <article className="rounded-xl border border-line bg-canvas p-4" key={metric.id}>
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,11rem)_auto] sm:items-end">
               <label className="text-xs font-medium text-muted">
                 Metric name
                 <input
@@ -106,6 +106,34 @@ export function UsageMetricEditor() {
                   value={metric.unitLabel}
                 />
               </label>
+              <label className="text-xs font-medium text-muted">
+                Unit is a
+                <select
+                  aria-label={`${metric.name} unit kind`}
+                  className="mt-1 block min-h-10 w-full rounded-lg border border-line bg-canvas-raised px-3 text-sm text-ink"
+                  onChange={(event) =>
+                    updateScenario((current) => ({
+                      ...current,
+                      model: {
+                        ...current.model,
+                        usageMetrics: current.model.usageMetrics.map((entry) =>
+                          entry.id === metric.id
+                            ? {
+                                ...entry,
+                                unitKind:
+                                  event.target.value === "outcome" ? "outcome" : "consumption",
+                              }
+                            : entry,
+                        ),
+                      },
+                    }))
+                  }
+                  value={metric.unitKind ?? "consumption"}
+                >
+                  <option value="consumption">Consumption</option>
+                  <option value="outcome">Outcome</option>
+                </select>
+              </label>
               <button
                 className="min-h-10 rounded-lg border border-line bg-canvas-raised px-3 text-sm font-semibold text-muted hover:border-amber hover:text-amber"
                 onClick={() =>
@@ -129,11 +157,17 @@ export function UsageMetricEditor() {
                         usagePricing: tier.usagePricing?.filter(
                           (line) => line.metricId !== metric.id,
                         ),
+                        creditPacks: tier.creditPacks?.filter(
+                          (pack) => pack.metricId !== metric.id,
+                        ),
                       })),
                       addOns: design.addOns.map((addOn) => ({
                         ...addOn,
                         usagePricing: addOn.usagePricing?.filter(
                           (line) => line.metricId !== metric.id,
+                        ),
+                        creditPacks: addOn.creditPacks?.filter(
+                          (pack) => pack.metricId !== metric.id,
                         ),
                       })),
                     })),

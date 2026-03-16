@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 
+import { summarizeHybridCost } from "@/lib/engine/credits";
 import { summarizeUsageCost } from "@/lib/engine/usage";
 import { activeDesign } from "@/lib/state/design-editing";
-import { formatCount, formatMoney } from "@/lib/state/formatting";
+import { formatCount, formatMoney, formatPercent } from "@/lib/state/formatting";
 import { useScenarioStore } from "@/lib/state/scenario-store";
 
 export function UsageSurface() {
@@ -15,17 +16,27 @@ export function UsageSurface() {
   const design = activeDesign(scenario);
   const rows = useMemo(() => {
     if (!segment) return [];
-    return [...design.tiers, ...design.addOns].map((offer) => ({
-      id: offer.id,
-      name: offer.name,
-      base: offer.price,
-      surcharge: summarizeUsageCost({
-        usagePricing: offer.usagePricing,
+    return [...design.tiers, ...design.addOns].map((offer) => {
+      const hybrid = summarizeHybridCost({
+        creditPacks: offer.creditPacks,
         usageBands: segment.usageBands ?? {},
-      }),
-      lines: offer.usagePricing ?? [],
-    }));
+      });
+      return {
+        id: offer.id,
+        name: offer.name,
+        base: offer.price,
+        surcharge:
+          summarizeUsageCost({
+            usagePricing: offer.usagePricing,
+            usageBands: segment.usageBands ?? {},
+          }) + hybrid.expectedSurcharge,
+        lines: offer.usagePricing ?? [],
+        packs: hybrid.packs,
+        breakage: hybrid.expectedBreakageRevenue,
+      };
+    });
   }, [design.addOns, design.tiers, segment]);
+  const packRows = rows.filter((row) => row.packs.length > 0);
   return (
     <section
       className="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-y-auto p-6 sm:p-10"
@@ -126,20 +137,102 @@ export function UsageSurface() {
                       )}
                     </td>
                     <td className="px-3 py-3 text-muted">
-                      {row.lines.length === 0
-                        ? "No usage line"
-                        : row.lines
-                            .map(
-                              (line) =>
-                                `${scenario.model.usageMetrics.find((metric) => metric.id === line.metricId)?.name ?? line.metricId}: ${formatMoney(line.perUnitPrice, scenario.settings.currency, scenario.settings.locale, { maximumFractionDigits: 4 })}/unit after ${formatCount(line.includedUnits ?? 0, scenario.settings.locale)}`,
-                            )
-                            .join(" · ")}
+                      {[
+                        ...row.lines.map(
+                          (line) =>
+                            `${scenario.model.usageMetrics.find((metric) => metric.id === line.metricId)?.name ?? line.metricId}: ${formatMoney(line.perUnitPrice, scenario.settings.currency, scenario.settings.locale, { maximumFractionDigits: 4 })}/unit after ${formatCount(line.includedUnits ?? 0, scenario.settings.locale)}`,
+                        ),
+                        ...row.packs.map(
+                          (pack) =>
+                            `${scenario.model.usageMetrics.find((metric) => metric.id === pack.metricId)?.name ?? pack.metricId}: ${formatCount(pack.packUnits, scenario.settings.locale)}-unit pack at ${formatMoney(pack.packPrice, scenario.settings.currency, scenario.settings.locale)}`,
+                        ),
+                      ].join(" · ") || "No usage line"}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </section>
+          {packRows.length > 0 ? (
+            <section className="rounded-2xl border border-line bg-canvas p-5">
+              <h3 className="text-lg font-semibold text-ink">Prepaid credit packs</h3>
+              <p className="mt-2 mb-4 max-w-3xl text-sm leading-6 text-muted">
+                Breakage is the part of a pack this segment is expected to buy and never spend —
+                revenue with no delivery behind it. It is already inside the effective price above;
+                splitting it out is a disclosure, not a second charge.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[46rem] text-left text-sm">
+                  <caption className="sr-only">
+                    Expected pack utilisation, breakage, and bill by offer
+                  </caption>
+                  <thead className="border-b border-line text-xs text-muted">
+                    <tr>
+                      <th className="px-3 py-2">Offer · metric</th>
+                      <th className="px-3 py-2 text-right">Pack rate</th>
+                      <th className="px-3 py-2 text-right">Utilisation</th>
+                      <th className="px-3 py-2 text-right">Breakage</th>
+                      <th className="px-3 py-2 text-right">P(overage)</th>
+                      <th className="px-3 py-2 text-right">Expected bill</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {packRows.flatMap((row) =>
+                      row.packs.map((pack) => (
+                        <tr className="border-b border-line/70" key={`${row.id}-${pack.metricId}`}>
+                          <th className="px-3 py-3 font-medium text-ink" scope="row">
+                            {row.name}{" "}
+                            <span className="font-normal text-muted">
+                              ·{" "}
+                              {scenario.model.usageMetrics.find(
+                                (metric) => metric.id === pack.metricId,
+                              )?.name ?? pack.metricId}
+                            </span>
+                          </th>
+                          <td className="px-3 py-3 text-right tabular-nums text-ink">
+                            {formatMoney(
+                              pack.impliedUnitPrice,
+                              scenario.settings.currency,
+                              scenario.settings.locale,
+                              { maximumFractionDigits: 4 },
+                            )}
+                            <span className="text-xs text-muted">/unit</span>
+                            {pack.overageCliff ? (
+                              <span className="ml-2 rounded bg-amber/15 px-1.5 py-0.5 text-xs font-semibold text-amber">
+                                cliff
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums text-ink">
+                            {formatPercent(pack.utilisation, scenario.settings.locale)}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums text-ink">
+                            {formatMoney(
+                              pack.expectedBreakageRevenue,
+                              scenario.settings.currency,
+                              scenario.settings.locale,
+                              { maximumFractionDigits: 2 },
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums text-ink">
+                            {formatPercent(pack.probabilityOfOverage, scenario.settings.locale)}
+                          </td>
+                          <td className="px-3 py-3 text-right font-semibold tabular-nums text-ink">
+                            {formatMoney(
+                              pack.expectedBuyerCost,
+                              scenario.settings.currency,
+                              scenario.settings.locale,
+                              { maximumFractionDigits: 2 },
+                            )}
+                          </td>
+                        </tr>
+                      )),
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : null}
         </>
       )}
     </section>

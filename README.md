@@ -11,11 +11,12 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 ## What it does
 
 - **Model** — buyer segments with P50-centred size and willingness-to-pay bands, within-segment buyer spread, a keyboard-navigable segment × feature value matrix, usage metrics and bands, provenance tags, and immediate engine-backed KPIs. Three template scenarios give you a practical first run.
-- **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat or metered usage pricing, trial and retention assumptions, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, and directional behavioral considerations without inventing numeric effects.
+- **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat, metered or prepaid-credit pricing, trial and retention assumptions, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, and directional behavioral considerations without inventing numeric effects.
 - **Simulate** — closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall, and a 400-point residual price sweep for each tier.
 - **Analyze — Uncertainty** — seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates, and a tornado chart that tells you _which assumption to validate first_.
 - **Analyze — Research** — survey-first Van Westendorp price sensitivity with manual/CSV input, exclusion reporting, cumulative curves, interpolated points, and a clearly labeled illustrative mode. Choice-based conjoint, MaxDiff and bundling economics are available alongside it.
 - **Analyze — Elasticity and price search** — own-price and revenue elasticity, a cross-tier substitution heatmap, and a price search that reports the best menu it found by local search, presented as a candidate rather than a proven optimum.
+- **Analyze — Usage** — the expected metered bill by segment, plus prepaid credit packs priced against each segment's own usage band: expected utilisation, the probability of overage, the overage cliff, and **breakage** — the units a buyer is expected to pay for and never spend — reported as a disclosed share of revenue rather than as an addition to it.
 - **Analyze — Positioning** — competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI.
 - **Communicate** — an exportable Pricing Decision Record, pricing-page mock, browser-local scenario history and diffs, readiness and model-limit disclosures, PNG/ZIP decision snapshots, and a worked tutorial.
 
@@ -29,6 +30,7 @@ No accounts, no server, no telemetry, no data connectors. Fully client-side: you
 
 - **Advanced conjoint estimation is opt-in, not the default screen.** Pooled MNL is what the research flow estimates automatically. The deterministic hierarchical-Bayes sampler runs only when you ask for per-respondent part-worths, because it is slow enough to be felt, and it is offered only once the pooled fit is identifiable — HB on a degenerate design returns numbers that are confident and wrong. The D-efficient task generator is likewise a choice alongside the random-balanced default, and reports when its search failed to beat that baseline.
 - **Assumptions in, assumptions out.** There is no market data and no calibration against your actual revenue. The engine is exact given your inputs; it has no opinion about whether those inputs are right.
+- **Usage is an expected cost, not a joint distribution.** Metered lines, allowances, and credit packs are priced against each segment's usage band as a per-segment expected bill, not as a per-buyer joint distribution over consumption and buyer scale. Breakage is computed from that band rather than assumed, and it is always shown as a slice of revenue — never a sixth term in the value waterfall.
 - **Accessibility** is built to WCAG 2.1 AA and checked with automated axe scans across three browsers in both themes. It has not been independently audited.
 
 ## Stack
@@ -81,4 +83,4 @@ This emits a portable static site in `out/` — it also runs the privacy scan an
 
 ---
 
-**Version:** v0.22.7
+**Version:** v0.22.8

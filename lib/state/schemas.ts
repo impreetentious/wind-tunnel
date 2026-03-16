@@ -66,6 +66,11 @@ export const usageMetricSchema = z.strictObject({
   id: identifierSchema,
   name: labelSchema,
   unitLabel: labelSchema,
+  /**
+   * Optional (§4.17). `consumption` counts resource spent, `outcome` counts results
+   * delivered. Absent reads as `consumption`, so no stored scenario changes meaning.
+   */
+  unitKind: z.enum(["consumption", "outcome"]).optional(),
 });
 
 /**
@@ -95,6 +100,20 @@ export const usagePricingLineSchema = z.strictObject({
   metricId: identifierSchema,
   perUnitPrice: nonNegativeNumber,
   includedUnits: nonNegativeNumber.optional(),
+});
+
+/**
+ * A prepaid credit pack on a tier or add-on (§4.17). `packUnits` of a metric bought up front for
+ * `packPrice`, with an optional `overagePerUnit` rate past the pack. `expiresAtPeriodEnd`
+ * defaults to true — a pack that rolls over carries no breakage and is a deferred-revenue
+ * question rather than a pricing one.
+ */
+export const creditPackSchema = z.strictObject({
+  metricId: identifierSchema,
+  packUnits: positiveNumber,
+  packPrice: nonNegativeNumber,
+  overagePerUnit: nonNegativeNumber.optional(),
+  expiresAtPeriodEnd: z.boolean().optional(),
 });
 
 /**
@@ -150,6 +169,8 @@ export const tierSchema = z.strictObject({
   featureIds: z.array(identifierSchema).max(12),
   /** Optional usage-based lines (§4.15). */
   usagePricing: z.array(usagePricingLineSchema).max(3).optional(),
+  /** Optional prepaid credit packs (§4.17). */
+  creditPacks: z.array(creditPackSchema).max(3).optional(),
 });
 
 export const addOnSchema = z.strictObject({
@@ -160,6 +181,53 @@ export const addOnSchema = z.strictObject({
   featureIds: z.array(identifierSchema).min(1).max(12),
   /** Optional usage-based lines (§4.15). */
   usagePricing: z.array(usagePricingLineSchema).max(3).optional(),
+  /** Optional prepaid credit packs (§4.17). */
+  creditPacks: z.array(creditPackSchema).max(3).optional(),
+});
+
+/**
+ * One segment's installed base on the incumbent design (§4.18). `baseCount` is accounts, not
+ * prospects — a different population from `segment.prospectBand`, which is why it lives here
+ * rather than on the segment.
+ */
+export const migrationBaseSchema = z.strictObject({
+  segmentId: identifierSchema,
+  /** The tier of the incumbent design these accounts sit on today. */
+  incumbentTierId: identifierSchema,
+  baseCount: nonNegativeNumber,
+  /** One-off account-level cost of standing up any alternative. */
+  switchingCost: nonNegativeNumber,
+});
+
+/**
+ * Repricing an existing base (§4.18). `incumbentDesignId` names the design that is live today;
+ * the scenario's active design is the proposal. Absent = a greenfield scenario, and every
+ * migration readout and M-family linter rule stays silent.
+ */
+export const migrationSchema = z.strictObject({
+  policy: z.enum(["grandfather", "forced-at-renewal", "opt-in-with-deadline"]),
+  incumbentDesignId: identifierSchema,
+  base: z.array(migrationBaseSchema).max(6),
+});
+
+const discountFraction = z.number().finite().min(0).max(1);
+
+/** Who has to sign for a discount of a given depth (§4.19). Reported, never simulated. */
+export const discountApprovalBandSchema = z.strictObject({
+  upToFraction: discountFraction,
+  approver: labelSchema,
+});
+
+/**
+ * The discount policy permitted on one paid tier (§4.19). `floorFraction` is the deepest
+ * discount sales may reach as a fraction of list; `hitRateBySegment` is the expected share of a
+ * segment's deals that reach it.
+ */
+export const discountPolicySchema = z.strictObject({
+  tierId: identifierSchema,
+  floorFraction: discountFraction,
+  approvalBands: z.array(discountApprovalBandSchema).max(4).optional(),
+  hitRateBySegment: z.record(identifierSchema, discountFraction).optional(),
 });
 
 export const designSchema = z.strictObject({
@@ -167,6 +235,8 @@ export const designSchema = z.strictObject({
   name: labelSchema,
   tiers: z.array(tierSchema).max(5),
   addOns: z.array(addOnSchema).max(3),
+  /** Optional per-tier discount policy (§4.19). Absent = list price is the achieved price. */
+  discountPolicies: z.array(discountPolicySchema).max(5).optional(),
 });
 
 export const competitorSchema = z.strictObject({
@@ -395,6 +465,8 @@ export const scenarioSchema = z
     activeDesignId: identifierSchema,
     competitors: z.array(competitorSchema).max(6),
     research: researchArtifactsSchema.default({}),
+    /** Optional installed base being repriced (§4.18). */
+    migration: migrationSchema.optional(),
     settings: settingsSchema,
   })
   .superRefine((scenario, context) => {
@@ -477,6 +549,48 @@ export const scenarioSchema = z
       uniqueIds(design.tiers, "Tier", context, ["designs", designIndex, "tiers"]);
       uniqueIds(design.addOns, "Add-on", context, ["designs", designIndex, "addOns"]);
 
+      // §4.19: a policy must name a tier of this design, and a segment's hit rates must add up
+      // to at most all of its deals — no deal can be discounted on more of the menu than exists.
+      const policiedTiers = new Set<string>();
+      const hitRateTotals = new Map<string, number>();
+      (design.discountPolicies ?? []).forEach((policy, policyIndex) => {
+        const path = ["designs", designIndex, "discountPolicies", policyIndex] as const;
+        if (!design.tiers.some((tier) => tier.id === policy.tierId)) {
+          context.addIssue({
+            code: "custom",
+            message: `Discount policy references a tier “${policy.tierId}” this design does not have.`,
+            path: [...path, "tierId"],
+          });
+        }
+        if (policiedTiers.has(policy.tierId)) {
+          context.addIssue({
+            code: "custom",
+            message: "Each tier may have at most one discount policy.",
+            path: [...path, "tierId"],
+          });
+        }
+        policiedTiers.add(policy.tierId);
+        for (const [segmentId, rate] of Object.entries(policy.hitRateBySegment ?? {})) {
+          if (!segmentIds.has(segmentId)) {
+            context.addIssue({
+              code: "custom",
+              message: `Discount hit rate references unknown segment “${segmentId}”.`,
+              path: [...path, "hitRateBySegment", segmentId],
+            });
+          }
+          hitRateTotals.set(segmentId, (hitRateTotals.get(segmentId) ?? 0) + rate);
+        }
+      });
+      for (const [segmentId, total] of hitRateTotals) {
+        if (total > 1 + 1e-9) {
+          context.addIssue({
+            code: "custom",
+            message: `Discount hit rates for segment “${segmentId}” sum to more than 100% of its deals.`,
+            path: ["designs", designIndex, "discountPolicies"],
+          });
+        }
+      }
+
       [...design.tiers, ...design.addOns].forEach((offer, offerIndex) => {
         const unknownFeature = offer.featureIds.find((featureId) => !featureIds.has(featureId));
         if (unknownFeature) {
@@ -534,8 +648,69 @@ export const scenarioSchema = z
             });
           }
         }
+        // §4.17 packs fail closed on an undeclared metric for the same reason usage lines do.
+        for (const [packIndex, pack] of (offer.creditPacks ?? []).entries()) {
+          if (!usageMetricIds.has(pack.metricId)) {
+            context.addIssue({
+              code: "custom",
+              message: `Credit pack references unknown metric “${pack.metricId}”.`,
+              path: [
+                "designs",
+                designIndex,
+                "offers",
+                offerIndex,
+                "creditPacks",
+                packIndex,
+                "metricId",
+              ],
+            });
+          }
+        }
       });
     });
+
+    // §4.18: the incumbent design and every base row must resolve, or the migration engine
+    // would silently reprice a base that does not exist.
+    if (scenario.migration) {
+      const incumbentDesign = scenario.designs.find(
+        (design) => design.id === scenario.migration?.incumbentDesignId,
+      );
+      if (!incumbentDesign) {
+        context.addIssue({
+          code: "custom",
+          message: "The incumbent design must belong to this scenario.",
+          path: ["migration", "incumbentDesignId"],
+        });
+      }
+      const seenSegments = new Set<string>();
+      scenario.migration.base.forEach((row, rowIndex) => {
+        if (!segmentIds.has(row.segmentId)) {
+          context.addIssue({
+            code: "custom",
+            message: `Installed base references unknown segment “${row.segmentId}”.`,
+            path: ["migration", "base", rowIndex, "segmentId"],
+          });
+        }
+        if (seenSegments.has(row.segmentId)) {
+          context.addIssue({
+            code: "custom",
+            message: "Each segment may have at most one installed-base row.",
+            path: ["migration", "base", rowIndex, "segmentId"],
+          });
+        }
+        seenSegments.add(row.segmentId);
+        if (
+          incumbentDesign &&
+          !incumbentDesign.tiers.some((tier) => tier.id === row.incumbentTierId)
+        ) {
+          context.addIssue({
+            code: "custom",
+            message: `Installed base references a tier “${row.incumbentTierId}” the incumbent design does not have.`,
+            path: ["migration", "base", rowIndex, "incumbentTierId"],
+          });
+        }
+      });
+    }
 
     scenario.competitors.forEach((competitor, competitorIndex) => {
       if (!hasExactlyKeys(competitor.valueBySegment, segmentIds)) {
@@ -575,6 +750,8 @@ export const sharePayloadSchema = z.strictObject({
   designs: z.array(designSchema).min(1),
   activeDesignId: identifierSchema,
   competitors: z.array(competitorSchema).max(6),
+  /** §4.18 base composition is design state, so a shared link carries it. */
+  migration: migrationSchema.optional(),
   settings: settingsSchema,
 });
 
