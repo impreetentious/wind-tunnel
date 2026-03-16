@@ -14,6 +14,7 @@ const consequenceByCategory = {
   competitors: "the positioning comparison and decision record",
   interactions: "feature value and the active design simulation",
   usageMetrics: "metered effective prices and usage analysis",
+  migration: "the installed-base migration matrix and revenue bridge",
   research: "evidence status and the decision record",
 } as const;
 

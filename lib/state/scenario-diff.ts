@@ -28,6 +28,7 @@ export type ScenarioDiffCategory =
   | "competitors"
   | "interactions"
   | "usageMetrics"
+  | "migration"
   | "research";
 
 export type ScenarioDiffKind = "added" | "removed" | "changed";
@@ -222,6 +223,31 @@ function diffTier(
       after: [...after.featureIds].sort().join(", "),
     });
   }
+  // §4.15 metered lines and §4.17 packs move a tier's effective price without touching its
+  // list price, so a diff that skipped them would show "no change" on a real repricing.
+  const meteringLabel = (offer: typeof before) =>
+    [
+      ...(offer.usagePricing ?? []).map(
+        (line) => `${line.metricId} @ ${line.perUnitPrice}/unit after ${line.includedUnits ?? 0}`,
+      ),
+      ...(offer.creditPacks ?? []).map(
+        (pack) =>
+          `${pack.metricId} pack ${pack.packUnits} @ ${pack.packPrice}${
+            pack.overagePerUnit === undefined ? "" : ` +${pack.overagePerUnit}/overage`
+          }${pack.expiresAtPeriodEnd === false ? " (rolls over)" : ""}`,
+      ),
+    ]
+      .sort()
+      .join(" · ");
+  if (meteringLabel(before) !== meteringLabel(after)) {
+    push(out, {
+      category: "tiers",
+      kind: "changed",
+      path: `${path}.metering`,
+      before: meteringLabel(before) || "none",
+      after: meteringLabel(after) || "none",
+    });
+  }
 }
 
 function diffDesign(
@@ -293,6 +319,67 @@ function diffCompetitor(
 }
 
 /**
+ * §4.18 installed base. The base rows are keyed by segment rather than by a row id, so a
+ * segment gaining or losing its base reads as added/removed and a resized one as changed.
+ */
+function diffMigration(
+  before: Scenario["migration"],
+  after: Scenario["migration"],
+  out: ScenarioDiffEntry[],
+) {
+  if (!before && !after) return;
+  if (!before || !after) {
+    push(out, {
+      category: "migration",
+      kind: before ? "removed" : "added",
+      path: "migration",
+      before: before ? `${before.policy} from ${before.incumbentDesignId}` : undefined,
+      after: after ? `${after.policy} from ${after.incumbentDesignId}` : undefined,
+    });
+    return;
+  }
+  for (const key of ["policy", "incumbentDesignId"] as const) {
+    if (before[key] !== after[key]) {
+      push(out, {
+        category: "migration",
+        kind: "changed",
+        path: `migration.${key}`,
+        before: before[key],
+        after: after[key],
+      });
+    }
+  }
+  const beforeRows = new Map(before.base.map((row) => [row.segmentId, row]));
+  const afterRows = new Map(after.base.map((row) => [row.segmentId, row]));
+  for (const segmentId of [...new Set([...beforeRows.keys(), ...afterRows.keys()])].sort()) {
+    const b = beforeRows.get(segmentId);
+    const a = afterRows.get(segmentId);
+    const path = `migration.base.${segmentId}`;
+    if (!b || !a) {
+      push(out, {
+        category: "migration",
+        kind: b ? "removed" : "added",
+        path,
+        before: b?.baseCount,
+        after: a?.baseCount,
+      });
+      continue;
+    }
+    for (const key of ["incumbentTierId", "baseCount", "switchingCost"] as const) {
+      if (b[key] !== a[key]) {
+        push(out, {
+          category: "migration",
+          kind: "changed",
+          path: `${path}.${key}`,
+          before: b[key],
+          after: a[key],
+        });
+      }
+    }
+  }
+}
+
+/**
  * Compute the structural diff between two Scenario snapshots. Returns a list
  * ordered by category then path — an unchanged scenario always yields `[]`,
  * so callers can render "no changes since last save" without further logic.
@@ -344,6 +431,7 @@ export function diffScenarios(before: Scenario, after: Scenario): readonly Scena
     out,
   );
   diffCollectionByIds(before.designs, after.designs, "designs", "designs", diffDesign, out);
+  diffMigration(before.migration, after.migration, out);
   diffCollectionByIds(
     before.competitors,
     after.competitors,
@@ -352,6 +440,46 @@ export function diffScenarios(before: Scenario, after: Scenario): readonly Scena
     diffCompetitor,
     out,
   );
+  out.sort((left, right) => {
+    const category = compareStrings(left.category, right.category);
+    if (category !== 0) return category;
+    const kind = compareStrings(left.kind, right.kind);
+    if (kind !== 0) return kind;
+    return compareStrings(left.path, right.path);
+  });
+  return out;
+}
+
+/**
+ * Diff two designs of the *same* scenario against each other — the current packaging against
+ * the proposal that would replace it (§4.18).
+ *
+ * `diffScenarios` compares designs by id, so two designs that both exist read as one added and
+ * one removed rather than as a change. Repricing is the case where that is exactly the wrong
+ * answer: the whole question is what moved between them. This ignores the id mismatch and
+ * reports the tier-by-tier delta, which is what gives §15's version diffing its use case.
+ *
+ * Tiers and add-ons are matched by id across the two designs, so a proposal that renames or
+ * reprices a tier reads as a change while one that introduces a genuinely new tier reads as an
+ * addition. Entries are sorted the same way `diffScenarios` sorts, so the two are renderable by
+ * one component.
+ */
+export function diffDesignPair(
+  incumbent: Scenario["designs"][number],
+  proposed: Scenario["designs"][number],
+): readonly ScenarioDiffEntry[] {
+  const out: ScenarioDiffEntry[] = [];
+  if (incumbent.name !== proposed.name) {
+    push(out, {
+      category: "designs",
+      kind: "changed",
+      path: "design.name",
+      before: incumbent.name,
+      after: proposed.name,
+    });
+  }
+  diffCollectionByIds(incumbent.tiers, proposed.tiers, "tiers", "tiers", diffTier, out);
+  diffCollectionByIds(incumbent.addOns, proposed.addOns, "addOns", "addOns", diffTier, out);
   out.sort((left, right) => {
     const category = compareStrings(left.category, right.category);
     if (category !== 0) return category;
