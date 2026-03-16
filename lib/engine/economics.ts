@@ -64,6 +64,10 @@ export function simulateSegmentEconomics(input: SegmentEconomicsInput): SegmentE
   let ownPaidBuyers = 0;
   let ownBuyers = 0;
   let competitorBuyers = 0;
+  let breakageRevenue = 0;
+  // Reported whenever the menu *offers* a pack, not only when one takes share: "your packs
+  // book $0 of breakage because nobody buys them" is a readout, not an absence of one.
+  const sellsPacks = input.offers.some((offer) => offer.breakageRevenue !== undefined);
 
   const selectedPointOffer =
     input.sigma === 0
@@ -85,6 +89,9 @@ export function simulateSegmentEconomics(input: SegmentEconomicsInput): SegmentE
 
     if (offer.owner === "own") {
       revenue += buyers * offer.effectivePrice;
+      // §4.17: breakage is a slice of the revenue just booked, not an addition to it. Summing it
+      // here keeps the disclosure on the same buyer mass as the revenue it qualifies.
+      breakageRevenue += buyers * (offer.breakageRevenue ?? 0);
       ownBuyerSurplus +=
         input.prospectCount * (offer.value * moment - offer.effectivePrice * interval.share);
       fencingGap += input.prospectCount * (input.fullCatalogValue - offer.value) * moment;
@@ -120,6 +127,7 @@ export function simulateSegmentEconomics(input: SegmentEconomicsInput): SegmentE
     ownPaidBuyers,
     ownBuyers,
     competitorBuyers,
+    ...(sellsPacks ? { breakageRevenue } : {}),
   };
 }
 
@@ -142,6 +150,7 @@ export function simulateEconomics(input: EconomicsInput): EconomicsReadout {
   const hasCompetitors = segments.some((segment) =>
     segment.selection.offers.some((offer) => offer.owner === "competitor"),
   );
+  const hasBreakage = segments.some((segment) => segment.breakageRevenue !== undefined);
 
   return {
     segments,
@@ -163,6 +172,11 @@ export function simulateEconomics(input: EconomicsInput): EconomicsReadout {
     captureRate: potential === 0 ? 0 : revenue / potential,
     ...(hasCompetitors
       ? { competitorLossShare: potential === 0 ? 0 : competitorLoss / potential }
+      : {}),
+    ...(hasBreakage
+      ? {
+          breakageRevenue: sum(segments.map((segment) => segment.breakageRevenue ?? 0)),
+        }
       : {}),
   };
 }

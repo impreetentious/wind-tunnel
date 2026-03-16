@@ -20,11 +20,22 @@
  *   `offers.ts`: nothing anywhere in the app can produce a negative price.
  */
 
+/**
+ * What one unit of a metric actually is (§4.17). A `consumption` unit is a unit
+ * of resource the buyer spends; an `outcome` unit is a *result* — a resolved
+ * ticket, a completed task. The arithmetic is identical, which is exactly why
+ * the distinction has to be carried explicitly: nothing downstream would notice
+ * the difference, and the linter's dead-zone check reads the two differently.
+ */
+export type UsageUnitKind = "consumption" | "outcome";
+
 export interface UsageMetricDefinition {
   id: string;
   name: string;
   /** Free-form label shown in UI: "API calls", "GB egress", … */
   unitLabel: string;
+  /** Optional (§4.17). Omitted = `"consumption"`, the pre-extension reading. */
+  unitKind?: UsageUnitKind;
 }
 
 /**

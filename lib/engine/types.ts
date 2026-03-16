@@ -4,7 +4,12 @@ export const TIE_TOLERANCE = 1e-9;
 
 export type PriceMetric = "flat" | "per-seat";
 export type OfferOwner = "outside" | "own" | "competitor";
-export type OfferKind = "outside" | "tier" | "tier-add-on" | "competitor";
+/**
+ * `incumbent` (§4.18) is the status-quo plan an existing account already sits on. It is an
+ * `own` offer like any other — the repricing engine is one more alternative in the §4.2
+ * envelope, not a second machine.
+ */
+export type OfferKind = "outside" | "tier" | "tier-add-on" | "competitor" | "incumbent";
 
 export interface TierDefinition {
   id: string;
@@ -14,6 +19,8 @@ export interface TierDefinition {
   featureIds: readonly string[];
   /** Optional usage-based lines (§4.15). Omitted = pure flat/per-seat. */
   usagePricing?: readonly import("./usage").UsagePricing[];
+  /** Optional prepaid credit packs (§4.17). Omitted = no packs sold. */
+  creditPacks?: readonly import("./credits").CreditPack[];
 }
 
 export interface AddOnDefinition {
@@ -24,6 +31,8 @@ export interface AddOnDefinition {
   featureIds: readonly string[];
   /** Optional usage-based lines (§4.15). Omitted = pure flat/per-seat. */
   usagePricing?: readonly import("./usage").UsagePricing[];
+  /** Optional prepaid credit packs (§4.17). Omitted = no packs sold. */
+  creditPacks?: readonly import("./credits").CreditPack[];
 }
 
 /** A competitor is already valued for the segment being simulated. */
@@ -79,6 +88,14 @@ export interface ExpandedOffer {
   tierId?: string;
   addOnIds?: readonly string[];
   competitorId?: string;
+  /**
+   * Expected breakage already contained in `effectivePrice` (§4.17): the part of a prepaid pack
+   * the buyer is expected to pay for and never use. It **partitions** the offer's price rather
+   * than adding to it, so the §4.3 identity is untouched — this is a label on revenue, not a new
+   * term. Absent when the offer sells no expiring pack, which keeps every pre-extension offer
+   * byte-identical.
+   */
+  breakageRevenue?: number;
 }
 
 export type TieMode = "conservative" | "seller-favorable";
@@ -132,6 +149,13 @@ export interface SegmentEconomicsReadout {
   ownPaidBuyers: number;
   ownBuyers: number;
   competitorBuyers: number;
+  /**
+   * The share of `revenue` that is prepaid-pack breakage (§4.17) — money booked with no delivery
+   * behind it. Reported *beside* the waterfall, never as a sixth term: it is already inside
+   * `Revenue`, and splitting it out is a disclosure, not a re-derivation. Undefined until the
+   * menu sells an expiring pack.
+   */
+  breakageRevenue?: number;
 }
 
 export interface EconomicsInput {
@@ -157,6 +181,8 @@ export interface EconomicsReadout {
   captureRate: number;
   /** Undefined until the scenario includes at least one competitor alternative. */
   competitorLossShare?: number;
+  /** Scenario-level §4.17 breakage inside `revenue`. Undefined until a pack is sold. */
+  breakageRevenue?: number;
 }
 
 export interface RemoveOfferCounterfactual {

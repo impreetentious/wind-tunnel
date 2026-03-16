@@ -1,3 +1,4 @@
+import { summarizeHybridCost } from "./credits";
 import { summarizeUsageCost, type UsageBand } from "./usage";
 import type {
   AddOnDefinition,
@@ -45,6 +46,30 @@ function usageSurcharge(
 ): number {
   if (!usagePricing || usagePricing.length === 0) return 0;
   return summarizeUsageCost({ usagePricing, usageBands: usageBands ?? {} });
+}
+
+interface PackCost {
+  /** What the buyer expects to pay for the packs: the pack prices plus expected overage. */
+  surcharge: number;
+  /** The part of that surcharge with no delivery behind it. Already inside `surcharge`. */
+  breakage: number;
+}
+
+const NO_PACK_COST: PackCost = { surcharge: 0, breakage: 0 };
+
+/**
+ * §4.17 prepaid-pack cost for an offer, alongside `usageSurcharge` and by the same rule: the
+ * expected bill folds into `effectivePrice`, so the envelope primitive never learns that packs
+ * exist. Breakage rides along separately because it is a *split* of that price the economics
+ * readout discloses, not an addition to it.
+ */
+function packCost(
+  creditPacks: readonly import("./credits").CreditPack[] | undefined,
+  usageBands: Readonly<Record<string, UsageBand>> | undefined,
+): PackCost {
+  if (!creditPacks || creditPacks.length === 0) return NO_PACK_COST;
+  const summary = summarizeHybridCost({ creditPacks, usageBands: usageBands ?? {} });
+  return { surcharge: summary.expectedSurcharge, breakage: summary.expectedBreakageRevenue };
 }
 
 function valueForFeatures(
@@ -145,17 +170,25 @@ function ownOffers(
         ...tier.featureIds,
         ...subset.flatMap((addOn) => addOn.featureIds),
       ]);
+      const addOnPacks = subset.map((addOn) => packCost(addOn.creditPacks, usageBands));
       const addOnPrice = subset.reduce(
-        (total, addOn) =>
+        (total, addOn, index) =>
           total +
           effectivePrice(addOn.price, addOn.priceMetric, input.seatCount) +
-          usageSurcharge(addOn.usagePricing, usageBands),
+          usageSurcharge(addOn.usagePricing, usageBands) +
+          addOnPacks[index].surcharge,
         0,
       );
       const addOnIds = subset.map((addOn) => addOn.id);
+      const tierPacks = packCost(tier.creditPacks, usageBands);
       const tierEffective =
         effectivePrice(tier.price, tier.priceMetric, input.seatCount) +
-        usageSurcharge(tier.usagePricing, usageBands);
+        usageSurcharge(tier.usagePricing, usageBands) +
+        tierPacks.surcharge;
+      const breakageRevenue = addOnPacks.reduce(
+        (total, cost) => total + cost.breakage,
+        tierPacks.breakage,
+      );
       return {
         id:
           addOnIds.length === 0
@@ -172,6 +205,9 @@ function ownOffers(
         featureIds: selectedFeatures,
         tierId: tier.id,
         addOnIds,
+        // Omitted rather than zeroed when no pack is sold: an absent key keeps every
+        // pre-extension offer byte-identical through the golden snapshots.
+        ...(breakageRevenue > 0 ? { breakageRevenue } : {}),
       };
     });
   });
