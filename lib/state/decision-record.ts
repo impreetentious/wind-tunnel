@@ -6,12 +6,15 @@ import { estimateConjointRecord } from "./conjoint";
 import { activeDesign } from "./design-editing";
 import { scoreMaxDiffRecord } from "./maxdiff";
 import { positioningMapForSegment } from "./positioning";
+import { diffDesignPair, type ScenarioDiffEntry } from "./scenario-diff";
+import { evaluateScenarioDiscount } from "./scenario-discount";
 import {
   runScenarioMonteCarlo,
   simulateScenarioDesign,
   uncertaintyParametersForScenario,
 } from "./scenario-economics";
 import { lintScenarioDesign } from "./scenario-linter";
+import { incumbentDesign, simulateScenarioMigration } from "./scenario-migration";
 import { currentScenarioLocale } from "./formatting";
 import type { Scenario } from "./schemas";
 
@@ -72,6 +75,16 @@ export interface PricingDecisionRecord {
         }[];
       }
     | undefined;
+  /** §4.18 — present only when the scenario is repricing an existing base. */
+  migration:
+    | {
+        readout: NonNullable<ReturnType<typeof simulateScenarioMigration>>;
+        incumbentDesignName: string;
+        designChanges: readonly ScenarioDiffEntry[];
+      }
+    | undefined;
+  /** §4.19 — present only when the active design permits a discount. */
+  discount: ReturnType<typeof evaluateScenarioDiscount>;
   markdown: string;
 }
 
@@ -143,6 +156,8 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
     conjoint,
     maxDiff,
     positioning,
+    migration,
+    discount,
   } = record;
   const currency = scenario.settings.currency;
   const lines: string[] = [
@@ -260,6 +275,15 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
         : []),
       `| Conservation residual | ${formatRecordMoney(economics.conservationResidual, currency)} |`,
       "",
+      // §4.17: breakage is a slice of Revenue above, not a sixth waterfall term. It gets its
+      // own line because a menu that sells credits should have to say how much of its revenue
+      // has nothing delivered behind it.
+      ...(economics.breakageRevenue === undefined
+        ? []
+        : [
+            `Of that revenue, **${formatRecordMoney(economics.breakageRevenue, currency)}** is prepaid-credit breakage — units this model expects buyers to pay for and never spend. It is included in Revenue above, not added to it.`,
+            "",
+          ]),
     );
   }
 
@@ -367,6 +391,99 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
     );
   }
 
+  if (migration) {
+    const { readout, incumbentDesignName, designChanges } = migration;
+    const signed = (value: number) =>
+      value < 0
+        ? `−${formatRecordMoney(Math.abs(value), currency)}`
+        : formatRecordMoney(value, currency);
+    lines.push(
+      "## Repricing the installed base",
+      "",
+      `${formatNumber(readout.baseCount, 0)} accounts currently sit on **${incumbentDesignName}**. The policy is **${readout.policy}**. This section is about the base you already have; every other section above is about buyers you do not.`,
+      "",
+      "| Revenue bridge | Amount |",
+      "| --- | ---: |",
+      `| Opening MRR | ${formatRecordMoney(readout.bridge.openingMrr, currency)} |`,
+      `| Expansion | ${signed(readout.bridge.expansion)} |`,
+      `| Contraction | ${signed(readout.bridge.contraction)} |`,
+      `| Churn at migration | ${signed(readout.bridge.churn)} |`,
+      `| Closing MRR | ${formatRecordMoney(readout.bridge.closingMrr, currency)} |`,
+      "",
+      `${formatRecordPercent(readout.stayShare)} of the base stays on the legacy plan and ${formatRecordPercent(readout.churnShare)} leaves at the migration event.`,
+      ...(readout.policy !== "forced-at-renewal" && readout.grandfatherOpportunityCost > 0
+        ? [
+            "",
+            `Withdrawing the legacy plan instead would close ${formatRecordMoney(readout.grandfatherOpportunityCost, currency)} higher, net of the churn withdrawing it would cause.`,
+          ]
+        : []),
+      ...(readout.mrrRequiringBuyerAction > 0
+        ? [
+            "",
+            `${formatRecordMoney(readout.mrrRequiringBuyerAction, currency)} of closing MRR depends on accounts completing an opt-in before the deadline. Inertia is not modeled, so read that as a ceiling.`,
+          ]
+        : []),
+      "",
+      "| Segment | Lands on | Accounts | MRR | Δ vs legacy |",
+      "| --- | --- | ---: | ---: | ---: |",
+      ...readout.cells.map((cell) => {
+        const name =
+          readout.segments.find((entry) => entry.id === cell.segmentId)?.name ?? cell.segmentId;
+        const destination =
+          cell.destinationOfferId === null ? "Leaves the category" : cell.destinationName;
+        return `| ${tableCell(name)} | ${tableCell(destination)}${cell.stays ? " (stays)" : ""} | ${formatNumber(cell.accounts, 0)} | ${formatRecordMoney(cell.revenue, currency)} | ${signed(cell.revenueDelta)} |`;
+      }),
+      "",
+      ...(designChanges.length === 0
+        ? []
+        : [
+            `What changed between ${incumbentDesignName} and ${activeDesign.name}:`,
+            "",
+            ...designChanges.map(
+              (entry) =>
+                `- \`${entry.path}\` — ${
+                  entry.kind === "changed"
+                    ? `${entry.before} → ${entry.after}`
+                    : entry.kind === "added"
+                      ? `added (${entry.after})`
+                      : `removed (${entry.before})`
+                }`,
+            ),
+            "",
+          ]),
+    );
+  }
+
+  if (discount) {
+    lines.push(
+      "## Discount policy",
+      "",
+      `Every figure above is at list price. The policy this design permits takes achieved MRR to **${formatRecordMoney(discount.achievedMrr, currency)}** against ${formatRecordMoney(discount.listMrr, currency)} at list — discount leakage of ${formatRecordMoney(discount.discountLeakage, currency)}, or ${formatRecordPercent(discount.discountLeakageShare)}. That figure re-runs the choice model at the permitted floors, so it counts buyers who change tier as well as buyers who pay less; it is a separate concept from free-tier leakage and trial conversion.`,
+      "",
+      "| Segment | Deals discounted | List MRR | Achieved MRR | Discount leakage |",
+      "| --- | ---: | ---: | ---: | ---: |",
+      ...discount.segments.map(
+        (segment) =>
+          `| ${tableCell(segment.name)} | ${formatRecordPercent(segment.discountedShare)} | ${formatRecordMoney(segment.listMrr, currency)} | ${formatRecordMoney(segment.achievedMrr, currency)} | ${formatRecordMoney(segment.discountLeakage, currency)} |`,
+      ),
+      "",
+      ...(discount.fenceErosions.length === 0
+        ? [
+            "No permitted floor flips a segment's top decile off the tier built for it: the screen the menu was designed to build survives the discount policy.",
+            "",
+          ]
+        : [
+            "**Fence erosion.** These floors dismantle the screen the menu was designed to build:",
+            "",
+            ...discount.fenceErosions.map(
+              (erosion) =>
+                `- ${formatRecordPercent(erosion.floorFraction)} off ${erosion.discountedTierName} beats ${erosion.erodedTierName} for ${erosion.segmentName}'s top decile. ${erosion.erodedTierName} takes ${formatRecordPercent(erosion.shareAtList)} of that segment at list (${formatRecordMoney(erosion.mrrAtRisk, currency)} of MRR).${erosion.approver ? ` ${erosion.approver} can authorize that depth.` : ""}`,
+            ),
+            "",
+          ]),
+    );
+  }
+
   lines.push("## Deterministic critic", "");
   if (record.findings.length === 0) {
     lines.push("No documented linter rule is currently firing.", "");
@@ -398,7 +515,10 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
     "## Scope and limitations",
     "",
     "- Results are conditional on the assumptions and provenance above; sensitivity ranks consequences, not truth.",
-    "- The model is a single-period screening model. It does not model retention, expansion, annual terms, or usage distributions.",
+    "- The core simulation is a single-period screening model over new buyers. Usage bands, credit packs, trials and retention, and installed-base migration are modeled by named extensions, each stated where it appears; none of them turn this into a forecast.",
+    "- Usage and credit-pack figures are per-segment expected costs over a usage band, not per-buyer joint distributions; breakage is a disclosed share of revenue, never an addition to it.",
+    "- Migration results describe the existing base only. They are never mixed into the MRR, conversion, or capture-rate figures above, which are about buyers you do not have yet.",
+    "- Headline economics are at list price. Discount leakage is reported separately and assumes the stated hit rates land at the permitted floor; it is a mixture over cohorts, not a distribution over discount depth.",
     "- Behavioral linter findings are directional and cited; no numeric behavioral uplift is applied.",
     "- Research sections appear only when durable study records are present, and illustrative PSM data is explicitly non-evidentiary.",
     "",
@@ -463,6 +583,19 @@ export function buildPricingDecisionRecord(
         }
       : undefined;
 
+  // §4.18: absent on a greenfield scenario, so the record gains a chapter only when there is
+  // an installed base for it to be about.
+  const migrationReadout = simulateScenarioMigration(scenario);
+  const incumbent = incumbentDesign(scenario);
+  const migration =
+    migrationReadout && incumbent
+      ? {
+          readout: migrationReadout,
+          incumbentDesignName: incumbent.name,
+          designChanges: diffDesignPair(incumbent, design),
+        }
+      : undefined;
+
   const withoutMarkdown: Omit<PricingDecisionRecord, "markdown"> = {
     generatedOn,
     scenario,
@@ -511,6 +644,8 @@ export function buildPricingDecisionRecord(
     conjoint: conjointEstimate,
     maxDiff: maxDiffScored,
     positioning,
+    migration,
+    discount: evaluateScenarioDiscount(scenario),
   };
   return { ...withoutMarkdown, markdown: recordMarkdown(withoutMarkdown) };
 }

@@ -11,15 +11,15 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 ## What it does
 
 - **Model** — buyer segments with P50-centred size and willingness-to-pay bands, within-segment buyer spread, a keyboard-navigable segment × feature value matrix, usage metrics and bands, provenance tags, and immediate engine-backed KPIs. Three template scenarios give you a practical first run.
-- **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat, metered or prepaid-credit pricing, trial and retention assumptions, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, overage cliffs, dead allowances, stranded legacy cohorts, un-fenced discounts, and directional behavioral considerations without inventing numeric effects.
+- **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat, metered or prepaid-credit pricing, trial and retention assumptions, permitted discount floors, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, overage cliffs, dead allowances, stranded legacy cohorts, un-fenced discounts, and directional behavioral considerations without inventing numeric effects.
 - **Simulate** — closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall, and a 400-point residual price sweep for each tier.
 - **Analyze — Uncertainty** — seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates, and a tornado chart that tells you _which assumption to validate first_.
 - **Analyze — Research** — survey-first Van Westendorp price sensitivity with manual/CSV input, exclusion reporting, cumulative curves, interpolated points, and a clearly labeled illustrative mode. Choice-based conjoint, MaxDiff and bundling economics are available alongside it.
 - **Analyze — Elasticity and price search** — own-price and revenue elasticity, a cross-tier substitution heatmap, and a price search that reports the best menu it found by local search, presented as a candidate rather than a proven optimum.
+- **Analyze — Positioning** — competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI.
 - **Analyze — Usage** — the expected metered bill by segment, plus prepaid credit packs priced against each segment's own usage band: expected utilisation, the probability of overage, the overage cliff, and **breakage** — the units a buyer is expected to pay for and never spend — reported as a disclosed share of revenue rather than as an addition to it.
 - **Analyze — Migration** — repricing an existing base rather than selling to a new one. The legacy plan enters each account's choice set as one more alternative in the same envelope, with the switching cost charged on every move away from it, and the readout is a migration matrix (who lands where, who churns at the event) and a revenue bridge that reconciles old MRR to new exactly. Grandfathering, forced-at-renewal, and opt-in-with-deadline are three choice sets, not three engines.
 - **Analyze — Discounts** — list price is a ceiling; achieved price is a policy outcome. Set a permitted floor and expected hit rate per tier and the effective menu runs through the same choice engine, reporting discount leakage in dollars and **fence erosion**: the floors that make a discounted Better beat an undiscounted Best for the buyers Best was built for.
-- **Analyze — Positioning** — competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI.
 - **Communicate** — an exportable Pricing Decision Record, pricing-page mock, browser-local scenario history and diffs, readiness and model-limit disclosures, PNG/ZIP decision snapshots, and a worked tutorial.
 
 The economics is the point: the engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Every formula is tested against closed-form results, and a value-conservation identity must hold on every simulation. `docs/MODEL-SPEC.md` states the math in full.
@@ -87,4 +87,4 @@ This emits a portable static site in `out/` — it also runs the privacy scan an
 
 ---
 
-**Version:** v0.22.11
+**Version:** v0.22.12

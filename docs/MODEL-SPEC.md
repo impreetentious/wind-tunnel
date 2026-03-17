@@ -470,6 +470,288 @@ Required tests (`@spec §4.16`): T-TIME-01 the zero-default collapses to the
 retention < 1 shrinks MRR geometrically; T-TIME-04 LTV equals the closed-form
 sum; T-TIME-05 annual contract accumulates revenue evenly across 12 months.
 
+### §4.17 Credit packs, breakage & outcome pricing (extension)
+
+§4.15 gives the menu a metered line: an allowance and a per-unit rate. This
+extension adds the two primitives a current hybrid menu actually sells, plus
+the distinction that keeps them readable.
+
+**Prepaid credit pack.** A block of `k = packUnits` of a metric bought up front
+for `packPrice`, with an optional `overagePerUnit` rate charged past the pack.
+Let `U` be the segment's monthly usage of that metric, distributed lognormally
+with `μ = ln(P50)` and `σ` fitted from the band's P10/P90 by §4.1's contract —
+the P50-centered convention of D-30, so the pack reads the same band the
+metered line does. Writing `F` for its CDF and `L(a,b) = E[U·1(a<U≤b)]` for the
+§4.3 partial expectation:
+
+```text
+expectedUnusedUnits   = E[(k − U)⁺] = k·F(k) − L(0, k)
+expectedOverageUnits  = E[(U − k)⁺] = E[U] − k + expectedUnusedUnits
+impliedUnitPrice      = packPrice / k
+utilisation           = (k − expectedUnusedUnits) / k              ∈ [0, 1]
+probabilityOfOverage  = 1 − F(k)
+expectedBreakage      = expectedUnusedUnits · impliedUnitPrice     (expiring packs only)
+expectedBuyerCost     = packPrice + expectedOverageUnits · overagePerUnit
+```
+
+`expiresAtPeriodEnd` defaults to true. A pack that rolls over reports zero
+breakage and zero unused units: those units are still owed to the buyer, which
+makes them a deferred-revenue question rather than a pricing one. A band whose
+P10 or P90 is non-positive has no lognormal fit, so it degenerates to a point
+mass at P50; a band with `P50 = 0` consumes nothing and forfeits the whole
+pack.
+
+**Where the money goes.** `expectedBuyerCost` folds into `effectivePrice`
+exactly as §4.15's surcharge does, so the envelope primitive (§4.2) never
+learns that packs exist. Breakage is **not** a sixth waterfall term. It is
+already inside `Revenue`, and it is reported beside the identity as a
+partition of it:
+
+```text
+Revenue = deliveredRevenue + breakageRevenue
+Potential = Revenue + OwnBuyerSurplus + FencingGap + Unserved + CompetitorLoss   (§4.3, unchanged)
+```
+
+`conservationResidual` is therefore untouched by this extension, and
+`breakageRevenue` is emitted on the readout only when the menu sells a pack —
+an absent key, not a zero, so every pre-extension scenario and golden is
+byte-identical.
+
+**Outcome pricing.** A metric carries an optional `unitKind ∈ {consumption,
+outcome}`, default `consumption`. The arithmetic is identical for both; the
+kind is carried explicitly because nothing downstream would otherwise notice
+the difference, and one rule reads them differently (below). An `outcome` unit
+is a _result_ — a resolved ticket, a completed task — rather than a unit of
+resource spent.
+
+**Linter rules (§4.9 family U).** Each is gated on the offer carrying a pack or
+a metered line, so a flat/per-seat menu is provably silent on all three.
+
+- **U1 overage cliff** — `overagePerUnit > impliedUnitPrice` and the segment
+  exceeds the pack with probability > 20%. Rational buyers bulk-shift to a
+  larger pack or the next tier, so the modeled overage revenue is unlikely to
+  arrive. Warning.
+- **U2 credit-expiry resentment** — an expiring pack whose `utilisation` is
+  below 70%. Warning below 50%, info between. The money is real; the finding is
+  about what an unspent balance does to a renewal.
+- **U3 allowance dead zone** — an included allowance the segment exceeds with
+  probability < 5%. Restricted to `consumption` metrics: an unspent outcome
+  allowance is a value question, not a broken fence. Info.
+
+Backwards compatibility: the persistence schema adds optional
+`tier.creditPacks`, `addOn.creditPacks`, and `usageMetric.unitKind` with no
+default rewriting; `SCHEMA_VERSION` is unchanged.
+
+Required tests (`@spec §4.17`): T-CRD-01 the unit identity and utilisation
+bounds; T-CRD-02 a rolling pack reports no breakage; T-CRD-03 packs far above
+P90 and far below P10; T-CRD-04 the cliff predicate is strict; T-CRD-05
+property bounds on random packs and bands; T-CRD-06 the degenerate-band
+fallback; T-CRD-07 invalid packs are rejected; T-CRD-08/09 hybrid summary
+splits breakage from overage and treats an unbanded metric as inert; T-CRD-10
+allowance dead zones; T-CRD-11 the surcharge reaches `effectivePrice` and
+labels its breakage; T-CRD-12 the §4.3 identity is undisturbed and the key is
+absent without packs; T-LNT-13…18 the three U rules and their gates.
+
+### §4.18 Repricing & migration (extension)
+
+Everywhere else the buyers are new. Here they are already customers on a plan,
+and the question is what happens when the packaging under them changes. The
+mechanics are the same primitive: the **incumbent plan is one more offer in the
+§4.2 envelope**, with `owner = own` and `kind = incumbent`.
+
+**Notation (extension only).** Segment `s` has an installed base of `b_s`
+accounts on incumbent plan `I` with account-level value `V_s(I)` and
+grandfathered price `P_s(I)`, and a one-off account-level switching cost
+`c_s ≥ 0`. `O` is the proposed menu, already expanded for `s` by §4.2's offer
+expansion, including its outside option and any competitors.
+
+**Where the switching cost goes.** Utility is `ε·V − P`, and a switching cost
+is a dollar amount the buyer's scale factor does not multiply, so it belongs on
+the price side. The envelope pins the outside option at `(0, 0)` and cannot
+carry a shifted one, so the cost is charged on the moves rather than credited
+to the stay:
+
+```text
+choice set = { (V_s(o), P_s(o) + c_s) : o ∈ O, o ≠ outside }
+             ∪ { outside at (0, 0) }
+             ∪ { (V_s(I), P_s(I)) }        when the policy leaves I available
+```
+
+Two consequences are stated rather than hidden. First, **churning to no vendor
+is modeled without the switching cost**: what is priced is the cost of standing
+a replacement up, not the cost of stopping. This is the conservative direction
+— it makes churn easier to choose, and a migration model that under-predicts
+churn is the dangerous one. Second, the switching cost is a **buyer** cost:
+choice-set prices carry it, and the revenue bridge books each destination's own
+price.
+
+**Policy is the choice set.**
+
+- `grandfather` — `I` stays in the set at `P_s(I)` indefinitely.
+- `forced-at-renewal` — `I` is removed; every account re-chooses or leaves.
+- `opt-in-with-deadline` — `I` stays in the set. For a rational buyer this is
+  identical to `grandfather`; the difference is inertia, and D-08 forbids
+  inventing a behavioral coefficient. The engine therefore reports
+  `mrrRequiringBuyerAction` (the closing MRR sitting on `I`) as an exposure
+  ceiling instead of discounting it by an assumed take-up rate.
+
+**Outputs.** Shares come from §4.2 on the choice set above. For each active
+offer `k` with share `share_k`:
+
+```text
+accounts_k    = b_s · share_k
+revenue_k     = accounts_k · P_s(k)          for own offers; 0 for competitors and the outside option
+delta_k       = revenue_k − accounts_k · P_s(I)
+openingMrr    = b_s · P_s(I)
+expansion     = Σ_(own k, delta_k > 0) delta_k
+contraction   = Σ_(own k, delta_k ≤ 0) delta_k
+churn         = Σ_(k ∉ own) delta_k
+closingMrr    = Σ_k revenue_k
+```
+
+**Bridge identity (must hold exactly):**
+`closingMrr = openingMrr + expansion + contraction + churn`. It follows from
+shares summing to 1: the three movements partition the base and are disjoint by
+construction. `bridgeResidual` reports the deviation and is zero within
+binary64 error. The migration matrix is the set of `(segment, destination)`
+cells above; a competitor destination and the outside option are kept apart so
+"left the category" is legible from "left for a named rival".
+
+**The grandfathering counterfactual.** Under a policy that keeps `I`, the
+engine also runs the same segment with `I` withdrawn and reports
+`withdrawnIncumbentMrr` and `grandfatherOpportunityCost = withdrawnIncumbentMrr
+− closingMrr`. This is the number that makes M1 a rule rather than an
+observation: a sticky legacy cohort is only a problem when withdrawing the plan
+would earn more _after_ the churn withdrawing it causes. Under
+`forced-at-renewal` the cost is zero — the plan is already gone.
+
+**Reported beside, never substituted into.** `simulateEconomics` (§4.3) still
+answers "what would a fresh buyer choose?"; this answers "what does the base
+already on us do?". They are different populations and no KPI mixes them.
+
+**Linter rules (§4.9 family M).** All three are gated on a migration readout
+being supplied, so a greenfield scenario is provably silent.
+
+- **M1 stranded legacy cohort** — a non-forced policy, stay share > 50%, and
+  `grandfatherOpportunityCost > 0`. Warning.
+- **M2 migration prices a segment into churn** — churn share > 10%, quantified
+  against the expansion the same migration wins from every other segment.
+  Warning.
+- **M3 legacy pricing depends on a deadline** — `opt-in-with-deadline` with
+  non-zero `mrrRequiringBuyerAction`. Info.
+
+**Persistence.** The scenario gains an optional `migration` block naming the
+incumbent design, the policy, and one base row per segment
+(`{segmentId, incumbentTierId, baseCount, switchingCost}`). The incumbent plan
+is a _tier of another design in the same scenario_, so current-design vs
+proposed-design is the §15 M-10 diff's first-class comparison
+(`diffDesignPair`), and the incumbent's value and effective price are computed
+by the same `expandOffers` path as every other offer — a migration readout can
+never disagree with the simulator about what the legacy plan costs.
+`SCHEMA_VERSION` is unchanged.
+
+Required tests (`@spec §4.18`): T-MIG-01 the bridge reconciles under every
+policy; T-MIG-02 the matrix accounts for the whole base; T-MIG-03 withdrawing
+the incumbent matches the forced run; T-MIG-04 the switching cost sticks buyers
+and is never booked as revenue; T-MIG-05 opt-in equals grandfathering plus a
+disclosed exposure; T-MIG-06 competitor exits are separated from category
+exits; T-MIG-07 the bridge is exact on random bases and policies; T-MIG-08
+invalid bases are rejected; T-MIG-09…12 the state adapter, its gates, metered
+incumbent pricing, and schema cross-validation; T-MIG-13…15 the design-pair and
+scenario diffs; T-LNT-19…22 the three M rules and their gate.
+
+### §4.19 Discount-policy leakage (extension)
+
+List price is a ceiling; achieved price is a policy outcome. Every §4.3 number
+is computed at list, which is the right answer for the menu that was _designed_
+and the wrong one for the menu buyers are actually offered. This extension
+evaluates the second one through the same upper envelope (§4.2) — a discount is
+a price, and prices are what the envelope already takes.
+
+**Policy.** Each paid tier `t` may carry `floorFraction_t ∈ [0, 1]`, the deepest
+discount sales may reach as a fraction of list, optional approval bands
+`{upToFraction, approver}` (reported, never simulated as a friction), and
+`hitRate_{t,s} ∈ [0, 1]`, the expected share of segment `s`'s deals that reach
+that floor. Per segment, `Σ_t hitRate_{t,s} ≤ 1`.
+
+**Cohorts, not a discount distribution.** Rather than invent a per-deal
+distribution over discount depth, the population is partitioned into cohorts the
+envelope evaluates exactly:
+
+```text
+list cohort     : weight 1 − Σ_t hitRate_{t,s},  menu = list
+cohort for t    : weight hitRate_{t,s},          menu = list with only tier t at its floor
+```
+
+Discounting tier `t` reduces every offer built on `t` — the plain tier and its
+add-on composites — by the same **absolute** amount `floorFraction_t · P_s(t)`,
+where `P_s(t)` is the plain tier's own effective price. Add-ons are separate
+lines and keep their prices. Prices are floored at zero.
+
+```text
+listMrr_s              = MRR of the list menu at §4.3
+achievedMrr_s          = Σ_cohorts weight · MRR(cohort menu)
+discountLeakage_s      = listMrr_s − achievedMrr_s
+discountLeakageShare_s = discountLeakage_s / listMrr_s      (0 when listMrr_s = 0)
+```
+
+The leakage is deliberately **not** `hitRate × depth × revenue`: at a discounted
+price buyers also re-sort, and some re-sort upward, so achieved MRR can exceed
+list in a segment where a floor pulls buyers up a tier. Running each cohort
+through the envelope captures that; multiplying through cannot. The assumption
+is a mixture over cohorts rather than a joint distribution over depth and ε, and
+it is stated in the UI and the record.
+
+**Fence erosion.** A menu is a screen. The structurally important failure is a
+discounted Better beating an undiscounted Best _for the buyers Best was built
+for_. The test is **not** "the higher tier's share goes to zero" — it cannot,
+since a strictly-higher-value line always wins the envelope again at a high
+enough ε, so that predicate would never fire. What is asked instead, for the
+segment's **P90 buyer** at scale `ε₉₀ = exp(σ_s · z₉₀)` (and `ε = 1` when
+`σ_s = 0`, where the segment is a point mass):
+
+```text
+erosion(t, h, s)  ⟺  argmax at ε₉₀ on the list menu is h,
+                     argmax at ε₉₀ on tier t's floor menu is t,
+                     and V_s(h) > V_s(t)
+```
+
+Erosion is a property of the **policy**, not of how often it is used: it is
+checked at the permitted floor even when the hit rate is zero, because a floor
+that un-fences the menu does so on the first deal that reaches it. The readout
+reports `shareAtList` and `mrrAtRisk` for the eroded tier, plus the shallowest
+approver whose band covers the permitted depth.
+
+**Naming.** `linter.ts` already uses "leakage" for the free tier (E5) and
+`time-dynamics.ts` for trial conversion. This concept is `discountLeakage`
+everywhere and never the bare word.
+
+**Reported beside, never substituted into.** Headline MRR, conversion, and
+capture rate stay at list. A tool that quietly answered the achieved-price
+question while labelling it the designed-price one would be doing the thing this
+module exists to expose.
+
+**Linter rules (§4.9 family P).** Both gated on a discount readout being
+supplied, so a list-priced design is provably silent.
+
+- **P1 the discount policy has un-fenced the menu** — one finding per erosion,
+  naming the tier, the segment, the MRR at risk, and the approver. Warning.
+- **P2 permitted discounts move material revenue** — `discountLeakageShare`
+  above 10%. Warning.
+
+**Persistence.** `design.discountPolicies` is optional; absent means list price
+is the achieved price. `SCHEMA_VERSION` is unchanged.
+
+Required tests (`@spec §4.19`): T-DSC-01 no policy changes nothing; T-DSC-02
+leakage is priced through the choice model, not multiplied out; T-DSC-03 the
+P90 flip fires at depth and not shallow; T-DSC-04 erosion is checked at a zero
+hit rate; T-DSC-05 a cheaper tier is never reported as eroded; T-DSC-06 add-ons
+keep their prices; T-DSC-07 cohort weights partition and leakage is bounded on
+random policies; T-DSC-08 invalid policies are rejected; T-DSC-09 a policy on an
+absent tier is inert; T-DSC-10…13 the state adapter, its gate, the shared
+list-MRR definition, and schema cross-validation; T-LNT-23…25 the two P rules
+and their gate.
+
 ### §4.12 Numerical conventions
 
 Prices are non-negative; UI `σ_s` is `[0.05, 2.0]` with low/medium/high presets
