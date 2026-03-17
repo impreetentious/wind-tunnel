@@ -428,3 +428,166 @@ describe("P5 linter — point-mass segments and competitor loss", () => {
     expect(e1?.message).toMatch(/is not in any current offer/);
   });
 });
+
+describe("hybrid usage and credit rules (@spec §4.17)", () => {
+  const callsMetric = { id: "calls", name: "API calls", unitLabel: "calls" };
+  const callsBand = { p10: 5_000, p50: 10_000, p90: 20_000 };
+
+  function hybridInput(overrides: Partial<DesignLinterInput>): DesignLinterInput {
+    return directInput({
+      usageMetrics: [callsMetric],
+      segments: [
+        { id: "segment", name: "Core segment", seatCount: 1, usageBands: { calls: callsBand } },
+      ],
+      ...overrides,
+    });
+  }
+
+  // T-LNT-13 @spec §4.17
+  it("flags an overage rate above the pack's own implied unit price", () => {
+    const findings = lintDesign(
+      hybridInput({
+        tiers: [
+          {
+            id: "metered",
+            name: "Metered",
+            price: 100,
+            priceMetric: "flat",
+            featureIds: [],
+            creditPacks: [
+              { metricId: "calls", packUnits: 8_000, packPrice: 400, overagePerUnit: 0.25 },
+            ],
+          },
+        ],
+      }),
+    );
+    const u1 = findings.find((finding) => finding.id === "U1");
+    expect(u1?.severity).toBe("warning");
+    expect(u1?.message).toMatch(/5\.0× the pack rate/);
+    expect(u1?.segmentIds).toEqual(["segment"]);
+    expect(u1?.metrics?.probabilityOfOverage ?? 0).toBeGreaterThan(0.2);
+  });
+
+  // T-LNT-14 @spec §4.17 — a cliff nobody reaches is not a cliff.
+  it("stays quiet on a cliff the segment is unlikely to hit", () => {
+    const findings = lintDesign(
+      hybridInput({
+        tiers: [
+          {
+            id: "metered",
+            name: "Metered",
+            price: 100,
+            priceMetric: "flat",
+            featureIds: [],
+            creditPacks: [
+              { metricId: "calls", packUnits: 400_000, packPrice: 2_000, overagePerUnit: 0.25 },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(findings.filter((finding) => finding.id === "U1")).toHaveLength(0);
+    // The same oversized pack is exactly what the expiry rule is for.
+    expect(findings.find((finding) => finding.id === "U2")?.severity).toBe("warning");
+  });
+
+  // T-LNT-15 @spec §4.17
+  it("flags expiring credits the segment does not spend and clears a pack that rolls over", () => {
+    const oversized = {
+      metricId: "calls",
+      packUnits: 40_000,
+      packPrice: 1_200,
+    };
+    const expiring = lintDesign(
+      hybridInput({
+        tiers: [
+          {
+            id: "packs",
+            name: "Credits",
+            price: 0,
+            priceMetric: "flat",
+            featureIds: [],
+            creditPacks: [oversized],
+          },
+        ],
+      }),
+    );
+    const u2 = expiring.find((finding) => finding.id === "U2");
+    expect(u2).toBeDefined();
+    expect(u2?.message).toMatch(/revenue with no delivery behind it/);
+    expect(u2?.metrics?.expectedBreakageRevenue ?? 0).toBeGreaterThan(0);
+
+    const rolling = lintDesign(
+      hybridInput({
+        tiers: [
+          {
+            id: "packs",
+            name: "Credits",
+            price: 0,
+            priceMetric: "flat",
+            featureIds: [],
+            creditPacks: [{ ...oversized, expiresAtPeriodEnd: false }],
+          },
+        ],
+      }),
+    );
+    expect(rolling.filter((finding) => finding.id === "U2")).toHaveLength(0);
+  });
+
+  // T-LNT-16 @spec §4.17
+  it("flags a consumption allowance that never binds but not the same outcome allowance", () => {
+    const tiers = [
+      {
+        id: "metered",
+        name: "Metered",
+        price: 100,
+        priceMetric: "flat" as const,
+        featureIds: [],
+        usagePricing: [{ metricId: "calls", perUnitPrice: 0.01, includedUnits: 500_000 }],
+      },
+    ];
+
+    const consumption = lintDesign(hybridInput({ tiers }));
+    const u3 = consumption.find((finding) => finding.id === "U3");
+    expect(u3?.severity).toBe("info");
+    expect(u3?.message).toMatch(/never screens anybody/);
+
+    const outcome = lintDesign(
+      hybridInput({ tiers, usageMetrics: [{ ...callsMetric, unitKind: "outcome" as const }] }),
+    );
+    expect(outcome.filter((finding) => finding.id === "U3")).toHaveLength(0);
+  });
+
+  // T-LNT-17 @spec §4.17 — the gate that keeps every frozen fixture silent on this family.
+  it("produces nothing for a menu that sells neither a pack nor a metered line", () => {
+    const findings = lintDesign(
+      hybridInput({
+        tiers: [{ id: "flat", name: "Flat", price: 100, priceMetric: "flat", featureIds: [] }],
+      }),
+    );
+    expect(findings.filter((finding) => finding.id.startsWith("U"))).toHaveLength(0);
+  });
+
+  // T-LNT-18 @spec §4.17 — a segment with no band cannot be reasoned about.
+  it("produces nothing when the segment has no usage band for the metric", () => {
+    const findings = lintDesign(
+      hybridInput({
+        segments: [{ id: "segment", name: "Core segment", seatCount: 1 }],
+        tiers: [
+          {
+            id: "metered",
+            name: "Metered",
+            price: 100,
+            priceMetric: "flat",
+            featureIds: [],
+            usagePricing: [{ metricId: "calls", perUnitPrice: 0.01, includedUnits: 500_000 }],
+            creditPacks: [
+              { metricId: "calls", packUnits: 8_000, packPrice: 400, overagePerUnit: 0.25 },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(findings.filter((finding) => finding.id.startsWith("U"))).toHaveLength(0);
+  });
+});

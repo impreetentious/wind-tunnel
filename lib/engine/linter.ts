@@ -1,13 +1,48 @@
+import { allowanceDeadZones, evaluateCreditPack, type CreditPack } from "./credits";
+import type { DiscountReadout } from "./discount";
+import type { MigrationReadout } from "./migration";
 import { lognormalPartialExpectation, scaleDistribution } from "./stats";
 import type { EconomicsReadout, ExpandedOffer, SegmentEconomicsReadout } from "./types";
+import type { UsageBand, UsageMetricDefinition, UsagePricing } from "./usage";
 
 const EPSILON = 1e-9;
 const DOWNGRADE_MASS_THRESHOLD = 0.3;
 const FREE_LEAKAGE_WARNING_THRESHOLD = 0.15;
 const COMPETITOR_LOSS_THRESHOLD = 0.25;
+const OVERAGE_CLIFF_EXPOSURE_THRESHOLD = 0.2;
+const CREDIT_EXPIRY_UTILISATION_THRESHOLD = 0.7;
+const ALLOWANCE_DEAD_ZONE_THRESHOLD = 0.05;
+const STRANDED_BASE_THRESHOLD = 0.5;
+const MIGRATION_CHURN_THRESHOLD = 0.1;
+const DISCOUNT_LEAKAGE_WARNING_THRESHOLD = 0.1;
 
 export type LinterSeverity = "info" | "warning";
-export type LinterFindingId = "E1" | "E2" | "E3" | "E4" | "E5" | "E6" | "E7" | "B1" | "B2";
+/**
+ * Rule families. **E** economic, **B** behavioral (§4.9); **U** hybrid usage and credits
+ * (§4.17); **M** repricing an existing base (§4.18); **P** discount policy (§4.19). Every U rule
+ * is gated on the offer carrying a pack or a usage line, every M rule on a migration readout
+ * being supplied, and every P rule on a discount readout, so a flat menu with no installed base
+ * and no discount policy is provably silent on all of them and every frozen fixture stays
+ * unchanged.
+ */
+export type LinterFindingId =
+  | "E1"
+  | "E2"
+  | "E3"
+  | "E4"
+  | "E5"
+  | "E6"
+  | "E7"
+  | "B1"
+  | "B2"
+  | "U1"
+  | "U2"
+  | "U3"
+  | "M1"
+  | "M2"
+  | "M3"
+  | "P1"
+  | "P2";
 
 export interface LinterFeature {
   id: string;
@@ -20,6 +55,10 @@ export interface LinterTier {
   price: number;
   priceMetric: "flat" | "per-seat";
   featureIds: readonly string[];
+  /** Optional metered lines (§4.15). Absent = the U rules never look at this offer. */
+  usagePricing?: readonly UsagePricing[];
+  /** Optional prepaid packs (§4.17). Absent = the U rules never look at this offer. */
+  creditPacks?: readonly CreditPack[];
 }
 
 export type LinterAddOn = LinterTier;
@@ -28,6 +67,8 @@ export interface LinterSegment {
   id: string;
   name: string;
   seatCount: number;
+  /** Optional expected-usage bands (§4.15). Absent = the U rules skip this segment. */
+  usageBands?: Readonly<Record<string, UsageBand>>;
 }
 
 export interface LinterFinding {
@@ -45,6 +86,12 @@ export interface DesignLinterInput {
   tiers: readonly LinterTier[];
   addOns: readonly LinterAddOn[];
   segments: readonly LinterSegment[];
+  /** Optional usage metric catalog (§4.15/§4.17); supplies names and unit kinds to the U rules. */
+  usageMetrics?: readonly UsageMetricDefinition[];
+  /** Optional installed-base migration readout (§4.18). Absent = the M rules never run. */
+  migration?: MigrationReadout;
+  /** Optional discount-policy readout (§4.19). Absent = the P rules never run. */
+  discount?: DiscountReadout;
   baseline: EconomicsReadout;
   formatMoney?: (value: number) => string;
   formatPercent?: (value: number) => string;
@@ -144,6 +191,227 @@ function revenueForOffer(
       (total, entry) => total + entry.share * entry.offer.effectivePrice * segment.prospectCount,
       0,
     );
+}
+
+/**
+ * §4.17 rules for hybrid menus: what a prepaid pack and an included allowance do to a segment
+ * that has a usage band. Every one of them iterates offer-by-offer over `creditPacks` or
+ * `usagePricing`, so a menu carrying neither produces nothing here — which is what keeps the
+ * frozen linter corpus provably silent on the new family.
+ */
+function hybridFindings(
+  input: DesignLinterInput,
+  displayMoney: (value: number) => string,
+  displayPercent: (value: number) => string,
+): LinterFinding[] {
+  const findings: LinterFinding[] = [];
+  const offers = [...input.tiers, ...input.addOns];
+  const metrics = new Map((input.usageMetrics ?? []).map((metric) => [metric.id, metric]));
+  const metricName = (metricId: string) => metrics.get(metricId)?.name ?? metricId;
+  const unitLabel = (metricId: string) => metrics.get(metricId)?.unitLabel ?? "units";
+
+  for (const offer of offers) {
+    for (const pack of offer.creditPacks ?? []) {
+      for (const segment of input.segments) {
+        const band = segment.usageBands?.[pack.metricId];
+        if (!band) continue;
+        const readout = evaluateCreditPack(pack, band);
+
+        // U1 — the pack is cheaper per unit than the overage past it, and the segment is
+        // materially likely to reach that boundary. The buyer's rational move is to buy a
+        // bigger pack or move up a tier, so the overage revenue this pricing implies is
+        // largely imaginary.
+        if (
+          readout.overageCliff &&
+          readout.probabilityOfOverage > OVERAGE_CLIFF_EXPOSURE_THRESHOLD
+        ) {
+          const multiple =
+            readout.impliedUnitPrice > 0
+              ? (pack.overagePerUnit ?? 0) / readout.impliedUnitPrice
+              : Number.POSITIVE_INFINITY;
+          findings.push({
+            id: "U1",
+            severity: "warning",
+            title: "Overage cliff past the credit pack",
+            message: `${offer.name} charges ${displayMoney(pack.overagePerUnit ?? 0)} per ${metricName(pack.metricId)} past the pack against ${displayMoney(readout.impliedUnitPrice)} inside it${Number.isFinite(multiple) ? ` — ${multiple.toFixed(1)}× the pack rate` : ""}. ${segment.name} exceeds the pack ${displayPercent(readout.probabilityOfOverage)} of the time, so the rational response is to buy a larger pack or move up a tier rather than pay the overage. Revenue modeled at the overage rate is unlikely to arrive.`,
+            metrics: {
+              impliedUnitPrice: readout.impliedUnitPrice,
+              overagePerUnit: pack.overagePerUnit ?? 0,
+              probabilityOfOverage: readout.probabilityOfOverage,
+            },
+            segmentIds: [segment.id],
+          });
+        }
+
+        // U2 — an expiring pack whose units the segment mostly does not spend. The money is
+        // real and already inside MRR; the point is that it is breakage, and buyers who watch
+        // credits expire renew differently than buyers who use them.
+        const expires = pack.expiresAtPeriodEnd ?? true;
+        if (expires && readout.utilisation < CREDIT_EXPIRY_UTILISATION_THRESHOLD) {
+          findings.push({
+            id: "U2",
+            severity: readout.utilisation < 0.5 ? "warning" : "info",
+            title: "Credits expire unused",
+            message: `${segment.name} is expected to spend ${displayPercent(readout.utilisation)} of ${offer.name}'s ${pack.packUnits} ${unitLabel(pack.metricId)} pack, forfeiting about ${readout.expectedUnusedUnits.toFixed(0)} ${unitLabel(pack.metricId)} — roughly ${displayMoney(readout.expectedBreakageRevenue)} of revenue with no delivery behind it. That is booked MRR, not a modeling error, but it is the part of the price a buyer re-reads at renewal.`,
+            metrics: {
+              utilisation: readout.utilisation,
+              expectedUnusedUnits: readout.expectedUnusedUnits,
+              expectedBreakageRevenue: readout.expectedBreakageRevenue,
+            },
+            segmentIds: [segment.id],
+          });
+        }
+      }
+    }
+
+    const lines = offer.usagePricing ?? [];
+    if (lines.length === 0) continue;
+    for (const segment of input.segments) {
+      if (!segment.usageBands) continue;
+      // U3 — an allowance a segment never reaches. Deliberately restricted to consumption
+      // metrics: an outcome line the buyer does not exhaust means the promised results were
+      // not needed, which is a value question rather than a broken fence.
+      const consumptionLines = lines.filter(
+        (line) => (metrics.get(line.metricId)?.unitKind ?? "consumption") === "consumption",
+      );
+      for (const zone of allowanceDeadZones(
+        consumptionLines,
+        segment.usageBands,
+        ALLOWANCE_DEAD_ZONE_THRESHOLD,
+      )) {
+        findings.push({
+          id: "U3",
+          severity: "info",
+          title: "Allowance never binds",
+          message: `${offer.name}'s ${zone.includedUnits} ${unitLabel(zone.metricId)} of included ${metricName(zone.metricId)} is reached by ${segment.name} only ${displayPercent(zone.probabilityOfExceeding)} of the time. An allowance is a fence in usage space; this one is a number on a pricing page that never screens anybody in this segment.`,
+          metrics: {
+            includedUnits: zone.includedUnits,
+            probabilityOfExceeding: zone.probabilityOfExceeding,
+          },
+          segmentIds: [segment.id],
+        });
+      }
+    }
+  }
+  return findings;
+}
+
+/**
+ * §4.18 rules for repricing an existing base. All three read numbers the migration engine has
+ * already computed — including its own withdraw-the-incumbent counterfactual — so the linter
+ * stays a pure critic rather than acquiring a second simulator. Nothing here runs unless a
+ * migration readout was supplied.
+ */
+function migrationFindings(
+  migration: MigrationReadout,
+  displayMoney: (value: number) => string,
+  displayPercent: (value: number) => string,
+): LinterFinding[] {
+  const findings: LinterFinding[] = [];
+
+  for (const segment of migration.segments) {
+    // M1 — the legacy plan is holding a cohort in place, and withdrawing it would earn more
+    // even after the churn that withdrawing it causes. That second clause is the whole rule:
+    // a sticky legacy plan is only a problem when the counterfactual is better.
+    if (
+      migration.policy !== "forced-at-renewal" &&
+      segment.stayShare > STRANDED_BASE_THRESHOLD &&
+      segment.grandfatherOpportunityCost > EPSILON
+    ) {
+      findings.push({
+        id: "M1",
+        severity: "warning",
+        title: "Grandfathering strands a cohort on the legacy plan",
+        message: `${displayPercent(segment.stayShare)} of ${segment.name}'s base stays on ${segment.cells.find((cell) => cell.stays)?.destinationName ?? "the legacy plan"} indefinitely. Withdrawing it would close at ${displayMoney(segment.withdrawnIncumbentMrr)} against ${displayMoney(segment.bridge.closingMrr)} today — ${displayMoney(segment.grandfatherOpportunityCost)} a month, net of the churn that withdrawing it causes. The legacy price, not the fence, is what this cohort is buying.`,
+        metrics: {
+          stayShare: segment.stayShare,
+          grandfatherOpportunityCost: segment.grandfatherOpportunityCost,
+          withdrawnIncumbentMrr: segment.withdrawnIncumbentMrr,
+        },
+        segmentIds: [segment.id],
+      });
+    }
+
+    // M2 — the migration event itself pushes accounts out. Priced against what the same event
+    // wins elsewhere, because "we lost X" is only half of a repricing decision.
+    if (segment.churnShare > MIGRATION_CHURN_THRESHOLD) {
+      // What the same migration wins from every *other* segment: the trade this churn buys.
+      const upsideElsewhere = migration.bridge.expansion - segment.bridge.expansion;
+      findings.push({
+        id: "M2",
+        severity: "warning",
+        title: "The migration prices a segment into churn",
+        message: `${displayPercent(segment.churnShare)} of ${segment.name}'s base leaves at the migration event, worth ${displayMoney(Math.abs(segment.bridge.churn))} of MRR. The rest of the base expands by ${displayMoney(upsideElsewhere)}${migration.policy === "forced-at-renewal" ? ", and this segment has no legacy plan to fall back to" : ""}. Decide whether that trade is the one you meant to make.`,
+        metrics: {
+          churnShare: segment.churnShare,
+          churnedMrr: Math.abs(segment.bridge.churn),
+          upsideElsewhere,
+        },
+        segmentIds: [segment.id],
+      });
+    }
+  }
+
+  // M3 — an opt-in deadline is a behavioral mechanism, and this model has no behavioral
+  // coefficient (D-08). It reports the exposure rather than discounting it by an invented
+  // take-up rate.
+  if (migration.policy === "opt-in-with-deadline" && migration.mrrRequiringBuyerAction > EPSILON) {
+    findings.push({
+      id: "M3",
+      severity: "info",
+      title: "Legacy pricing depends on buyers acting by a deadline",
+      message: `${displayMoney(migration.mrrRequiringBuyerAction)} of closing MRR sits on accounts that must actively opt in before the deadline to keep it. The model assumes every account that would prefer the legacy plan completes that step; inertia is not modeled here, so treat this figure as the ceiling rather than the forecast.`,
+      metrics: { mrrRequiringBuyerAction: migration.mrrRequiringBuyerAction },
+    });
+  }
+  return findings;
+}
+
+/**
+ * §4.19 rules for what the discount policy does to the menu. Both read numbers the discount
+ * engine has already computed through the same envelope, and neither runs without one.
+ */
+function discountFindings(
+  discount: DiscountReadout,
+  displayMoney: (value: number) => string,
+  displayPercent: (value: number) => string,
+): LinterFinding[] {
+  const findings: LinterFinding[] = [];
+
+  // P1 — the structural one. A permitted floor on a cheaper tier pushes a higher tier off the
+  // envelope, so the fence between them stops screening anybody. This is the finding the
+  // dollar figure cannot express: a share going to zero, not a margin going down.
+  for (const erosion of discount.fenceErosions) {
+    findings.push({
+      id: "P1",
+      severity: "warning",
+      title: "The discount policy has un-fenced the menu",
+      message: `A ${displayPercent(erosion.floorFraction)} floor on ${erosion.discountedTierName} makes it beat ${erosion.erodedTierName} for ${erosion.segmentName}'s top decile — the buyers ${erosion.erodedTierName} exists for. That tier takes ${displayPercent(erosion.shareAtList)} of the segment at list, about ${displayMoney(erosion.mrrAtRisk)} of MRR, and the fence between the two stops screening once the floor is reached.${erosion.approver ? ` ${erosion.approver} can authorize that depth.` : ""} The fence you designed is only as strong as the discount you permit.`,
+      metrics: {
+        floorFraction: erosion.floorFraction,
+        shareAtList: erosion.shareAtList,
+        mrrAtRisk: erosion.mrrAtRisk,
+      },
+      segmentIds: [erosion.segmentId],
+    });
+  }
+
+  // P2 — the dollar figure, computed through the envelope rather than multiplied through, so
+  // it includes the buyers who re-sort upward as well as the ones who simply pay less.
+  if (discount.discountLeakageShare > DISCOUNT_LEAKAGE_WARNING_THRESHOLD) {
+    findings.push({
+      id: "P2",
+      severity: "warning",
+      title: "Permitted discounts move material revenue",
+      message: `The permitted floors and their expected hit rates take achieved MRR to ${displayMoney(discount.achievedMrr)} against ${displayMoney(discount.listMrr)} at list — ${displayPercent(discount.discountLeakageShare)}, or ${displayMoney(discount.discountLeakage)}. That figure is computed by re-running the choice model at the discounted prices, so it already includes buyers who move tier rather than only buyers who pay less.`,
+      metrics: {
+        discountLeakage: discount.discountLeakage,
+        discountLeakageShare: discount.discountLeakageShare,
+        achievedMrr: discount.achievedMrr,
+      },
+    });
+  }
+  return findings;
 }
 
 /**
@@ -340,6 +608,14 @@ export function lintDesign(input: DesignLinterInput): readonly LinterFinding[] {
       citation: "Iyengar & Lepper (2000) — choice assortment evidence; replication caveats apply",
       metrics: { visiblePaidOffers },
     });
+  }
+
+  findings.push(...hybridFindings(input, displayMoney, displayPercent));
+  if (input.migration) {
+    findings.push(...migrationFindings(input.migration, displayMoney, displayPercent));
+  }
+  if (input.discount) {
+    findings.push(...discountFindings(input.discount, displayMoney, displayPercent));
   }
 
   const topTier = topTierId(input);

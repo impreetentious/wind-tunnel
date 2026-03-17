@@ -11,7 +11,7 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 ## What it does
 
 - **Model** — buyer segments with P50-centred size and willingness-to-pay bands, within-segment buyer spread, a keyboard-navigable segment × feature value matrix, usage metrics and bands, provenance tags, and immediate engine-backed KPIs. Three template scenarios give you a practical first run.
-- **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat, metered or prepaid-credit pricing, trial and retention assumptions, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, and directional behavioral considerations without inventing numeric effects.
+- **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat, metered or prepaid-credit pricing, trial and retention assumptions, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, overage cliffs, dead allowances, stranded legacy cohorts, un-fenced discounts, and directional behavioral considerations without inventing numeric effects.
 - **Simulate** — closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall, and a 400-point residual price sweep for each tier.
 - **Analyze — Uncertainty** — seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates, and a tornado chart that tells you _which assumption to validate first_.
 - **Analyze — Research** — survey-first Van Westendorp price sensitivity with manual/CSV input, exclusion reporting, cumulative curves, interpolated points, and a clearly labeled illustrative mode. Choice-based conjoint, MaxDiff and bundling economics are available alongside it.
@@ -87,4 +87,4 @@ This emits a portable static site in `out/` — it also runs the privacy scan an
 
 ---
 
-**Version:** v0.22.10
+**Version:** v0.22.11
