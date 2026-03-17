@@ -3,7 +3,9 @@
 import { useState } from "react";
 
 import { handleHorizontalTabKey } from "./tab-keyboard";
+import { DiscountSurface } from "./discount-surface";
 import { ElasticitySurface } from "./elasticity-surface";
+import { MigrationSurface } from "./migration-surface";
 import { OptimizerSurface } from "./optimizer-surface";
 import { PositioningSurface } from "./positioning-surface";
 import { ResearchSurface } from "./research-surface";
@@ -18,6 +20,8 @@ type AnalyzeView =
   | "research"
   | "positioning"
   | "usage"
+  | "migration"
+  | "discount"
   | "time";
 const analyzeViews = [
   "uncertainty",
@@ -26,6 +30,8 @@ const analyzeViews = [
   "research",
   "positioning",
   "usage",
+  "migration",
+  "discount",
   "time",
 ] as const;
 
@@ -44,6 +50,8 @@ export function AnalyzeSurface() {
               ["research", "Research"],
               ["positioning", "Positioning"],
               ["usage", "Usage"],
+              ["migration", "Migration"],
+              ["discount", "Discounts"],
               ["time", "Time"],
             ] as const
           ).map(([id, label]) => {
@@ -95,6 +103,10 @@ export function AnalyzeSurface() {
           <PositioningSurface />
         ) : view === "usage" ? (
           <UsageSurface />
+        ) : view === "migration" ? (
+          <MigrationSurface />
+        ) : view === "discount" ? (
+          <DiscountSurface />
         ) : (
           <TimeSurface />
         )}

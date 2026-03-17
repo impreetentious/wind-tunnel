@@ -18,6 +18,7 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 - **Analyze — Elasticity and price search** — own-price and revenue elasticity, a cross-tier substitution heatmap, and a price search that reports the best menu it found by local search, presented as a candidate rather than a proven optimum.
 - **Analyze — Usage** — the expected metered bill by segment, plus prepaid credit packs priced against each segment's own usage band: expected utilisation, the probability of overage, the overage cliff, and **breakage** — the units a buyer is expected to pay for and never spend — reported as a disclosed share of revenue rather than as an addition to it.
 - **Analyze — Migration** — repricing an existing base rather than selling to a new one. The legacy plan enters each account's choice set as one more alternative in the same envelope, with the switching cost charged on every move away from it, and the readout is a migration matrix (who lands where, who churns at the event) and a revenue bridge that reconciles old MRR to new exactly. Grandfathering, forced-at-renewal, and opt-in-with-deadline are three choice sets, not three engines.
+- **Analyze — Discounts** — list price is a ceiling; achieved price is a policy outcome. Set a permitted floor and expected hit rate per tier and the effective menu runs through the same choice engine, reporting discount leakage in dollars and **fence erosion**: the floors that make a discounted Better beat an undiscounted Best for the buyers Best was built for.
 - **Analyze — Positioning** — competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI.
 - **Communicate** — an exportable Pricing Decision Record, pricing-page mock, browser-local scenario history and diffs, readiness and model-limit disclosures, PNG/ZIP decision snapshots, and a worked tutorial.
 
@@ -86,4 +87,4 @@ This emits a portable static site in `out/` — it also runs the privacy scan an
 
 ---
 
-**Version:** v0.22.9
+**Version:** v0.22.10
