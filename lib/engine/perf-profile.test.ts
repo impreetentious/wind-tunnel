@@ -63,4 +63,22 @@ describe("engine perf profile (@spec §15 M-16)", () => {
     expect(profile.p95Ms).toBeLessThan(12);
     expect(profile.medianMs).toBeLessThan(6);
   });
+
+  // A zero-run profile is the one way `percentile` sees an empty sample set.
+  // It is worth pinning rather than leaving to chance: a caller that computes
+  // `runs` from configuration can reach 0, and the contract there is an explicit
+  // NaN — a quiet `undefined` or a thrown error would both read as a real perf
+  // failure at the call site instead of "nothing was measured".
+  it("reports NaN rather than a bogus timing when asked for zero runs", () => {
+    let invocations = 0;
+    const profile = measure("no-runs", 0, () => {
+      invocations += 1;
+    });
+
+    // The warmup pass still happens; only the measured loop is skipped.
+    expect(invocations).toBe(1);
+    expect(profile.samples).toEqual([]);
+    expect(profile.medianMs).toBeNaN();
+    expect(profile.p95Ms).toBeNaN();
+  });
 });

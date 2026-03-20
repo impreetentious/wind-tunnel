@@ -606,7 +606,15 @@ test("the MaxDiff demo study scores items into normalized importance", async ({ 
   await page.getByRole("button", { name: "Load demo CSV" }).click();
   await page.getByRole("button", { name: "Analyze pasted responses" }).click();
 
-  await expect(page.getByRole("heading", { name: /^Importance lenses$/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Importance lenses" })).toBeVisible();
+  // M-06 — the counting-scores lens is the default and the MNL lens is additive,
+  // so the shipped interpretation never changes silently. The unit suite pins the
+  // same guarantee in components/studio-shell.test.tsx; assert it here too, or the
+  // browser-level suite would pass on a panel that had quietly flipped defaults.
+  await expect(page.getByRole("button", { name: "Counting scores" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
   await expect(page.getByTestId("maxdiff-scores-chart")).toBeVisible();
   await expectNoSeriousAxeViolations(page);
 });

@@ -253,6 +253,71 @@ describe("discount-policy leakage (@spec §4.19)", () => {
     ).toThrow(RangeError);
   });
 
+  // T-DSC-08c @spec §4.19 — a competitor offer belongs in the choice set, because
+  // it changes which of our tiers a buyer picks, but it is not our revenue. It
+  // must contribute no MRR and no tier share to the readout, or discount leakage
+  // would be measured against a base that includes the competition's price.
+  it("counts competitor offers in the choice set but never in our MRR or tier shares", () => {
+    const withRival = (): DiscountInput => ({
+      segments: [
+        {
+          id: "midmarket",
+          name: "Midmarket",
+          prospectCount: 1_000,
+          sigma: 0.4,
+          listOffers: expandOffers({
+            seatCount: 1,
+            featureValues: { core: 120, team: 80, governance: 100 },
+            tiers: [
+              { id: "good", name: "Good", price: 40, priceMetric: "flat", featureIds: ["core"] },
+              {
+                id: "better",
+                name: "Better",
+                price: 120,
+                priceMetric: "flat",
+                featureIds: ["core", "team"],
+              },
+            ],
+            competitors: [
+              { id: "rival", name: "Rival", price: 90, priceMetric: "flat", value: 190 },
+            ],
+            includeCompetitors: true,
+          }),
+        },
+      ],
+      policies: [{ tierId: "better", floorFraction: 0.2, hitRateBySegment: { midmarket: 0.5 } }],
+    });
+
+    const readout = evaluateDiscountPolicy(withRival());
+    const cohortTiers = readout.segments[0].cohorts.map((cohort) => cohort.tierId);
+
+    // The rival is present in the menu the buyer chooses from...
+    expect(readout.segments[0].listMrr).toBeGreaterThan(0);
+    // ...but never appears as one of our tiers, and never earns us MRR.
+    expect(cohortTiers).not.toContain("rival");
+    // Achieved MRR is deliberately not bounded above by list here: a discount
+    // both moves buyers up a tier and wins buyers back from the rival, so it can
+    // exceed list. Leakage is the bounded quantity — it can never exceed the
+    // whole of list MRR, which is the same invariant the property test pins.
+    expect(readout.achievedMrr).toBeGreaterThan(0);
+    expect(readout.discountLeakage).toBeLessThanOrEqual(readout.listMrr + 1e-9);
+  });
+
+  // T-DSC-08b @spec §4.19 — the segment side of the same contract. A policy is
+  // only meaningful against a population, so a segment whose prospect count is
+  // negative or non-finite is rejected rather than silently weighted to zero,
+  // which would make leakage look like a real result computed over nobody.
+  it("rejects a segment whose prospect count is not a finite, non-negative number", () => {
+    const withCount = (prospectCount: number) => ({
+      ...input([]),
+      segments: [{ ...input([]).segments[0], prospectCount }],
+    });
+    expect(() => evaluateDiscountPolicy(withCount(-1))).toThrow(RangeError);
+    expect(() => evaluateDiscountPolicy(withCount(Number.NaN))).toThrow(RangeError);
+    expect(() => evaluateDiscountPolicy(withCount(Number.POSITIVE_INFINITY))).toThrow(RangeError);
+    expect(() => evaluateDiscountPolicy(withCount(0))).not.toThrow();
+  });
+
   // T-DSC-09 @spec §4.19
   it("ignores a policy on a tier this segment's menu does not contain", () => {
     const readout = evaluateDiscountPolicy(input([{ tierId: "ghost", floorFraction: 0.5 }]));

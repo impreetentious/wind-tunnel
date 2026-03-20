@@ -326,6 +326,14 @@ describe("StudioShell", () => {
 
   // M-04 / M-05 — both engines shipped with no consumer. These assert they are
   // reachable from the shipped UI, not merely present in lib/engine.
+  //
+  // The explicit 30s timeout is a flake guard, not a performance allowance. The
+  // D-efficient search measures ~4.8s under v8 coverage instrumentation on an idle
+  // machine, which sits inside vitest's 5s default with no margin — on a loaded CI
+  // runner it tips over and reads as a regression it is not. Detecting a genuine
+  // slowdown is `perf:conjoint`'s job (vitest.perf.config.ts), which runs
+  // uninstrumented and asserts on time; this number must never be treated as the
+  // budget.
   it("generates a D-efficient design and reports how it compared to the baseline", () => {
     render(<StudioShell version="1.1.0" />);
 
@@ -349,7 +357,7 @@ describe("StudioShell", () => {
     expect(report).toHaveTextContent(
       /D-efficient search improved|already D-optimal|no improvement; the random-balanced baseline was kept/,
     );
-  });
+  }, 30_000);
 
   it("estimates per-respondent part-worths only on explicit request", async () => {
     render(<StudioShell version="1.1.0" />);

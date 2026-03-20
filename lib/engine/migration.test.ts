@@ -207,6 +207,27 @@ describe("repricing and migration (@spec §4.18)", () => {
     ).toThrow(RangeError);
     expect(() => simulateMigration({ policy: "grandfather", segments: [] })).toThrow(RangeError);
   });
+
+  // T-MIG-08b @spec §4.18 — the incumbent plan occupies a reserved offer ID in
+  // the choice set. A proposed offer that reuses it would collide with the
+  // incumbent inside the bridge and silently double-count a cohort, so the
+  // collision is refused at the door rather than reconciled afterwards.
+  it("rejects a proposed offer that reuses the incumbent's reserved ID", () => {
+    // Spelled out rather than imported: `incumbent:<id>` is the reserved-ID
+    // format itself, so writing it literally is what makes this a test of the
+    // contract instead of a test that the module agrees with itself.
+    const reserved = `incumbent:${segment().incumbent.id}`;
+    const collide = () =>
+      simulateMigration({
+        policy: "grandfather",
+        segments: [
+          segment({
+            proposedOffers: [...proposedMenu(), { ...proposedMenu()[0], id: reserved }],
+          }),
+        ],
+      });
+    expect(collide).toThrow(RangeError);
+  });
 });
 
 describe("migration linter rules (@spec §4.18)", () => {
