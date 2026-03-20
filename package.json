@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.22.12",
+  "version": "0.23.0",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -20,7 +20,8 @@
     "web-vitals": "node scripts/check-web-vitals.mjs && playwright test e2e/web-vitals.spec.ts --project=chromium",
     "coverage": "vitest run --coverage",
     "spec-coverage": "node scripts/spec-coverage.mjs",
-    "check:version": "node scripts/check-version-coherence.mjs"
+    "check:version": "node scripts/check-version-coherence.mjs",
+    "check:citations": "node scripts/check-citations.mjs"
   },
   "dependencies": {
     "lz-string": "1.5.0",
@@ -45,14 +46,14 @@
     "eslint-config-next": "16.1.6",
     "fast-check": "4.5.3",
     "jsdom": "28.1.0",
-    "postcss": "8.5.6",
+    "postcss": "8.5.8",
     "prettier": "3.8.1",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",
     "vitest": "4.0.18"
   },
   "overrides": {
-    "postcss": "8.5.6",
+    "postcss": "8.5.8",
     "brace-expansion": "~5.0.4",
     "minimatch@3": {
       "brace-expansion": "~1.1.12"
