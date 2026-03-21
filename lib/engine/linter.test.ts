@@ -99,7 +99,7 @@ function ids(input: DesignLinterInput) {
   return lintDesign(input).map((finding) => finding.id);
 }
 
-describe("P5 deterministic design linter", () => {
+describe("deterministic design linter", () => {
   // @spec §4.9
   it("T-LNT-01 flags a dead fence and nothing else", () => {
     expect(
@@ -364,7 +364,7 @@ describe("P5 deterministic design linter", () => {
 // are the linter paths a lognormal fixture never exercises: a point-mass
 // segment resolves selection by a single median pick rather than by
 // integrating shares, so it runs entirely different arithmetic.
-describe("P5 linter — point-mass segments and competitor loss", () => {
+describe("linter — point-mass segments and competitor loss", () => {
   function competitiveSegment(sigma: number): SegmentEconomicsInput {
     return {
       id: "segment",

@@ -7,7 +7,7 @@ import {
   TUTORIAL_STEPS,
 } from "./tutorial";
 
-describe("in-app tutorial (M-13)", () => {
+describe("in-app tutorial", () => {
   it("returns null when inactive", () => {
     expect(currentTutorialStep(INITIAL_TUTORIAL_STATE)).toBeNull();
   });

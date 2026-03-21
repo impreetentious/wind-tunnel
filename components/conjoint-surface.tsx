@@ -135,8 +135,8 @@ export function ConjointSurface() {
   const [priceRaw, setPriceRaw] = useState("10, 30, 50");
   const [seed, setSeed] = useState(1708);
   const [designError, setDesignError] = useState<string | undefined>();
-  // M-05 — the D-efficient generator can degrade to its random-balanced
-  // baseline. That outcome is reported, never swallowed (§4.10 addendum).
+  // The D-efficient generator can degrade to its random-balanced baseline.
+  // That outcome is reported, never swallowed (§4.10 addendum).
   const [designMethod, setDesignMethod] = useState<"random-balanced" | "d-efficient">(
     "random-balanced",
   );
@@ -166,8 +166,8 @@ export function ConjointSurface() {
   const estimateError =
     estimation && "estimateError" in estimation ? estimation.estimateError : undefined;
 
-  // M-04 — HB is the one estimator whose runtime can breach §3.5's interaction
-  // budget, so it is state set by an explicit click, never a useMemo.
+  // HB is the one estimator whose runtime can breach the interaction budget,
+  // so it is state set by an explicit click, never a useMemo.
   //
   // The result carries the record it was computed from. Any change to the
   // study — new design, cleared study, re-imported CSV — produces a new record

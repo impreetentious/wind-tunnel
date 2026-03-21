@@ -50,13 +50,13 @@ function buildWorstCaseInput() {
   };
 }
 
-describe("engine perf profile (@spec §15 M-16)", () => {
+describe("engine performance profile", () => {
   it("worst-case scenario simulation stays inside a generous local budget", () => {
     const input = buildWorstCaseInput();
     const profile = measure("worst-case-sim", 50, () => {
       simulateEconomics(input);
     });
-    // 12 ms P95 is a very generous local budget (§3.5 target is < 16 ms
+    // 12 ms P95 is a very generous local budget (the interaction target is < 16 ms
     // for edit → re-simulate → repaint including React reconciliation).
     // Machines vary; keep the gate lenient enough to run in every CI runner
     // but strict enough to flag a real regression.

@@ -37,7 +37,7 @@ function fixture(overrides: Partial<MonteCarloInput> = {}): MonteCarloInput {
   };
 }
 
-describe("P7a seeded Monte Carlo uncertainty", () => {
+describe("seeded Monte Carlo uncertainty", () => {
   // T-MC-01 @spec §4.8
   // @spec §4.12 — engine randomness flows only through the injected seeded PRNG
   it("returns byte-identical draws and percentile summaries for a fixed seed", () => {
@@ -175,7 +175,7 @@ describe("P7a seeded Monte Carlo uncertainty", () => {
 // rejected or silently simulated. Each case below pins one refusal, plus the
 // two degenerate paths (a collapsed band and an injected PRNG) that a seeded
 // happy-path fixture never reaches.
-describe("P7a Monte Carlo input validation and degenerate paths", () => {
+describe("Monte Carlo input validation and degenerate paths", () => {
   // T-MC-06 @spec §4.8
   it("rejects a seed that is not a uint32", () => {
     for (const seed of [-1, 1.5, 4_294_967_296, Number.NaN]) {

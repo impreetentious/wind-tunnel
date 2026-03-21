@@ -361,7 +361,7 @@ describe("D-efficient conjoint design generator", () => {
 // pooled MNL that quietly accepts a malformed design produces coefficients that
 // look ordinary and are meaningless, so each refusal below is pinned by the
 // error it raises or the status it returns.
-describe("P8 conjoint design and estimation contracts", () => {
+describe("conjoint design and estimation contracts", () => {
   const attribute = (id: string, levels: string[]): ConjointAttribute => ({
     id,
     name: id,

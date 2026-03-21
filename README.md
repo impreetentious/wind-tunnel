@@ -91,4 +91,4 @@ The GitHub remote is authoritative and carries the only pipeline; `.github/workf
 
 ---
 
-**Version:** v0.24.4
+**Version:** v0.24.5

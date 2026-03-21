@@ -1,5 +1,5 @@
 /**
- * @spec §15 M-13 in-app worked tutorial ("defend this decision" walkthrough).
+ * In-app worked tutorial for the "defend this decision" workflow.
  *
  * Content-only module: the tutorial script lives here, and the overlay in
  * `components/tutorial-overlay.tsx` renders it. Splitting content from UI lets

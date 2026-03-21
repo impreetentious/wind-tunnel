@@ -111,7 +111,7 @@ describe("repricing and migration (@spec §4.18)", () => {
     const grandfathered = run("grandfather");
     const optIn = run("opt-in-with-deadline");
 
-    // A rational buyer faces the identical choice set; only the disclosure differs (D-08).
+    // A rational buyer faces the identical choice set; only the disclosure differs.
     expect(optIn.bridge.closingMrr).toBeCloseTo(grandfathered.bridge.closingMrr, 12);
     expect(optIn.stayShare).toBeCloseTo(grandfathered.stayShare, 12);
     expect(grandfathered.mrrRequiringBuyerAction).toBe(0);
