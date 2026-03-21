@@ -31,7 +31,7 @@ function deterministicSalesScenario() {
   });
 }
 
-describe("P7a scenario uncertainty adapter", () => {
+describe("scenario uncertainty adapter", () => {
   // @spec §4.8
   it("maps size and WTP bands through the existing closed-form scenario simulation", () => {
     const scenario = deterministicSalesScenario();

@@ -8,7 +8,7 @@ function baseScenario() {
   return scenarioSchema.parse(salesLedB2bTemplate);
 }
 
-describe("scenario diff (M-10)", () => {
+describe("scenario diff", () => {
   it("returns an empty list for an unchanged scenario", () => {
     const scenario = baseScenario();
     expect(diffScenarios(scenario, scenario)).toEqual([]);

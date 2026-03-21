@@ -12,7 +12,7 @@ function makeSvg(): SVGSVGElement {
   return svg;
 }
 
-describe("SVG export helpers (M-12)", () => {
+describe("SVG export helpers", () => {
   it("serializes an SVG element with declared namespaces and an XML prolog", () => {
     const svg = makeSvg();
     const markup = serializeSvgElement(svg);

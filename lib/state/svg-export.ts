@@ -1,10 +1,8 @@
 /**
- * @spec §15 M-12 PNG/slide exports.
- *
  * A tiny helper that serializes an inline `<svg>` element to a Blob suitable
  * for download. Renders via an Image → Canvas pipeline so the output stays
  * pixel-accurate at any DPR without pulling in an external SVG-to-PNG library
- * (ledger D-42: keeps the production dependency budget at 7).
+ * without adding another production dependency.
  *
  * The functions in this module rely on `Image`, `URL.createObjectURL`, and
  * `HTMLCanvasElement.toBlob` — i.e., they only work in a browser. Callers are
@@ -228,7 +226,7 @@ export function buildStoredZip(entries: readonly StoredZipEntry[]): Uint8Array {
  * A minimal HTML slide-bundle exporter. Produces a single self-contained HTML
  * page (no assets) with the given title, a caption, and any inline SVG markup
  * from the app. The output loads in any browser and prints cleanly to PDF via
- * the built-in print dialog — the M-12 "slide export" is deliberately a
+ * the built-in print dialog. The slide export is deliberately a
  * static bundle so it stays inside the dependency cap.
  */
 export function renderSlideBundle(input: {

@@ -65,7 +65,7 @@ function competitorFixture() {
   });
 }
 
-describe("P5 scenario linter integration", () => {
+describe("scenario linter integration", () => {
   // @spec §4.9
   it("T-LNT-07 runs the JSON competitor fixture through the engine and flags material loss", () => {
     const scenario = competitorFixture();

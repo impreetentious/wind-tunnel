@@ -14,7 +14,7 @@ import type { Scenario } from "./schemas";
  *
  * The incumbent plan is not a special data shape: it is a *tier of another design in the same
  * scenario*. That is what makes "current design vs proposed design" a first-class comparison
- * (the §15 M-10 diff already knows how to describe it) and it means the incumbent's value and
+ * (the scenario diff already knows how to describe it) and it means the incumbent's value and
  * effective price are computed by the same `expandOffers` path as every other offer — usage
  * lines, credit packs, per-seat multiplication and all. A migration readout can never disagree
  * with the simulator about what the legacy plan costs.

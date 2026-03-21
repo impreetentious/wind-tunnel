@@ -7,7 +7,7 @@ import { simulateScenarioDesign } from "./scenario-economics";
 import { simulateScenarioMigration } from "./scenario-migration";
 import type { Scenario } from "./schemas";
 
-/** Runs P5's pure linter over the current persisted scenario. */
+/** Runs the pure linter over the current persisted scenario. */
 export function lintScenarioDesign(scenario: Scenario) {
   const design = activeDesign(scenario);
   if (design.tiers.length === 0) return [];

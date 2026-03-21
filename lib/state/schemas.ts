@@ -407,8 +407,8 @@ export const settingsSchema = z.strictObject({
   currency: z.string().regex(/^[A-Z]{3}$/, "Use a three-letter ISO currency code."),
   theme: z.enum(["system", "light", "dark"]),
   /**
-   * BCP-47 locale for `Intl.NumberFormat`. Backward-compatible default keeps
-   * pre-M-11 scenarios at `en-US`. Accepts a permissive shape: at least two
+   * BCP-47 locale for `Intl.NumberFormat`. The backward-compatible default is
+   * `en-US`. Accepts a permissive shape: at least two
    * lowercase letters, optionally hyphen-separated subtags. Invalid tags fall
    * back at format time rather than throwing here — Intl silently ignores
    * unknown extensions but rejects malformed BCP-47.

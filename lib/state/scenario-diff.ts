@@ -1,6 +1,4 @@
 /**
- * @spec §15 M-10 Scenario version history & diffing.
- *
  * Structural diff between two Scenario snapshots for a "what changed?" readout.
  * The diff intentionally lives in `lib/state/` (not the engine): it consumes
  * the durable Zod-parsed shape only and never touches the pricing math. Two
@@ -457,7 +455,7 @@ export function diffScenarios(before: Scenario, after: Scenario): readonly Scena
  * `diffScenarios` compares designs by id, so two designs that both exist read as one added and
  * one removed rather than as a change. Repricing is the case where that is exactly the wrong
  * answer: the whole question is what moved between them. This ignores the id mismatch and
- * reports the tier-by-tier delta, which is what gives §15's version diffing its use case.
+ * reports the tier-by-tier delta for the version-history view.
  *
  * Tiers and add-ons are matched by id across the two designs, so a proposal that renames or
  * reprices a tier reads as a change while one that introduces a genuinely new tier reads as an
