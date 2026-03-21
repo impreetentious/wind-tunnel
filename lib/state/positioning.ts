@@ -207,7 +207,7 @@ export function summarizeCompetitorValueSurvey(
 }
 
 /**
- * The M-09 survey shortcut: translate a small set of stated competitor values
+ * Survey shortcut: translate a small set of stated competitor values
  * for one segment into that segment's competitor value in a single action.
  * It reuses `setCompetitorValueForSegment` so the per-segment cell edit stays
  * the single source of truth; the survey is only a faster way to fill it. A

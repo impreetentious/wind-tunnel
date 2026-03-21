@@ -71,7 +71,7 @@ describe("positioning state adapter", () => {
   });
 });
 
-describe("competitor value survey shortcut (M-09)", () => {
+describe("competitor value survey shortcut", () => {
   it("parses a free-text paste and counts rejected tokens", () => {
     const { values, rejected } = parseCompetitorValueSurvey("120, 150\n90 200; abc -5");
     expect(values).toEqual([120, 150, 90, 200]);

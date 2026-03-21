@@ -203,7 +203,7 @@ r1,${record.tasks[0].id},not-a-concept`;
     expect(["ok", "nonIdentifiable", "separated", "nonConverged"]).toContain(estimate.status);
   });
 
-  // @spec §6 P7d-2 E2E-08 — the shipped synthetic dataset must be recoverable, otherwise
+  // The shipped synthetic dataset must be recoverable, otherwise
   // the acceptance flow is demonstrating the estimator against data it cannot identify.
   it("recovers the shipped synthetic study's generating coefficients within three standard errors", () => {
     const record = buildSyntheticConjointStudy();

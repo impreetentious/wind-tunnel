@@ -4,7 +4,7 @@ import { evaluateScenarioReadiness, MODEL_LIMITS, summarizeReadiness } from "./r
 import { scenarioSchema } from "./schemas";
 import { salesLedB2bTemplate } from "./templates";
 
-describe("scenario readiness (M-15)", () => {
+describe("scenario readiness", () => {
   it("the shipped sales template surfaces at most warnings on guessed provenance", () => {
     const scenario = scenarioSchema.parse(salesLedB2bTemplate);
     const checks = evaluateScenarioReadiness(scenario);

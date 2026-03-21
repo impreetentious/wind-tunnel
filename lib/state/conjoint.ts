@@ -35,7 +35,7 @@ r2,task-1,none
 r2,task-2,concept-1`;
 
 /**
- * Shipped synthetic CBC teaching dataset (§6 P7d-2 / E2E-08): 3 attributes × 3 levels
+ * Shipped synthetic CBC teaching dataset: 3 attributes × 3 levels
  * plus a numeric account-month price and a "none" alternative. Choices are sampled
  * from `SYNTHETIC_CONJOINT_TRUE_BETA` under the same MNL the estimator fits, so a
  * correct estimator recovers the generating coefficients within 3·SE. The design and
@@ -293,10 +293,10 @@ export function estimateConjointRecord(record: ConjointStudyRecord): ConjointEst
 }
 
 /**
- * M-04 — per-respondent part-worths via the HB sampler (@spec §4.10.3).
+ * Per-respondent part-worths via the HB sampler (@spec §4.10.3).
  *
  * Deliberately NOT wrapped in a memo or effect: this is the only estimator in
- * the product with a runtime cost that can breach §3.5's interaction budget, so
+ * the product with a runtime cost that can breach the interaction budget, so
  * it runs only from an explicit user action. Callers must gate on the pooled
  * estimate being `ok` — HB on a non-identifiable design produces confident
  * nonsense rather than an error.

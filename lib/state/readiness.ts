@@ -1,6 +1,4 @@
 /**
- * @spec §15 M-15 decision-readiness summary + model-limit disclosures.
- *
  * A deterministic checklist that reads a Scenario and reports whether it is
  * ready to be defended in a stakeholder review. Every check is a cited fact,
  * not a judgment call; the summary is what the Decision Record includes at
@@ -148,7 +146,7 @@ export const MODEL_LIMITS: readonly { id: string; title: string; body: string }[
   {
     id: "single-period",
     title: "Single-period screening by default",
-    body: "The core engine is a snapshot of buyer choice under a menu. The M-02 extension adds a paid trial and month-over-month retention as opt-in, deterministic overlays — not a stochastic churn hazard, and not annual-vs-monthly discounting.",
+    body: "The core engine is a snapshot of buyer choice under a menu. Paid trials and month-over-month retention are opt-in, deterministic overlays — not a stochastic churn hazard, and not annual-vs-monthly discounting.",
   },
   {
     id: "assumption-driven",

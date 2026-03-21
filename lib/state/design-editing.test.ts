@@ -13,7 +13,7 @@ import {
 import { scenarioSchema } from "./schemas";
 import { plgCollaborationTemplate } from "./templates";
 
-describe("P5 design editing", () => {
+describe("design editing", () => {
   it("creates, duplicates, and renames independently addressable designs", () => {
     const created = createDesign(plgCollaborationTemplate, "Experiment");
     expect(created.activeDesignId).toBe("experiment");

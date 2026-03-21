@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BUILT_IN_LOCALES, formatCount, formatMoney, formatPercent } from "./formatting";
 
-describe("M-11 locale/currency formatting", () => {
+describe("locale/currency formatting", () => {
   it("uses the currency symbol appropriate to the locale", () => {
     expect(formatMoney(1_234, "USD", "en-US")).toContain("$");
     expect(formatMoney(1_234, "EUR", "de-DE")).toContain("€");

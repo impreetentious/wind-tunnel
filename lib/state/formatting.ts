@@ -1,8 +1,6 @@
 /**
- * @spec §15 M-11 currency/i18n foundation.
- *
  * A tiny locale/currency-aware formatting layer built on `Intl.NumberFormat`
- * (no new dependency — ledger D-41). Every UI surface eventually reads
+ * without another dependency. Every UI surface reads
  * `scenario.settings.locale` and `scenario.settings.currency` through this
  * layer instead of hard-coding "en-US"/"USD" at the call site, so switching a
  * scenario's locale flips the readout without patching each surface.
@@ -89,20 +87,6 @@ export function formatNumber(
 }
 
 /**
- * Locale-aware compact percentage — useful for chart labels where "12.34%"
- * would clutter axis ticks. Falls back to fixed one-decimal below 1000×.
- */
-export function formatPercentCompact(value: number, locale = "en-US"): string {
-  if (!Number.isFinite(value)) return "—";
-  return getFormatter(locale, {
-    style: "percent",
-    notation: "compact",
-    compactDisplay: "short",
-    maximumFractionDigits: 1,
-  }).format(value);
-}
-
-/**
  * A minimal glossary of built-in currency/locale pairs shipped with the app.
  * Not an exhaustive list — every ISO-4217 currency and every BCP-47 locale
  * `Intl.NumberFormat` accepts is valid at runtime; this is only what the
@@ -121,5 +105,3 @@ export const BUILT_IN_LOCALES = [
   { code: "hi-IN", label: "हिन्दी", suggestedCurrency: "INR" },
   { code: "pt-BR", label: "Português (Brasil)", suggestedCurrency: "BRL" },
 ] as const;
-
-export type LocaleCode = (typeof BUILT_IN_LOCALES)[number]["code"];
