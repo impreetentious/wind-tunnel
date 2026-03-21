@@ -6,7 +6,7 @@
  * honest HB kernel that produces per-respondent β posteriors without a new
  * runtime dependency: no NUTS, no full-Σ Wishart update, and no linear-algebra
  * imports. The pooled MNL from §4.10 remains available as the default,
- * shallower lens — HB is opt-in, matching the M-04 rationale in §15.1.
+ * shallower lens, so HB remains opt-in.
  *
  * Model:
  *   choice_it ∝ exp(x_it · β_r)               (logit level 1, r = respondent(i))
@@ -19,7 +19,7 @@
  *
  * Determinism: given the same study + seed + options, the sampler returns the
  * same posterior means and diagnostic acceptance rates. Randomness enters only
- * through `mulberry32`, matching the §3.4 engine-purity contract. The engine
+ * through `mulberry32`, keeping output deterministic for a fixed seed. The engine
  * never mutates the study; all draws happen on local copies.
  */
 
@@ -162,7 +162,7 @@ function drawInverseGamma(shape: number, scale: number, random: () => number): n
   // the sizes we run at (K = a few thousand posterior draws), the small bias
   // relative to a full acceptance-rejection gamma sampler is dwarfed by MCMC
   // variance; the HB posterior means recover the ground-truth β within noise
-  // in T-HBC-01, so this stays inside the ledger's "no new deps" budget.
+  // in T-HBC-01, so this implementation needs no additional dependency.
   const d = shape - 1 / 3;
   const c = 1 / Math.sqrt(9 * d);
   while (true) {

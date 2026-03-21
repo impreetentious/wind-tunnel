@@ -31,7 +31,7 @@ import type { ExpandedOffer, SelectOffersOptions } from "./types";
  * prices a segment into churn. `opt-in-with-deadline` leaves it in and records that every account
  * staying there has to *do something* by a date: mechanically identical to grandfathering for a
  * rational buyer, and different only through inertia, which this product does not invent a
- * coefficient for (D-08). The engine reports the exposure instead of modeling the psychology.
+ * coefficient. The engine reports the exposure instead of modeling the psychology.
  */
 export type MigrationPolicy = "grandfather" | "forced-at-renewal" | "opt-in-with-deadline";
 

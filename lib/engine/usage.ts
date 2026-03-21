@@ -9,7 +9,7 @@
  * approximation, not a per-buyer joint distribution over usage and ε: the
  * `local-cost` model states the assumption explicitly rather than hiding it.
  *
- * Design rationale (D-40, §15 Batch 3):
+ * Design rationale:
  * - Backwards-compatible extension. Existing scenarios that omit
  *   `usagePricing` and `usageBands` compute a byte-identical effective price,
  *   so every existing test and template continues to hold.

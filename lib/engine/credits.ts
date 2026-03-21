@@ -97,8 +97,8 @@ function assertPack(pack: CreditPack): void {
  * The lognormal a segment's usage band implies.
  *
  * Spread comes from P10/P90 through the same `fitLognormalBand` every other uncertain quantity
- * in this engine uses, and the median is pinned to the band's own P50 — the P50-centered
- * convention D-30 settled. Where the band satisfies the §4.1 contract `P50 = √(P10·P90)` the two
+ * in this engine uses, and the median is pinned to the band's own P50. Where the band satisfies
+ * the §4.1 contract `P50 = √(P10·P90)` the two
  * are the same number; where an imported band does not, centering on P50 keeps the pack readout
  * consistent with the metered line in `expectedUsageCost`, which reads P50 directly.
  *

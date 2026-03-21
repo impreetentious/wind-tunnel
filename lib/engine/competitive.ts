@@ -90,7 +90,7 @@ function competitorAccountPoint(
 }
 
 /**
- * Discrete Pareto min-price-at-value staircase (D-21). Competitors are not
+ * Discrete Pareto min-price-at-value staircase. Competitors are not
  * mixable, so the frontier is a set of survivors — never an interpolated hull.
  */
 export function paretoFrontier(points: readonly CompetitorPoint[]): CompetitorPoint[] {
@@ -147,7 +147,7 @@ export function breakEvenRays(sigma: number): BreakEvenRay[] {
 
 /**
  * A tier is directly dominated only when a competitor is at least as good on
- * value AND at least as cheap, with a strict advantage on one axis (D-21).
+ * value AND at least as cheap, with a strict advantage on one axis.
  * There is no interpolation across the frontier.
  */
 export function directDominanceVerdict(

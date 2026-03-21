@@ -1,8 +1,8 @@
 /**
- * @spec §15 M-16 perf profiling helpers.
+ * Performance profiling helpers for representative engine workloads.
  *
  * A tiny worst-case profiler that measures how long the core engine takes on
- * a synthetic worst-case scenario. Used by the perf test to keep the §3.5
+ * a synthetic worst-case scenario. Used by the perf test to keep the
  * "edit → re-simulate → repaint < 16 ms typical" claim honest — if a future
  * engine change blows this budget, the CI test fails immediately.
  *

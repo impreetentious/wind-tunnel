@@ -58,7 +58,7 @@ export interface JointOptimizerResult {
   bestPrices: readonly OptimizerTierPrice[];
   candidates: readonly OptimizerCandidate[];
   status: JointOptimizerStatus;
-  /** Required "local search, not truth" framing (§4.14 / D-07 / D-24). */
+  /** Required "local search, not truth" framing from §4.14. */
   disclosure: string;
   /** Set only when status = localOptimum. Positive; measured in MRR units. */
   mrrLift?: number;

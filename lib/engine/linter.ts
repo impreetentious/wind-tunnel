@@ -353,7 +353,7 @@ function migrationFindings(
   }
 
   // M3 — an opt-in deadline is a behavioral mechanism, and this model has no behavioral
-  // coefficient (D-08). It reports the exposure rather than discounting it by an invented
+  // coefficient. It reports the exposure rather than discounting it by an invented
   // take-up rate.
   if (migration.policy === "opt-in-with-deadline" && migration.mrrRequiringBuyerAction > EPSILON) {
     findings.push({
