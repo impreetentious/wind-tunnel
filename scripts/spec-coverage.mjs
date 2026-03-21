@@ -4,12 +4,7 @@ import { join } from "node:path";
 const root = process.cwd();
 const spec = await readFile(join(root, "docs", "MODEL-SPEC.md"), "utf8");
 const sections = [...spec.matchAll(/^#{3,4} §(4\.\d+(?:\.\d+)?) /gm)].map((match) => match[1]);
-// §4.10 shipped with P7d-1/P7d-2; §4.11 is required from P7e (positioning surface).
-// §4.13 (elasticity) and §4.14 (joint optimizer) are required from §15 Batch 1 (S36).
-// §4.15 (usage) and §4.16 (trials/time) are required from §15 Batch 3.
-// §4.17 (credits/breakage/outcome pricing) ships with the hybrid-menu work.
-// §4.18 (repricing & migration) ships with the installed-base work.
-// §4.19 (discount-policy leakage) ships with the sales-led work.
+// Every shipped model section must have at least one directly cited test.
 const requiredSections = new Set([
   "4.1",
   "4.1.1",

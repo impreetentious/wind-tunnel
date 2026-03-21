@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 /**
- * §15 M-16 Web Vitals gate.
- *
  * Static heuristic gate that runs off the `out/` bundle: it inspects the
  * HTML shell + first-load JS reported by the Next static export and asserts:
  *
@@ -23,10 +21,8 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
 const outRoot = "out";
-// Calibrated against the 0.20.0 static export (2025-12-11): the largest
-// shell is 14.2 KiB with 14 scripts and 2 preloads. The headroom permits a
-// small, intentional feature increment while catching a meaningful bootstrap
-// regression before it reaches the runtime Web Vitals check below.
+// Headroom permits a small, intentional feature increment while catching a
+// meaningful bootstrap regression before the runtime Web Vitals check.
 const SHELL_HTML_MAX_BYTES = 20 * 1024;
 const SCRIPT_TAG_MAX_COUNT = 16;
 const PRELOAD_TAG_MAX_COUNT = 3;

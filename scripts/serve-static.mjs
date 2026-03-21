@@ -17,7 +17,13 @@ const mimeTypes = {
 };
 
 const server = createServer(async (request, response) => {
-  const requestPath = decodeURIComponent(new URL(request.url ?? "/", `http://${host}`).pathname);
+  let requestPath;
+  try {
+    requestPath = decodeURIComponent(new URL(request.url ?? "/", `http://${host}`).pathname);
+  } catch {
+    response.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" }).end("Bad request");
+    return;
+  }
   const relativePath = requestPath === "/" ? "index.html" : requestPath.replace(/^\/+/, "");
   const filePath = path.resolve(outputRoot, relativePath);
 
