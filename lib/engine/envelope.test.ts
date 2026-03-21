@@ -159,7 +159,7 @@ describe("utility upper envelope", () => {
 describe("upper envelope input guards", () => {
   const valid = [offer("a", 10, 5), offer("b", 20, 12)];
 
-  // @spec §4.3 T-ENV-G1
+  // @spec §4.2 T-ENV-G1
   it("rejects malformed offers", () => {
     const cases: ExpandedOffer[] = [
       { ...offer("x", 10, 5), id: "" },
@@ -174,14 +174,14 @@ describe("upper envelope input guards", () => {
     }
   });
 
-  // @spec §4.3 T-ENV-G2
+  // @spec §4.2 T-ENV-G2
   it("rejects duplicate offer IDs", () => {
     const duplicated = [offer("a", 10, 5), offer("a", 20, 12)];
     expect(() => selectOfferAtScale(duplicated, 1)).toThrow(RangeError);
     expect(() => selectOffers(duplicated, 0.3)).toThrow(RangeError);
   });
 
-  // @spec §4.3 T-ENV-G3
+  // @spec §4.2 T-ENV-G3
   it("rejects a non-finite or negative scale, sigma, or tie tolerance", () => {
     expect(() => selectOfferAtScale(valid, -1)).toThrow(RangeError);
     expect(() => selectOfferAtScale(valid, Number.NaN)).toThrow(RangeError);
@@ -193,7 +193,7 @@ describe("upper envelope input guards", () => {
     expect(() => selectOffers(valid, 0.3, { tieTolerance: -1 })).toThrow(RangeError);
   });
 
-  // @spec §4.3 T-ENV-G4 — sigma = 0 collapses to a single deterministic pick.
+  // @spec §4.2 T-ENV-G4 — sigma = 0 collapses to a single deterministic pick.
   it("gives a degenerate segment all of its mass to one offer", () => {
     const selection = selectOffers([...valid, outside], 0);
     const chosen = selection.selectedAtMedianId;
@@ -204,7 +204,7 @@ describe("upper envelope input guards", () => {
   });
 });
 
-// §4.3's tie ladder is price, then value, then the outside-option preference,
+// §4.2's tie ladder is price, then value, then the outside-option preference,
 // then id. Only an exact tie at every earlier rung reaches the next one, so
 // each rung needs its own fixture. `seller-favorable` is the mirror of
 // `conservative` at every step and must not share a code path by accident.
@@ -219,7 +219,7 @@ describe("upper envelope tie ladder", () => {
     featureIds: [],
   };
 
-  // @spec §4.3 T-ENV-T1 — equal surplus at scale 1, different price and value.
+  // @spec §4.2 T-ENV-T1 — equal surplus at scale 1, different price and value.
   it("breaks a utility tie on price in both directions", () => {
     // Surplus 1·10 − 5 = 5 and 1·20 − 15 = 5: tied utility, different price.
     const offers = [offer("cheap", 10, 5), offer("dear", 20, 15), canonicalOutside];
@@ -227,21 +227,21 @@ describe("upper envelope tie ladder", () => {
     expect(selectOfferAtScale(offers, 1, { tieMode: "seller-favorable" }).id).toBe("dear");
   });
 
-  // @spec §4.3 T-ENV-T2 — identical rows fall through to the id comparison.
+  // @spec §4.2 T-ENV-T2 — identical rows fall through to the id comparison.
   it("settles a total tie deterministically by id", () => {
     const identical = [offer("b", 20, 10), offer("a", 20, 10), canonicalOutside];
     expect(selectOfferAtScale(identical, 1, { tieMode: "conservative" }).id).toBe("a");
     expect(selectOfferAtScale(identical, 1, { tieMode: "seller-favorable" }).id).toBe("a");
   });
 
-  // @spec §4.3 T-ENV-T3 — a paid offer exactly matching the outside option.
+  // @spec §4.2 T-ENV-T3 — a paid offer exactly matching the outside option.
   it("prefers the outside option only when conservative", () => {
     const offers = [offer("free", 0, 0), canonicalOutside];
     expect(selectOfferAtScale(offers, 1, { tieMode: "conservative" }).id).toBe("outside");
     expect(selectOfferAtScale(offers, 1, { tieMode: "seller-favorable" }).id).toBe("free");
   });
 
-  // @spec §4.3 T-ENV-T4 — the reserved id must carry the canonical row.
+  // @spec §4.2 T-ENV-T4 — the reserved id must carry the canonical row.
   it("rejects an offer that claims the outside id without the outside shape", () => {
     expect(() =>
       selectOfferAtScale([{ ...canonicalOutside, owner: "own" }, offer("a", 10, 5)], 1),

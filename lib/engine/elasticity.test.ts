@@ -169,7 +169,7 @@ describe("elasticity engine", () => {
   });
 });
 
-// §4.15 is explicit that a point-mass segment has Dirac derivatives, so it
+// §4.13 is explicit that a point-mass segment has Dirac derivatives, so it
 // reports `degenerate: true` with no elasticity fields instead of dividing
 // through a zero-width interval. The guards below are the boundary that keeps
 // a malformed segment out of that arithmetic entirely.
@@ -189,7 +189,7 @@ describe("segment elasticity guards", () => {
     offer("pro", 150, 60),
   ];
 
-  // @spec §4.15 T-ELA-G1
+  // @spec §4.13 T-ELA-G1
   it("rejects a blank segment ID or a malformed sigma", () => {
     expect(() => computeSegmentElasticity({ segmentId: "", sigma: 0.4, offers })).toThrow(
       RangeError,
@@ -199,7 +199,7 @@ describe("segment elasticity guards", () => {
     }
   });
 
-  // @spec §4.15 T-ELA-G2
+  // @spec §4.13 T-ELA-G2
   it("reports a point-mass segment as degenerate rather than returning elasticities", () => {
     const readout = computeSegmentElasticity({ segmentId: "s", sigma: 0, offers });
     expect(readout.degenerate).toBe(true);
@@ -208,7 +208,7 @@ describe("segment elasticity guards", () => {
     expect(readout.sigma).toBe(0);
   });
 
-  // @spec §4.15 T-ELA-G3 — with dispersion the readout is not degenerate.
+  // @spec §4.13 T-ELA-G3 — with dispersion the readout is not degenerate.
   it("returns elasticities for a dispersed segment", () => {
     const readout = computeSegmentElasticity({ segmentId: "s", sigma: 0.4, offers });
     expect(readout.degenerate).toBe(false);

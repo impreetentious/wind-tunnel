@@ -300,7 +300,7 @@ describe("buildPositioningMap", () => {
   });
 });
 
-// Competitor rows are free-text user input, so §4.5's positioning map has to
+// Competitor rows are free-text user input, so §4.11's positioning map has to
 // refuse a malformed rival rather than plot it at NaN. The degenerate σ = 0
 // case is included because it takes a separate ray branch entirely.
 describe("competitive positioning guards", () => {
@@ -317,7 +317,7 @@ describe("competitive positioning guards", () => {
     } as Parameters<typeof buildPositioningMap>[0];
   }
 
-  // @spec §4.5 T-CMP-G1
+  // @spec §4.11 T-CMP-G1
   it("rejects a map with no segment ID or a sub-unit seat count", () => {
     expect(() => buildPositioningMap(positioning({ segmentId: "" }))).toThrow(RangeError);
     for (const seatCount of [0, 0.5, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
@@ -325,7 +325,7 @@ describe("competitive positioning guards", () => {
     }
   });
 
-  // @spec §4.5 T-CMP-G2
+  // @spec §4.11 T-CMP-G2
   it("rejects a malformed competitor", () => {
     const cases = [
       competitor("", 200, 30),
@@ -340,21 +340,21 @@ describe("competitive positioning guards", () => {
     }
   });
 
-  // @spec §4.5 T-CMP-G3
+  // @spec §4.11 T-CMP-G3
   it("rejects a non-finite or negative sigma for the break-even rays", () => {
     for (const sigma of [-0.1, Number.NaN, Number.POSITIVE_INFINITY]) {
       expect(() => breakEvenRays(sigma)).toThrow(RangeError);
     }
   });
 
-  // @spec §4.5 T-CMP-G4 — a point-mass segment has one ray, repeated.
+  // @spec §4.11 T-CMP-G4 — a point-mass segment has one ray, repeated.
   it("collapses every break-even ray to slope 1 when sigma is zero", () => {
     const rays = breakEvenRays(0);
     expect(rays.map((ray) => ray.label)).toEqual(["p10", "p50", "p90"]);
     expect(rays.every((ray) => ray.slope === 1)).toBe(true);
   });
 
-  // @spec §4.5 T-CMP-G5
+  // @spec §4.11 T-CMP-G5
   it("returns an empty frontier for no competitors", () => {
     expect(paretoFrontier([])).toEqual([]);
     const map = buildPositioningMap(positioning({ competitors: [] }));
