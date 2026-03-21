@@ -13,6 +13,7 @@ beforeEach(() => {
   scenarioStore.getState().replaceScenario(createBlankScenario());
   scenarioStore.temporal.getState().clear();
   window.localStorage.clear();
+  window.location.hash = "";
 });
 
 afterEach(() => {
@@ -47,8 +48,28 @@ describe("StudioShell", () => {
     ).toBeVisible();
     expect(scenarioStore.getState().scenario.name).toBe(stored.name);
 
-    window.location.hash = "";
     window.localStorage.clear();
+  });
+
+  it("reports a malformed share link while restoring the browser autosave", () => {
+    const stored = scenarioTemplates[0].scenario;
+    window.localStorage.setItem("wind-tunnel.scenario.v1", exportScenario(stored));
+    window.location.hash = "#s=not-a-valid-payload";
+
+    render(<StudioShell version="1.0.0" />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("corrupted");
+    expect(scenarioStore.getState().scenario.name).toBe(stored.name);
+  });
+
+  it("reports both failures when the share link and browser autosave are malformed", () => {
+    window.localStorage.setItem("wind-tunnel.scenario.v1", "{not-json");
+    window.location.hash = "#s=not-a-valid-payload";
+
+    render(<StudioShell version="1.0.0" />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent("corrupted");
+    expect(screen.getByRole("alert")).toHaveTextContent("not valid scenario JSON");
   });
 
   it("changes the active workbench section", () => {
@@ -324,8 +345,8 @@ describe("StudioShell", () => {
     expect(screen.getByTestId("bundling-verdict")).toHaveTextContent("$2.0 above pure components");
   });
 
-  // M-04 / M-05 — both engines shipped with no consumer. These assert they are
-  // reachable from the shipped UI, not merely present in lib/engine.
+  // Both engines must remain reachable from the shipped UI, not merely present
+  // in lib/engine.
   //
   // The explicit 30s timeout is a flake guard, not a performance allowance. The
   // D-efficient search measures ~4.8s under v8 coverage instrumentation on an idle
@@ -368,7 +389,7 @@ describe("StudioShell", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Conjoint" }));
     fireEvent.click(screen.getByRole("button", { name: "Load synthetic study" }));
 
-    // Nothing has sampled yet — HB must never run on render (§3.5).
+    // Nothing has sampled yet — HB must never run on render.
     expect(screen.queryByTestId("conjoint-hb-result")).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -469,7 +490,7 @@ describe("StudioShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Analyze pasted responses" }));
 
     expect(screen.getByRole("heading", { name: "Importance lenses" })).toBeVisible();
-    // M-06 — the MNL lens is additive. Counting scores stay the default view so
+    // The MNL lens is additive. Counting scores stay the default view so
     // the shipped interpretation never silently changes underneath a reader.
     expect(screen.getByRole("button", { name: "Counting scores" })).toHaveAttribute(
       "aria-pressed",
@@ -495,6 +516,22 @@ describe("StudioShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Import JSON" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("This is not valid scenario JSON.");
+  });
+
+  it("updates the transfer form after importing a complete scenario", () => {
+    render(<StudioShell version="0.4.0" />);
+    fireEvent.click(screen.getByRole("tab", { name: "Share" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Scenario transfer" }));
+    const imported = { ...scenarioTemplates[0].scenario, name: "Imported board review" };
+
+    fireEvent.change(screen.getByLabelText("Import complete scenario JSON"), {
+      target: { value: exportScenario(imported) },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Import JSON" }));
+
+    expect(screen.getByLabelText("Scenario name")).toHaveValue("Imported board review");
+    expect(screen.getByRole("button", { name: "Download complete JSON" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Download browser autosave" })).toBeVisible();
   });
 
   it("generates a traceable Pricing Decision Record from the current scenario", () => {

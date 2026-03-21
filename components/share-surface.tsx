@@ -13,7 +13,8 @@ import {
   importScenario,
   stableStringify,
 } from "@/lib/state/codec";
-import { scenarioStore, useScenarioStore } from "@/lib/state/scenario-store";
+import { downloadBlob } from "@/lib/state/svg-export";
+import { SCENARIO_STORAGE_KEY, scenarioStore, useScenarioStore } from "@/lib/state/scenario-store";
 
 type ShareView = "record" | "support" | "pricing" | "transfer";
 const shareViews = ["record", "support", "pricing", "transfer"] as const;
@@ -53,9 +54,28 @@ function ScenarioTransferSurface() {
     }
     importCurrentJson(result.value, "Scenario imported. It will now autosave in this browser.");
     scenarioStore.temporal.getState().clear();
+    setNameDraft(result.value.name);
     setImportText("");
     setFullExport(null);
     setShareLink(null);
+  };
+
+  const downloadJson = (json: string, filename: string) => {
+    downloadBlob(new Blob([json], { type: "application/json;charset=utf-8" }), filename);
+  };
+
+  const downloadBrowserAutosave = () => {
+    try {
+      const persisted = window.localStorage.getItem(SCENARIO_STORAGE_KEY);
+      if (persisted === null) {
+        setMessage("There is no browser autosave to download.");
+        return;
+      }
+      downloadJson(persisted, "wind-tunnel-browser-autosave.json");
+      setMessage("Browser autosave downloaded without changing it.");
+    } catch {
+      setMessage("Browser storage is unavailable, so its autosave cannot be downloaded.");
+    }
   };
 
   return (
@@ -73,8 +93,8 @@ function ScenarioTransferSurface() {
         Scenario storage and sharing
       </h1>
       <p className="mt-4 max-w-2xl leading-7 text-muted">
-        Your complete scenario autosaves in this browser. Use JSON when you need a full handoff; use
-        a compact link when model and packaging settings are enough.
+        Your complete scenario autosaves in this browser. Use JSON when you need a complete
+        transfer; use a compact link when model and packaging settings are enough.
       </p>
 
       <div className="mt-8 grid gap-5">
@@ -106,8 +126,8 @@ function ScenarioTransferSurface() {
         <section className="rounded-2xl border border-line bg-canvas p-5">
           <h2 className="text-base font-semibold text-ink">Compact share link</h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Includes model, designs, competitors, seed, currency, and theme. It never includes
-            respondent-level research data
+            Includes model, designs, competitors, seed, currency, locale, and theme. It never
+            includes respondent-level research data
             {researchCount > 0
               ? ` (${researchCount} research artifact slot${researchCount === 1 ? "" : "s"} is excluded).`
               : "."}
@@ -160,6 +180,20 @@ function ScenarioTransferSurface() {
             type="button"
           >
             Show complete JSON export
+          </button>
+          <button
+            className="mt-3 min-h-10 rounded-lg border border-line bg-canvas-raised px-4 text-sm font-semibold text-ink hover:border-accent"
+            onClick={() => downloadJson(exportScenario(scenario), "wind-tunnel-scenario.json")}
+            type="button"
+          >
+            Download complete JSON
+          </button>
+          <button
+            className="mt-3 min-h-10 rounded-lg border border-line bg-canvas-raised px-4 text-sm font-semibold text-ink hover:border-accent"
+            onClick={downloadBrowserAutosave}
+            type="button"
+          >
+            Download browser autosave
           </button>
           {fullExport ? (
             <label className="mt-4 block text-sm font-medium text-ink">

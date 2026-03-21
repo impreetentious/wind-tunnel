@@ -10,9 +10,12 @@ export const SCENARIO_STORAGE_KEY = "wind-tunnel.scenario.v1";
 export const SCENARIO_HISTORY_STORAGE_KEY = "wind-tunnel.scenario-history.v1";
 export const AUTOSAVE_DELAY_MS = 300;
 
+export type PersistenceStatus = "saved" | "saving" | "error";
+
 export interface ScenarioStore {
   scenario: Scenario;
   message: string | null;
+  persistenceStatus: PersistenceStatus;
   updateScenario: (updater: (current: Scenario) => Scenario) => void;
   replaceScenario: (scenario: Scenario, message?: string | null) => void;
   setSettings: (settings: Partial<ScenarioSettings>) => void;
@@ -106,6 +109,7 @@ export function createScenarioStore(
       (set, get) => ({
         scenario: scenarioSchema.parse(initialScenario),
         message: null,
+        persistenceStatus: "saved",
         updateScenario: (updater) => {
           const parsed = scenarioSchema.safeParse(updater(get().scenario));
           if (!parsed.success) {
@@ -177,16 +181,30 @@ export function attachScenarioAutosave(
   const unsubscribe = store.subscribe((state, previous) => {
     if (state.scenario === previous.scenario) return;
     if (timer) clearTimeout(timer);
+    store.setState({ persistenceStatus: "saving" });
     const scenarioToSave = state.scenario;
     timer = setTimeout(() => {
       try {
         storage.setItem(SCENARIO_STORAGE_KEY, exportScenario(scenarioToSave));
-        persistScenarioSnapshot(storage, scenarioToSave);
       } catch {
+        store.setState({ persistenceStatus: "error" });
         store
           .getState()
-          .setMessage("Browser storage is full or unavailable. Export JSON to keep this scenario.");
+          .setMessage(
+            "Browser storage is full or unavailable. Download JSON to keep this scenario.",
+          );
+        return;
       }
+      try {
+        persistScenarioSnapshot(storage, scenarioToSave);
+      } catch {
+        store.setState({ persistenceStatus: "saved" });
+        store
+          .getState()
+          .setMessage("Scenario saved, but browser storage could not retain its local history.");
+        return;
+      }
+      store.setState({ persistenceStatus: "saved" });
     }, delayMs);
   });
 
@@ -199,10 +217,11 @@ export function attachScenarioAutosave(
 export function restoreScenarioFromStorage(store: ScenarioStoreApi, storage: ScenarioStorage) {
   const restored = loadPersistedScenario(storage);
   if (!restored.ok) {
+    store.setState({ persistenceStatus: "error" });
     store
       .getState()
       .setMessage(
-        `${describeInvalidScenario(restored) ?? "Saved scenario could not be restored."} Export or clear the saved browser data before retrying.`,
+        `${describeInvalidScenario(restored) ?? "Saved scenario could not be restored."} The saved browser data was left unchanged; download it from Scenario transfer before editing, or clear the site's storage.`,
       );
     return false;
   }

@@ -121,9 +121,11 @@ export function StudioShell({ version }: { version: string }) {
 
   useEffect(() => {
     const hash = window.location.hash;
+    let detachAutosave: () => void;
     if (hash.startsWith("#s=")) {
       const decoded = decodeShareHash(hash);
       if (decoded.ok) {
+        detachAutosave = attachScenarioAutosave(scenarioStore, window.localStorage);
         scenarioStore
           .getState()
           .replaceScenario(
@@ -132,13 +134,16 @@ export function StudioShell({ version }: { version: string }) {
           );
         scenarioStore.temporal.getState().clear();
       } else {
-        setMessage(decoded.error);
-        restoreScenarioFromStorage(scenarioStore, window.localStorage);
+        const restored = restoreScenarioFromStorage(scenarioStore, window.localStorage);
+        const restoreError = restored ? null : scenarioStore.getState().message;
+        setMessage(restoreError ? `${decoded.error} ${restoreError}` : decoded.error);
+        detachAutosave = attachScenarioAutosave(scenarioStore, window.localStorage);
       }
     } else {
       restoreScenarioFromStorage(scenarioStore, window.localStorage);
+      detachAutosave = attachScenarioAutosave(scenarioStore, window.localStorage);
     }
-    return attachScenarioAutosave(scenarioStore, window.localStorage);
+    return detachAutosave;
   }, [setMessage]);
 
   return (

@@ -7,6 +7,8 @@ telemetry, analytics, advertising code, or runtime data connectors.
 
 - The current scenario autosaves to browser `localStorage` under the versioned
   key `wind-tunnel.scenario.v1`.
+- Up to 20 complete scenario snapshots are kept in `localStorage` under
+  `wind-tunnel.scenario-history.v1` for the local change-history view.
 - Full JSON export can contain respondent-level research records. The user must
   explicitly download and transfer that file.
 - Compact URL sharing contains model, designs, competitors, and settings only.
@@ -24,7 +26,7 @@ outside its own origin. Production headers set `connect-src 'none'`.
 
 ## User controls
 
-To remove locally saved work, clear this site’s browser storage. Keep exported
+To remove locally saved work and its local history, clear this site’s browser storage. Keep exported
 JSON and Markdown files according to the user’s own data-retention policy;
 Wind Tunnel cannot access or delete files after download.
 

@@ -31,8 +31,7 @@ function cloneTemplate() {
   return imported.value;
 }
 
-describe("P3 scenario schema and codecs", () => {
-  // @spec §3.3
+describe("scenario schema and codecs", () => {
   it("T-SCH-01 exports and imports a canonical scenario byte-for-byte", () => {
     const exported = exportScenario(templateScenario);
     const imported = importScenario(exported);
@@ -41,7 +40,6 @@ describe("P3 scenario schema and codecs", () => {
     if (imported.ok) expect(exportScenario(imported.value)).toBe(exported);
   });
 
-  // @spec §3.3
   it("T-SCH-02 rejects corrupted, foreign, and over-limit JSON with useful messages", () => {
     expect(importScenario("{not json")).toEqual({
       ok: false,
@@ -100,7 +98,6 @@ describe("P3 scenario schema and codecs", () => {
     expect(importScenario(JSON.stringify(exported)).ok).toBe(false);
   });
 
-  // @spec §3.3
   it("T-URL-01 round-trips a compact hash with unicode segment names", () => {
     const scenario = cloneTemplate();
     scenario.model.segments[0].name = "Équipe 東京 🌬️";
@@ -117,7 +114,6 @@ describe("P3 scenario schema and codecs", () => {
     }
   });
 
-  // @spec §3.3
   it("T-URL-02 rejects an oversized hash and a compressed decompression bomb before parsing", () => {
     const oversizedHash = decodeShareHash(`#s=${"A".repeat(MAX_SHARE_HASH_CHARS + 1)}`);
     expect(oversizedHash.ok).toBe(false);
@@ -133,7 +129,6 @@ describe("P3 scenario schema and codecs", () => {
     if (!decompressionBomb.ok) expect(decompressionBomb.error).toContain("64 KiB");
   });
 
-  // @spec §3.3
   it("rejects compact payloads whose cross-field constraints are invalid", () => {
     const scenario = cloneTemplate();
     const { payload } = buildSharePayload(scenario);
@@ -146,7 +141,6 @@ describe("P3 scenario schema and codecs", () => {
     if (!decoded.ok) expect(decoded.error).toContain("active design");
   });
 
-  // @spec §3.3
   it("validates all three archetype fixtures and retains research only in full JSON", () => {
     expect(scenarioTemplates).toHaveLength(3);
     for (const template of scenarioTemplates) {
@@ -228,12 +222,11 @@ describe("P3 scenario schema and codecs", () => {
   });
 });
 
-describe("P3 scenario state", () => {
+describe("scenario state", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  // @spec §3.3
   it("undoes and redoes a scripted edit sequence", () => {
     const store = createScenarioStore(cloneTemplate());
     store.getState().updateScenario((scenario) => ({ ...scenario, name: "Edited once" }));
@@ -254,7 +247,6 @@ describe("P3 scenario state", () => {
     expect(store.getState().scenario.settings.seed).toBe(77);
   });
 
-  // @spec §3.3
   it("autosaves a complete scenario only after the debounce interval", () => {
     vi.useFakeTimers();
     const values = new Map<string, string>();
@@ -267,6 +259,7 @@ describe("P3 scenario state", () => {
 
     store.getState().updateScenario((scenario) => ({ ...scenario, name: "Persisted edit" }));
     expect(storage.getItem(SCENARIO_STORAGE_KEY)).toBeNull();
+    expect(store.getState().persistenceStatus).toBe("saving");
 
     vi.advanceTimersByTime(299);
     expect(storage.getItem(SCENARIO_STORAGE_KEY)).toBeNull();
@@ -277,6 +270,48 @@ describe("P3 scenario state", () => {
     expect(saved).toContain("Persisted edit");
     expect(storage.getItem(SCENARIO_HISTORY_STORAGE_KEY)).toContain("Persisted edit");
     expect(loadScenarioHistory(storage)).toHaveLength(1);
+    expect(store.getState().persistenceStatus).toBe("saved");
+    stopAutosave();
+  });
+
+  it("reports an autosave failure instead of claiming the scenario was saved", () => {
+    vi.useFakeTimers();
+    const storage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException("Quota exceeded", "QuotaExceededError");
+      },
+    };
+    const store = createScenarioStore(cloneTemplate());
+    const stopAutosave = attachScenarioAutosave(store, storage, 300);
+
+    store.getState().updateScenario((scenario) => ({ ...scenario, name: "Unsaved edit" }));
+    vi.advanceTimersByTime(300);
+
+    expect(store.getState().persistenceStatus).toBe("error");
+    expect(store.getState().message).toContain("Download JSON");
+    stopAutosave();
+  });
+
+  it("keeps a successful autosave when only local history exceeds storage", () => {
+    vi.useFakeTimers();
+    const values = new Map<string, string>();
+    const storage = {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        if (key === SCENARIO_HISTORY_STORAGE_KEY) throw new DOMException("Quota exceeded");
+        values.set(key, value);
+      },
+    };
+    const store = createScenarioStore(cloneTemplate());
+    const stopAutosave = attachScenarioAutosave(store, storage, 300);
+
+    store.getState().updateScenario((scenario) => ({ ...scenario, name: "Saved without history" }));
+    vi.advanceTimersByTime(300);
+
+    expect(storage.getItem(SCENARIO_STORAGE_KEY)).toContain("Saved without history");
+    expect(store.getState().persistenceStatus).toBe("saved");
+    expect(store.getState().message).toContain("local history");
     stopAutosave();
   });
 });
