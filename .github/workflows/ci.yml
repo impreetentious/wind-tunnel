@@ -15,8 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6.2.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -27,9 +27,16 @@ jobs:
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run typecheck
       - run: npm run lint
+      # Every § citation in source must resolve in docs/MATH-SPEC.md.
+      - run: npm run check:citations
       - run: npm run format:check
       - run: npm run test
       - run: npm run spec-coverage
+      # Deliberately ahead of `coverage` and in its own process: this step times
+      # the conjoint fit, and v8 coverage instrumentation materially inflates
+      # engine timings, so a perf assertion taken under it would be measuring the
+      # instrumentation rather than the engine.
+      - run: npm run perf:conjoint
       # §7 — lib/engine branch coverage is a gate, not a report. It fails below
       # 90%, and the fix is more tests rather than a lower threshold.
       - run: npm run coverage

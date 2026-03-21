@@ -71,7 +71,9 @@ npm run e2e
 
 `npm run e2e` serves the static export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist.
 
-Individual checks can also be run on their own: `npm run privacy`, `npm run bundle-size`, `npm run web-vitals`, `npm run spec-coverage`.
+Individual checks can also be run on their own: `npm run privacy`, `npm run bundle-size`, `npm run web-vitals`, `npm run spec-coverage`, `npm run perf:conjoint`.
+
+`npm run perf:conjoint` times the canonical 500-respondent conjoint fit in its own uninstrumented process and fails on an order-of-magnitude slowdown. It runs in CI ahead of `npm run coverage`, because coverage instrumentation would distort the measurement.
 
 ## Build and deploy
 
@@ -81,10 +83,12 @@ npm run build
 
 This emits a portable static site in `out/` — it also runs the privacy scan and enforces a 360 KiB gzip client-JavaScript budget as part of the build. `npm start` serves that build locally. The output serves from any static host; `docs/STATIC-HOST-HEADERS.md` gives the security headers to set there.
 
+The GitHub remote is authoritative and carries the only pipeline; `.github/workflows/ci.yml` runs every gate. The GitLab remote is a backup mirror kept in sync, deliberately without a `.gitlab-ci.yml` — there is no second publication target to gate, and a mirrored pipeline would only create a second place for gate drift.
+
 ## License
 
 [MIT](LICENSE) © 2025-2026 Sidakpreet Singh
 
 ---
 
-**Version:** v0.23.1
+**Version:** v0.24.0
