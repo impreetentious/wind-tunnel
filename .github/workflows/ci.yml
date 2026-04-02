@@ -21,13 +21,13 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      # Scoped to production dependencies: the shipped bundle must stay advisory-free.
+      # The shipped dependency graph must stay free of high-severity advisories.
       - run: npm audit --omit=dev --audit-level=high
       - run: npm run check:version
       - run: npx playwright install --with-deps chromium firefox webkit
       - run: npm run typecheck
       - run: npm run lint
-      # Every § citation in source must resolve in docs/MATH-SPEC.md.
+      # Every source citation must resolve in the normative model specification.
       - run: npm run check:citations
       - run: npm run format:check
       - run: npm run test
@@ -37,7 +37,7 @@ jobs:
       # engine timings, so a perf assertion taken under it would be measuring the
       # instrumentation rather than the engine.
       - run: npm run perf:conjoint
-      # §7 — lib/engine branch coverage is a gate, not a report. It fails below
+      # lib/engine branch coverage is a gate, not a report. It fails below
       # 90%, and the fix is more tests rather than a lower threshold.
       - run: npm run coverage
       - run: npm run build

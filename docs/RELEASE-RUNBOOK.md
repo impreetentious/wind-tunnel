@@ -12,7 +12,7 @@ host, but the artifact can be served by any host that applies the headers in
 3. Build from a clean dependency install and retain the CI URL and commit hash.
 4. Confirm no environment variable or server-side feature is required.
 
-## Vercel handoff
+## Vercel deployment
 
 1. Import the GitHub repository and select the intended production branch.
 2. Keep framework detection on Next.js and do not add API routes, functions,
@@ -61,17 +61,21 @@ in [DATA-LIFECYCLE.md](DATA-LIFECYCLE.md). The rules of thumb for this runbook:
 Run in order on the exact release commit:
 
 ```bash
+npm ci
+npm audit --omit=dev --audit-level=high
+npm run check:version
 npm run typecheck
 npm run lint
+npm run check:citations
 npm run format:check
-npm test -- --run
-npm run privacy
-npm run build
-npm run bundle-size
-npm run web-vitals
+npm run test
 npm run spec-coverage
+npm run perf:conjoint
+npm run coverage
+npm run build
+npm run web-vitals
+npm run e2e
 ```
 
-Any failure blocks the release. The e2e Playwright suite is separately gated
-and requires the approved local localhost bind — it does not run in this
-scripted sequence but must be green in the pre-release check.
+Any failure blocks the release. The build already includes the privacy and
+bundle-size checks; the browser suite covers the three configured engines.

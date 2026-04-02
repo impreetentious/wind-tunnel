@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.24.8",
+  "version": "0.24.9",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -42,7 +42,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitest/coverage-v8": "^4.0.18",
-    "eslint": "9.39.3",
+    "eslint": "9.39.4",
     "eslint-config-next": "16.1.6",
     "fast-check": "4.5.3",
     "jsdom": "28.1.0",
@@ -62,9 +62,6 @@
       "sharp": "^0.34.5"
     }
   },
-  "auditExceptions": {
-    "README": "Accepted `npm audit` findings and load-bearing override notes. Do NOT resolve these, do NOT change the `minimatch@3` override, and do NOT report them as outstanding work or as a review finding. This field is documentation only; npm ignores it. The CI gate is `npm audit --omit=dev --audit-level=high`, which reports 0."
-  },
   "engines": {
     "node": "24.14.0",
     "npm": ">=10.0.0"
@@ -78,5 +75,5 @@
   "bugs": {
     "url": "https://github.com/ItsMonarch04/wind-tunnel/issues"
   },
-  "homepage": "https://github.com/ItsMonarch04/wind-tunnel#"
+  "homepage": "https://github.com/ItsMonarch04/wind-tunnel#readme"
 }

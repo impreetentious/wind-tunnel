@@ -35,7 +35,7 @@ No accounts, no server, no telemetry, no data connectors. Fully client-side: you
 - **Usage is an expected cost, not a joint distribution.** Metered lines, allowances, and credit packs are priced against each segment's usage band as a per-segment expected bill, not as a per-buyer joint distribution over consumption and buyer scale. Breakage is computed from that band rather than assumed, and it is always shown as a slice of revenue — never a sixth term in the value waterfall.
 - **Migration and discount results sit beside the headline numbers, never inside them.** MRR, conversion, and capture rate are about new buyers at list price. The installed base is a different population and the permitted menu is a different menu; mixing either into the headline would answer a question you did not ask. Discount leakage assumes the stated hit rates land at the permitted floor — a mixture over cohorts, not a distribution over discount depth.
 - **Opt-in take-up and other inertia are not modeled.** A migration policy that depends on buyers acting by a deadline reports the full exposure as a ceiling. The tool does not invent a behavioral coefficient to discount it, here or anywhere else.
-- **Accessibility** is built to WCAG 2.1 AA and checked with automated axe scans across three browsers in both themes. It has not been independently audited.
+- **Accessibility** targets WCAG 2.1 AA. Critical flows are checked with axe across Chromium, Firefox, and WebKit, including light- and dark-theme coverage, but the documented manual audit is not complete and the app has not been independently audited.
 
 ## Stack
 
@@ -46,6 +46,7 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 - `docs/MODEL-SPEC.md` — the normative math specification the engine implements.
 - `docs/STATIC-HOST-HEADERS.md` — CSP and equivalent static-host security headers.
 - `docs/DATA-LIFECYCLE.md` — every persistence surface, its retention model, and its recovery path.
+- `docs/ACCESSIBILITY-AUDIT.md` — automated coverage and the remaining manual WCAG matrix.
 
 ## Run locally
 
@@ -61,17 +62,23 @@ Open `http://localhost:3000`.
 ## Verify
 
 ```sh
+npm run check:version
 npm run typecheck
 npm run lint
+npm run check:citations
 npm run format:check
 npm run test
+npm run spec-coverage
+npm run perf:conjoint
+npm run coverage
 npm run build
+npm run web-vitals
 npm run e2e
 ```
 
 `npm run e2e` serves the static export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist.
 
-Individual checks can also be run on their own: `npm run privacy`, `npm run bundle-size`, `npm run web-vitals`, `npm run spec-coverage`, `npm run perf:conjoint`.
+The production dependency audit used by CI is `npm audit --omit=dev --audit-level=high`. `npm run build` includes the privacy scan and bundle-size gate; `npm run web-vitals` combines the static heuristic with the Chromium runtime measurement.
 
 `npm run perf:conjoint` times the canonical 500-respondent conjoint fit in its own uninstrumented process and fails on an order-of-magnitude slowdown. It runs in CI ahead of `npm run coverage`, because coverage instrumentation would distort the measurement.
 
@@ -83,7 +90,7 @@ npm run build
 
 This emits a portable static site in `out/` — it also runs the privacy scan and enforces a 360 KiB gzip client-JavaScript budget as part of the build. `npm start` serves that build locally. The output serves from any static host; `docs/STATIC-HOST-HEADERS.md` gives the security headers to set there.
 
-The GitHub remote is authoritative and carries the only pipeline; `.github/workflows/ci.yml` runs every gate. The GitLab remote is a backup mirror kept in sync, deliberately without a `.gitlab-ci.yml` — there is no second publication target to gate, and a mirrored pipeline would only create a second place for gate drift.
+The full verification pipeline is defined in `.github/workflows/ci.yml`.
 
 ## License
 
@@ -91,4 +98,4 @@ The GitHub remote is authoritative and carries the only pipeline; `.github/workf
 
 ---
 
-**Version:** v0.24.8
+**Version:** v0.24.9

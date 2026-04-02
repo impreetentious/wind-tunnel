@@ -6,15 +6,20 @@ an owner action.
 ## Code gate
 
 - [ ] Use the Node version in `.nvmrc` and run `npm ci` from a clean checkout.
+- [ ] `npm audit --omit=dev --audit-level=high`
+- [ ] `npm run check:version`
 - [ ] `npm run typecheck`
 - [ ] `npm run lint`
+- [ ] `npm run check:citations`
 - [ ] `npm run format:check`
 - [ ] `npm run test`
 - [ ] Review every seeded-engine golden snapshot diff; it is a model-change review event, not noise.
 - [ ] `npm run spec-coverage`
+- [ ] `npm run perf:conjoint`
+- [ ] `npm run coverage`
 - [ ] `npm run build` (privacy scan plus the 360 KiB gzip gate enforced by `scripts/check-bundle-size.mjs`)
+- [ ] `npm run web-vitals`
 - [ ] `npm run e2e` in Chromium, Firefox, and WebKit
-- [ ] `npm audit` returns no release-blocking production finding
 - [ ] `git diff --check` and a fresh changed-file review are clean
 
 ## Product gate
@@ -35,7 +40,7 @@ an owner action.
 - [ ] Re-record warmed interaction and 1,000-draw Monte Carlo budgets.
 - [ ] Confirm every chart has a numerically equivalent table.
 
-## Deployment handoff
+## Deployment
 
 - [ ] Connect the intended GitHub branch to Vercel without adding server code.
 - [ ] Confirm `vercel.json` security headers on the public response.
