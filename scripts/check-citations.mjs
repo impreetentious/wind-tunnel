@@ -2,14 +2,11 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-/**
- * Every numbered `docs/MATH-SPEC.md` citation in source must resolve to a real heading.
- */
-const SPEC = "docs/MATH-SPEC.md";
+const SPEC = "docs/MODEL-SPEC.md";
 const SELF = path.relative(process.cwd(), fileURLToPath(import.meta.url));
-const ROOTS = ["app", "components", "lib", "scripts", "e2e"];
-const EXTRA_FILES = [];
-const EXTENSIONS = new Set([".ts", ".tsx", ".mjs", ".js", ".css"]);
+const ROOTS = ["app", "components", "content", "lib", "scripts", "e2e", "tests", "docs", ".github"];
+const EXTRA_FILES = ["README.md", "package.json", ".gitignore", ".prettierignore"];
+const EXTENSIONS = new Set([".ts", ".tsx", ".mjs", ".js", ".css", ".md", ".json", ".yml", ".yaml"]);
 
 async function filesUnder(directory) {
   let entries;
@@ -30,7 +27,7 @@ async function filesUnder(directory) {
 
 const specHeadings = new Set();
 for (const line of (await readFile(SPEC, "utf8")).split("\n")) {
-  const heading = /^#{1,6}\s+(\d+(?:\.\d+)*[a-z]?)/.exec(line);
+  const heading = /^#{1,6}\s+§(\d+(?:\.\d+)*)\b/.exec(line);
   if (heading) specHeadings.add(heading[1]);
 }
 if (specHeadings.size === 0) {
@@ -43,26 +40,26 @@ const files = [...(await Promise.all(ROOTS.map(filesUnder))).flat(), ...EXTRA_FI
 );
 
 const unresolved = [];
+let citationCount = 0;
 
 for (const file of files) {
   const content = await readFile(file, "utf8");
-  content.split("\n").forEach((line, index) => {
-    for (const match of line.matchAll(/docs\/MATH-SPEC\.md §(\d+(?:\.\d+)*[a-z]?)/g)) {
-      if (!specHeadings.has(match[1])) {
-        unresolved.push(`${file}:${index + 1}: §${match[1]} is not a heading in ${SPEC}`);
-      }
+  for (const match of content.matchAll(/§(\d+(?:\.\d+)*)/g)) {
+    citationCount += 1;
+    if (!specHeadings.has(match[1])) {
+      const line = content.slice(0, match.index).split("\n").length;
+      unresolved.push(`${file}:${line}: §${match[1]}`);
     }
-  });
+  }
 }
 
 if (unresolved.length > 0) {
   console.error("citation check failed.");
-  console.error(`\n${unresolved.length} citation(s) name a section that does not exist:`);
+  console.error(`\nCitations that do not resolve in ${SPEC}:`);
   for (const hit of unresolved) console.error(` - ${hit}`);
-  console.error("\nEither add the section to the spec or cite the one that governs.");
   process.exit(1);
 }
 
 console.log(
-  `citations OK — ${files.length} files scanned, every § citation resolves in ${SPEC} (${specHeadings.size} numbered headings).`,
+  `citations OK — ${citationCount} source citation(s) resolve in ${SPEC} (${specHeadings.size} numbered headings).`,
 );

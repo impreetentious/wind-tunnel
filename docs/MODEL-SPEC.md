@@ -287,7 +287,7 @@ collapsing or rejecting every move. Warm-up draws are discarded; the returned
 per-respondent β and population μ, σ are posterior means over the sampled
 iterations. Randomness enters only through the seeded `mulberry32` PRNG, so
 determinism holds under a fixed seed. No new dependency ships with this
-extension; the sampler is in-repo, matching the §15 M-04 mandate.
+extension; the sampler is implemented in the repository.
 
 HB is opt-in: the pooled MNL from §4.10 remains the default, shallower lens
 and always ships alongside HB. HB requires **two or more respondents**;
@@ -371,7 +371,7 @@ routinely have several local optima), the result is explicitly labeled
 per-tier sweep plus the tornado (§4.8) as the primary reading; the optimizer
 readout is a supplementary "under these assumptions and starting near your
 current design, this menu found more revenue" rather than an authoritative
-answer. This honesty framing is required (D-07, D-24, and §2.2 cut rationale).
+answer.
 
 Determinism: given the same scenario, seed, and search options, the optimizer
 returns the same result. Randomness enters only through the seeded PRNG used
@@ -444,7 +444,7 @@ whole months. Notation for the extension only:
   one month to the next. Deterministic per segment.
 - `contractTerm` ∈ {`monthly`, `annual`} — annual applies retention only at the
   12th month; monthly applies it every month. Annual bills up front but the
-  engine spreads revenue evenly (§2.1 v1: no discount modelling).
+  engine spreads revenue evenly under the current no-discount model.
 
 Given a §4.3 monthly readout `M_s` for segment `s`, the multi-period MRR at
 period `t` is:
@@ -479,9 +479,9 @@ the distinction that keeps them readable.
 **Prepaid credit pack.** A block of `k = packUnits` of a metric bought up front
 for `packPrice`, with an optional `overagePerUnit` rate charged past the pack.
 Let `U` be the segment's monthly usage of that metric, distributed lognormally
-with `μ = ln(P50)` and `σ` fitted from the band's P10/P90 by §4.1's contract —
-the P50-centered convention of D-30, so the pack reads the same band the
-metered line does. Writing `F` for its CDF and `L(a,b) = E[U·1(a<U≤b)]` for the
+with `μ = ln(P50)` and `σ` fitted from the band's P10/P90 by §4.1's contract,
+so the pack reads the same P50-centered band as the metered line. Writing `F`
+for its CDF and `L(a,b) = E[U·1(a<U≤b)]` for the
 §4.3 partial expectation:
 
 ```text
@@ -590,8 +590,8 @@ price.
 - `grandfather` — `I` stays in the set at `P_s(I)` indefinitely.
 - `forced-at-renewal` — `I` is removed; every account re-chooses or leaves.
 - `opt-in-with-deadline` — `I` stays in the set. For a rational buyer this is
-  identical to `grandfather`; the difference is inertia, and D-08 forbids
-  inventing a behavioral coefficient. The engine therefore reports
+  identical to `grandfather`; the difference is inertia, which the model does
+  not quantify. The engine therefore reports
   `mrrRequiringBuyerAction` (the closing MRR sitting on `I`) as an exposure
   ceiling instead of discounting it by an assumed take-up rate.
 
@@ -643,9 +643,9 @@ being supplied, so a greenfield scenario is provably silent.
 **Persistence.** The scenario gains an optional `migration` block naming the
 incumbent design, the policy, and one base row per segment
 (`{segmentId, incumbentTierId, baseCount, switchingCost}`). The incumbent plan
-is a _tier of another design in the same scenario_, so current-design vs
-proposed-design is the §15 M-10 diff's first-class comparison
-(`diffDesignPair`), and the incumbent's value and effective price are computed
+is a _tier of another design in the same scenario_, so `diffDesignPair`
+provides a first-class current-design versus proposed-design comparison. The
+incumbent's value and effective price are computed
 by the same `expandOffers` path as every other offer — a migration readout can
 never disagree with the simulator about what the legacy plan costs.
 `SCHEMA_VERSION` is unchanged.

@@ -98,4 +98,4 @@ The full verification pipeline is defined in `.github/workflows/ci.yml`.
 
 ---
 
-**Version:** v0.24.9
+**Version:** v0.24.10

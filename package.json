@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.24.9",
+  "version": "0.24.10",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -44,7 +44,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "9.39.4",
     "eslint-config-next": "16.1.6",
-    "fast-check": "4.5.3",
+    "fast-check": "4.6.0",
     "jsdom": "28.1.0",
     "postcss": "8.5.8",
     "prettier": "3.8.1",
