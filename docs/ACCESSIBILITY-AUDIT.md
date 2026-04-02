@@ -5,8 +5,10 @@ the complete manual matrix below is recorded against a deployed release.
 
 ## Automated coverage
 
-The Playwright suite audits every v1 workbench in light and dark themes with
-axe-core and fails on serious or critical findings. The same suite checks:
+The Playwright suite audits critical flows with axe-core in Chromium, Firefox,
+and WebKit and fails on serious or critical findings. Light-theme coverage
+spans the main workbenches and research flows; dark-theme coverage includes the
+model, simulation, and positioning paths. The same suite checks:
 
 - the horizontal ARIA tab pattern, including roving focus and arrow/Home/End
   keys;
@@ -17,13 +19,14 @@ axe-core and fails on serious or critical findings. The same suite checks:
 - checkbox pointer targets of at least 24 × 24 CSS pixels on the Design surface;
 - 320-CSS-pixel reflow across all five workbenches with no page-level horizontal
   scrolling;
-- all v1 workbenches in Chromium, Firefox, and WebKit; and
+- the main workbenches and critical research flows in Chromium, Firefox, and
+  WebKit; and
 - the print-media Pricing Decision Record with `.no-print` controls removed.
 
 Source: `e2e/shell.spec.ts`. The CI workflow installs all three browser engines.
 
-Two engine-specific carve-outs are declared rather than hidden. The P6a/P7a
-interaction budgets are measured through the Chrome DevTools Protocol, which
+Two engine-specific carve-outs are declared rather than hidden. The warmed
+simulation and uncertainty interaction budgets use the Chrome DevTools Protocol, which
 Playwright exposes for Chromium only, so those two flows skip on Firefox and
 WebKit. WebKit keeps links out of the sequential tab order unless macOS full
 keyboard access is enabled, so the skip link's "first tab stop" position is
@@ -60,13 +63,8 @@ release candidate has a dated pass recorded for every row.
 - Print styles preserve text contrast and avoid splitting decision-record units.
 - Forced-colors mode adds outlines to filled SVG marks rather than relying on
   color alone.
-- Horizontally scrollable regions are `position: relative`. Tailwind's `sr-only`
-  is `position: absolute`, so without a positioned ancestor it resolved against
-  the initial containing block, escaped the region's clip, and pinned the
-  document's width to the region's full extent — the whole page scrolled sideways
-  by ~206 px at 320 CSS px even though every visible box was contained. This was
-  found by the 320 px flow when it was first written (S30) and fixed in v0.15.1;
-  the flow now guards it.
+- Horizontally scrollable regions are positioned so visually hidden table
+  content cannot expand the page beyond the 320 CSS pixel viewport.
 - Axe runs only after in-flight transitions settle. A theme switch updates
   `--ink` on the root before the painted colors catch up, and sampling mid-fade
   can pair a pre-switch foreground with a post-switch background and report a

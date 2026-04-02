@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("Batch 2–5 surfaces connect Model, Design, Analyze, and Share", async ({ page }) => {
+test("extended surfaces connect Model, Design, Analyze, and Share", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Use this template" }).nth(2).click();
 

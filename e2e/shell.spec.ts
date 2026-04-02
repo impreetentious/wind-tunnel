@@ -62,8 +62,7 @@ async function readDownload(download: import("@playwright/test").Download) {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-// §6 traceability: E2E-01…E2E-10 are named test titles below.
-test("E2E-01: the static shell is accessible, private, and theme-aware", async ({ page }) => {
+test("the static shell is accessible, private, and theme-aware", async ({ page }) => {
   const unexpectedRequests: string[] = [];
 
   page.on("request", (request) => {
@@ -99,7 +98,7 @@ test("E2E-01: the static shell is accessible, private, and theme-aware", async (
   expect(unexpectedRequests).toEqual([]);
 });
 
-test("E2E-02: the Design workbench builds a three-tier menu from blank and surfaces its linter guidance", async ({
+test("the Design workbench builds a three-tier menu from blank and surfaces its linter guidance", async ({
   page,
 }) => {
   await page.goto("/");
@@ -142,7 +141,7 @@ test("E2E-02: the Design workbench builds a three-tier menu from blank and surfa
   await expectNoSeriousAxeViolations(page);
 });
 
-test("E2E-03: the wind tunnel re-sorts buyers, reconciles chart tables, and respects reduced motion", async ({
+test("the wind tunnel re-sorts buyers, reconciles chart tables, and respects reduced motion", async ({
   page,
 }) => {
   await page.goto("/");
@@ -214,11 +213,11 @@ test("E2E-03: the wind tunnel re-sorts buyers, reconciles chart tables, and resp
   await expectNoSeriousAxeViolations(page);
 });
 
-test("each warmed template simulation renders within the 16ms P6a interaction budget", async ({
+test("each warmed template simulation renders within the 16ms interaction budget", async ({
   page,
   browserName,
 }) => {
-  // The P6a budget is measured through the Chrome DevTools Protocol, which Playwright
+  // The budget is measured through the Chrome DevTools Protocol, which Playwright
   // exposes for Chromium only. The budget is an engine-specific performance gate, not a
   // cross-browser behavioral contract, so it is asserted on Chromium and declared here.
   test.skip(browserName !== "chromium", "Task-duration metrics require CDP (Chromium only)");
@@ -251,7 +250,7 @@ test("each warmed template simulation renders within the 16ms P6a interaction bu
   }
 });
 
-test("E2E-05: uncertainty draws are seeded, paired, and rendered within the P7a budget", async ({
+test("uncertainty draws are seeded, paired, and rendered within the interaction budget", async ({
   page,
   browserName,
 }) => {
@@ -288,7 +287,7 @@ test("E2E-05: uncertainty draws are seeded, paired, and rendered within the P7a 
   await expectNoSeriousAxeViolations(page);
 });
 
-test("E2E-06: Van Westendorp validates fielded input, interpolates the demo points, and preserves undefined crossings", async ({
+test("Van Westendorp validates fielded input, interpolates the demo points, and preserves undefined crossings", async ({
   page,
 }) => {
   const demoCsv = `too cheap,cheap,expensive,too expensive
@@ -336,7 +335,7 @@ test("E2E-06: Van Westendorp validates fielded input, interpolates the demo poin
   await expectNoSeriousAxeViolations(page);
 });
 
-test("E2E-07: the canonical bundling fixture reports bundle-beats-components without overclaiming", async ({
+test("the canonical bundling fixture reports bundle-beats-components without overclaiming", async ({
   page,
 }) => {
   await page.goto("/");
@@ -355,8 +354,8 @@ test("E2E-07: the canonical bundling fixture reports bundle-beats-components wit
   await expectNoSeriousAxeViolations(page);
 });
 
-// E2E-08 (§6 P7d-2): 3-attr × 3-level CBC on the shipped synthetic dataset.
-test("E2E-08: the synthetic CBC estimates, bridges onto selected cells, and gates honestly", async ({
+// Three-attribute × three-level CBC on the shipped synthetic dataset.
+test("the synthetic CBC estimates, bridges onto selected cells, and gates honestly", async ({
   page,
 }) => {
   await page.goto("/");
@@ -403,10 +402,7 @@ test("E2E-08: the synthetic CBC estimates, bridges onto selected cells, and gate
   await expectNoSeriousAxeViolations(page);
 });
 
-// E2E-04 (§6 P6b): mechanism view + A/B compare against the same buyers.
-test("E2E-04: the mechanism view renders and A/B compare reports a real delta", async ({
-  page,
-}) => {
+test("the mechanism view renders and A/B compare reports a real delta", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Use this template" }).first().click();
 
@@ -510,9 +506,7 @@ test("the shell reflows to 320 CSS pixels without page-level horizontal scrollin
   await expectNoSeriousAxeViolations(page);
 });
 
-test("E2E-10: the decision record exports current modeled numbers and prints cleanly", async ({
-  page,
-}) => {
+test("the decision record exports current modeled numbers and prints cleanly", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Use this template" }).first().click();
   await page.getByRole("tab", { name: "Share" }).click();
@@ -532,8 +526,7 @@ test("E2E-10: the decision record exports current modeled numbers and prints cle
   await page.emulateMedia({ media: null });
 });
 
-// E2E-09 (§6 P7e): positioning surface — competitors, segment-scoped map, competitor-loss KPI.
-test("E2E-09: the positioning surface adds competitors, renders the segment map, and reveals live competitor loss", async ({
+test("the positioning surface adds competitors, renders the segment map, and reveals live competitor loss", async ({
   page,
 }) => {
   await page.goto("/");
@@ -607,8 +600,8 @@ test("the MaxDiff demo study scores items into normalized importance", async ({ 
   await page.getByRole("button", { name: "Analyze pasted responses" }).click();
 
   await expect(page.getByRole("heading", { name: "Importance lenses" })).toBeVisible();
-  // M-06 — the counting-scores lens is the default and the MNL lens is additive,
-  // so the shipped interpretation never changes silently. The unit suite pins the
+  // Counting scores are the default and the MNL lens is additive, so the shipped
+  // interpretation never changes silently. The unit suite pins the
   // same guarantee in components/studio-shell.test.tsx; assert it here too, or the
   // browser-level suite would pass on a panel that had quietly flipped defaults.
   await expect(page.getByRole("button", { name: "Counting scores" })).toHaveAttribute(
