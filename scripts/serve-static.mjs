@@ -1,11 +1,25 @@
 import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import path from "node:path";
 
 const host = "127.0.0.1";
 const port = 4173;
 const outputRoot = path.resolve("out");
+
+/**
+ * Serve the same response headers the production host applies, read from
+ * `vercel.json` so there is one source of truth. The browser suite runs against
+ * this server, so a change that only works without the Content-Security-Policy
+ * fails here rather than in production.
+ */
+const vercelConfig = JSON.parse(await readFile(path.resolve("vercel.json"), "utf8"));
+const productionHeaders = Object.fromEntries(
+  vercelConfig.headers
+    .filter((rule) => rule.source === "/(.*)")
+    .flatMap((rule) => rule.headers)
+    .map((header) => [header.key, header.value]),
+);
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
@@ -36,6 +50,7 @@ const server = createServer(async (request, response) => {
     const info = await stat(filePath);
     if (!info.isFile()) throw new Error("Not a file");
     response.writeHead(200, {
+      ...productionHeaders,
       "Content-Type": mimeTypes[path.extname(filePath)] ?? "application/octet-stream",
       "Cache-Control": "no-store",
     });

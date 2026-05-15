@@ -1,8 +1,7 @@
 /**
  * A tiny helper that serializes an inline `<svg>` element to a Blob suitable
  * for download. Renders via an Image → Canvas pipeline so the output stays
- * pixel-accurate at any DPR without pulling in an external SVG-to-PNG library
- * without adding another production dependency.
+ * pixel-accurate at any DPR without adding another production dependency.
  *
  * The functions in this module rely on `Image`, `URL.createObjectURL`, and
  * `HTMLCanvasElement.toBlob` — i.e., they only work in a browser. Callers are
@@ -48,10 +47,22 @@ function svgSize(svg: SVGSVGElement): { width: number; height: number } {
 }
 
 /**
+ * Encode serialized SVG as a `data:` URL. The rasterizer deliberately does not
+ * use `URL.createObjectURL` here: the shipped Content-Security-Policy (see
+ * `docs/STATIC-HOST-HEADERS.md`) sets `img-src 'self' data:`, and `'self'` does
+ * not cover the `blob:` scheme, so a Blob URL assigned to `image.src` is
+ * blocked in production and the export fails with a decode error. A `data:` URL
+ * is already permitted, so this keeps the policy as narrow as it is.
+ */
+function svgDataUrl(markup: string): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
+}
+
+/**
  * Rasterize an SVG element to a PNG Blob at the given scale. Rejects if the
  * browser cannot decode the SVG (mostly a foreignObject-with-cross-origin
  * concern), if canvas contexts are unavailable, or if `toBlob` returns null.
- * Browser-only: `document`, `Image`, and `URL` must exist.
+ * Browser-only: `document` and `Image` must exist.
  */
 export function svgElementToPngBlob(
   svg: SVGSVGElement,
@@ -67,9 +78,6 @@ export function svgElementToPngBlob(
     const width = options.width ?? fallbackW;
     const height = options.height ?? fallbackH;
 
-    const markup = serializeSvgElement(svg);
-    const blob = new Blob([markup], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
     const image = new Image();
     image.onload = () => {
       try {
@@ -78,7 +86,6 @@ export function svgElementToPngBlob(
         canvas.height = Math.round(height * scale);
         const context = canvas.getContext("2d");
         if (!context) {
-          URL.revokeObjectURL(url);
           reject(new Error("2D canvas context is unavailable."));
           return;
         }
@@ -88,7 +95,6 @@ export function svgElementToPngBlob(
         }
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((result) => {
-          URL.revokeObjectURL(url);
           if (!result) {
             reject(new Error("Canvas failed to encode a PNG."));
             return;
@@ -96,15 +102,13 @@ export function svgElementToPngBlob(
           resolve(result);
         }, "image/png");
       } catch (error) {
-        URL.revokeObjectURL(url);
         reject(error);
       }
     };
     image.onerror = () => {
-      URL.revokeObjectURL(url);
       reject(new Error("Browser could not decode the SVG for PNG export."));
     };
-    image.src = url;
+    image.src = svgDataUrl(serializeSvgElement(svg));
   });
 }
 

@@ -7,28 +7,31 @@ const baseUrl = "http://127.0.0.1:4173";
  * Theme switches run a colour transition, so `--ink` updates on the root before the
  * painted colours catch up. axe sampling mid-fade can pair a pre-switch foreground with
  * a post-switch background and report a contrast failure that no user ever sees (WebKit
- * reproduces this reliably; Chromium happens to sample a self-consistent pair). Waiting
- * for in-flight transitions keeps the audit deterministic across engines without
- * weakening it.
+ * reproduces this reliably; Chromium happens to sample a self-consistent pair).
+ *
+ * Cancelling the transitions is the deterministic way to avoid that sample. A cancelled
+ * transition drops its intermediate value, so the next frame paints exactly the colours
+ * a user sees once any fade finishes — the state WCAG conformance is about. Waiting for
+ * `document.getAnimations()` to drain instead is not reliable: the reduced-motion rule
+ * in globals.css collapses every transition to 0.01ms, and Firefox reports a fresh one
+ * for each element React re-renders, so under load the count need never reach zero and
+ * the wait times out on a page that is in fact settled.
  */
 async function waitForTransitionsToSettle(page: import("@playwright/test").Page) {
-  // Poll rather than await once: a transition triggered by the click that precedes this
-  // call may not have registered yet, and an empty getAnimations() would resolve early.
-  await expect
-    .poll(
-      () =>
-        page.evaluate(async () => {
-          const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
-          await frame();
-          await Promise.all(
-            document.getAnimations().map((animation) => animation.finished.catch(() => undefined)),
-          );
-          await frame();
-          return document.getAnimations().length;
-        }),
-      { timeout: 5000 },
-    )
-    .toBe(0);
+  await page.evaluate(() => {
+    const id = "wt-e2e-freeze-motion";
+    if (!document.getElementById(id)) {
+      const style = document.createElement("style");
+      style.id = id;
+      style.textContent =
+        "*, *::before, *::after { transition: none !important; animation: none !important; }";
+      document.head.append(style);
+    }
+    const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    // Two frames: one for React to commit a pending render, one for the cancelled
+    // transitions to paint their settled values.
+    return frame().then(frame);
+  });
 }
 
 async function expectNoSeriousAxeViolations(page: import("@playwright/test").Page) {
@@ -524,6 +527,36 @@ test("the decision record exports current modeled numbers and prints cleanly", a
   await expect(page.getByTestId("decision-record-document")).toBeVisible();
   await expect(page.locator(".no-print").first()).toBeHidden();
   await page.emulateMedia({ media: null });
+});
+
+// The static server replays the production headers from `vercel.json`, so this runs
+// under the shipped Content-Security-Policy. The raster export loads the serialized
+// SVG through an <img>, which `img-src` governs: a Blob URL there is blocked by
+// `img-src 'self' data:`, and the failure appears only once the policy is applied.
+test("the raster exports survive the production Content-Security-Policy", async ({ page }) => {
+  const blockedByPolicy: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) blockedByPolicy.push(message.text());
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).first().click();
+  await page.getByRole("tab", { name: "Share" }).click();
+  await page.getByRole("tab", { name: "Decision support" }).click();
+
+  const png = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Export PNG" }).click(),
+  ]).then(([event]) => event);
+  expect(png.suggestedFilename()).toBe("wind-tunnel-decision-snapshot.png");
+
+  const bundle = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Export slide bundle" }).click(),
+  ]).then(([event]) => event);
+  expect(bundle.suggestedFilename()).toBe("wind-tunnel-decision-slides.zip");
+
+  expect(blockedByPolicy).toEqual([]);
 });
 
 test("the positioning surface adds competitors, renders the segment map, and reveals live competitor loss", async ({

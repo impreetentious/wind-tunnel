@@ -50,7 +50,7 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 
 ## Run locally
 
-Requires Node `24.14.0` (see `.nvmrc`).
+Requires Node `24.15.0` (see `.nvmrc`).
 
 ```sh
 npm ci
@@ -76,7 +76,7 @@ npm run web-vitals
 npm run e2e
 ```
 
-`npm run e2e` serves the static export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist.
+`npm run e2e` serves the static export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist. The local server replays the `vercel.json` response headers, so the suite runs under the production Content-Security-Policy rather than without one.
 
 The production dependency audit used by CI is `npm audit --omit=dev --audit-level=high`. `npm run build` includes the privacy scan and bundle-size gate; `npm run web-vitals` combines the static heuristic with the Chromium runtime measurement.
 
@@ -88,9 +88,29 @@ The production dependency audit used by CI is `npm audit --omit=dev --audit-leve
 npm run build
 ```
 
-This emits a portable static site in `out/` — it also runs the privacy scan and enforces a 360 KiB gzip client-JavaScript budget as part of the build. `npm start` serves that build locally. The output serves from any static host; `docs/STATIC-HOST-HEADERS.md` gives the security headers to set there.
+This emits a portable static site in `out/` — it also runs the privacy scan and enforces a 360 KiB gzip client-JavaScript budget as part of the build. `npm start` serves that build locally with the production response headers applied. The output serves from any static host; `docs/STATIC-HOST-HEADERS.md` gives the security headers to set there.
 
 The full verification pipeline is defined in `.github/workflows/ci.yml`.
+
+## Status and contributing
+
+Pre-1.0 and single-maintainer. The economic model is specified in
+`docs/MODEL-SPEC.md` and every section it marks as shipped is covered by a cited
+test, so the engine's behaviour is stable in the sense that a change to it is a
+reviewable change to the specification. The persisted scenario format is at
+`schemaVersion` 1; a breaking change to it ships with a migration and a
+round-trip test (`docs/DATA-LIFECYCLE.md`). The interface, the surface layout,
+and the version number are not stable.
+
+There is no separate contributor guide: the verification list above is the bar
+for a change, and CI runs the same list on every pull request and on pushes to
+`main`. Two gates are worth knowing about before you start — `npm run spec-coverage`
+requires each shipped model section to carry at least one `@spec §…` test
+citation, so pricing-math changes land together with their specification and
+test updates; and `npm run coverage` fails below 90% branch coverage of
+`lib/engine`, which is met with more tests rather than a lower threshold.
+Issues and pull requests belong on the
+[GitHub repository](https://github.com/ItsMonarch04/wind-tunnel).
 
 ## License
 
@@ -98,4 +118,4 @@ The full verification pipeline is defined in `.github/workflows/ci.yml`.
 
 ---
 
-**Version:** v0.24.10
+**Version:** v0.25.0

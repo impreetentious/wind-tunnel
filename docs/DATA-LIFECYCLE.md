@@ -52,13 +52,13 @@ Backward compatibility rules for engine authors:
 
 ## Recovery paths
 
-| Situation                              | Recovery                                                                                                                   |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Browser storage cleared                | Reimport the last exported JSON file.                                                                                      |
-| Storage quota exceeded during autosave | The store surfaces a "browser storage full" banner. Export JSON before clearing.                                           |
-| Corrupt / older `schemaVersion`        | Load path leaves the raw autosave unchanged; download it from Scenario transfer before editing, then migrate or clear it.  |
-| Share hash oversized or corrupt        | Import fails closed; the app suggests exporting JSON instead.                                                              |
-| Post-migration bug                     | Roll back to the previous version tag (see [RELEASE-RUNBOOK.md](RELEASE-RUNBOOK.md)); users still hold their JSON exports. |
+| Situation                              | Recovery                                                                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Browser storage cleared                | Reimport the last exported JSON file.                                                                                     |
+| Storage quota exceeded during autosave | The store surfaces a "browser storage full" banner. Export JSON before clearing.                                          |
+| Corrupt / older `schemaVersion`        | Load path leaves the raw autosave unchanged; download it from Scenario transfer before editing, then migrate or clear it. |
+| Share hash oversized or corrupt        | Import fails closed; the app suggests exporting JSON instead.                                                             |
+| Post-migration bug                     | Promote the last verified deployment (see [RELEASE-RUNBOOK.md](RELEASE-RUNBOOK.md)); users still hold their JSON exports. |
 
 ## Operator playbook
 

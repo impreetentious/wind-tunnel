@@ -7,6 +7,20 @@ export const MAX_SCENARIO_BYTES = 2 * 1024 * 1024;
 export const MAX_SHARE_HASH_CHARS = 8 * 1024;
 export const MAX_SHARE_DECOMPRESSED_BYTES = 64 * 1024;
 
+/**
+ * True when `Intl` will accept the tag. `Intl.getCanonicalLocales` shares the
+ * locale parser used by every `Intl` constructor and by `toLocaleString`, so it
+ * is the authoritative accept test rather than an approximation of one.
+ */
+function isIntlLocale(tag: string): boolean {
+  try {
+    Intl.getCanonicalLocales(tag);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const identifierSchema = z.string().trim().min(1).max(80);
 const labelSchema = z.string().trim().min(1).max(120);
 const nonNegativeNumber = z.number().finite().min(0);
@@ -408,17 +422,15 @@ export const settingsSchema = z.strictObject({
   theme: z.enum(["system", "light", "dark"]),
   /**
    * BCP-47 locale for `Intl.NumberFormat`. The backward-compatible default is
-   * `en-US`. Accepts a permissive shape: at least two
-   * lowercase letters, optionally hyphen-separated subtags. Invalid tags fall
-   * back at format time rather than throwing here — Intl silently ignores
-   * unknown extensions but rejects malformed BCP-47.
+   * `en-US`. Validated with `Intl.getCanonicalLocales`, which accepts exactly
+   * the tags the `Intl` constructors accept: a shape-only regex would admit
+   * tags such as `en-USA` or `en-US-US` that every downstream `Intl` call then
+   * throws a `RangeError` on, and this field reaches every formatted number in
+   * the app through an imported or shared scenario.
    */
   locale: z
     .string()
-    .regex(
-      /^[a-zA-Z]{2,3}(-[A-Za-z0-9]{2,8})*$/,
-      "Use a BCP-47 locale tag, e.g. en-US, de-DE, ja-JP.",
-    )
+    .refine(isIntlLocale, "Use a BCP-47 locale tag, e.g. en-US, de-DE, ja-JP.")
     .default("en-US"),
 });
 

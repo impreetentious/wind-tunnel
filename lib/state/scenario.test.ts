@@ -220,6 +220,24 @@ describe("scenario schema and codecs", () => {
     unknownLine.designs[0].tiers[0].usagePricing = [{ metricId: "ghost", perUnitPrice: 1 }];
     expect(scenarioSchema.safeParse(unknownLine).success).toBe(false);
   });
+
+  // settings.locale reaches every formatted number in the app. A tag the schema
+  // admits but `Intl` rejects throws a RangeError out of the first formatter it
+  // touches, so the boundary must accept exactly what `Intl` accepts.
+  it("admits only locale tags the Intl constructors accept", () => {
+    for (const locale of ["en-US", "de-DE", "ja-JP", "pt-BR", "en", "en-US-u-nu-latn"]) {
+      const scenario = cloneTemplate();
+      scenario.settings.locale = locale;
+      expect(scenarioSchema.safeParse(scenario).success).toBe(true);
+      expect(() => new Intl.NumberFormat(locale).format(1)).not.toThrow();
+    }
+
+    for (const locale of ["en-USA", "en-US-US", "en-12", "en-Latn-US-Latn", ""]) {
+      const scenario = cloneTemplate();
+      scenario.settings.locale = locale;
+      expect(scenarioSchema.safeParse(scenario).success).toBe(false);
+    }
+  });
 });
 
 describe("scenario state", () => {
