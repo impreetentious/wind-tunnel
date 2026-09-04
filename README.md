@@ -1,6 +1,6 @@
 # Wind Tunnel
 
-**A wind tunnel for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism, and watch segments self-select — revealing revenue, conversion, and the surplus you're leaving on the table, before you ship a price.
+**A tool for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism and watch segments self-select — revealing revenue, conversion and the surplus you're leaving on the table, before you ship a price.
 
 ## The idea
 
@@ -10,19 +10,19 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 
 ## What it does
 
-- **Model** — buyer segments with P50-centred size and willingness-to-pay bands, within-segment buyer spread, a keyboard-navigable segment × feature value matrix, usage metrics and bands, provenance tags, and immediate engine-backed KPIs. Three template scenarios give you a practical first run.
-- **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat, metered or prepaid-credit pricing, trial and retention assumptions, permitted discount floors, and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, overage cliffs, dead allowances, stranded legacy cohorts, un-fenced discounts, and directional behavioral considerations without inventing numeric effects.
-- **Simulate** — closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall, and a 400-point residual price sweep for each tier.
-- **Analyze — Uncertainty** — seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates, and a tornado chart that tells you _which assumption to validate first_.
-- **Analyze — Research** — survey-first Van Westendorp price sensitivity with manual/CSV input, exclusion reporting, cumulative curves, interpolated points, and a clearly labeled illustrative mode. Choice-based conjoint, MaxDiff and bundling economics are available alongside it.
-- **Analyze — Elasticity and price search** — own-price and revenue elasticity, a cross-tier substitution heatmap, and a price search that reports the best menu it found by local search, presented as a candidate rather than a proven optimum.
-- **Analyze — Positioning** — competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share, and a live competitor-loss KPI.
-- **Analyze — Usage** — the expected metered bill by segment, plus prepaid credit packs priced against each segment's own usage band: expected utilisation, the probability of overage, the overage cliff, and **breakage** — the units a buyer is expected to pay for and never spend — reported as a disclosed share of revenue rather than as an addition to it.
-- **Analyze — Migration** — repricing an existing base rather than selling to a new one. The legacy plan enters each account's choice set as one more alternative in the same envelope, with the switching cost charged on every move away from it, and the readout is a migration matrix (who lands where, who churns at the event) and a revenue bridge that reconciles old MRR to new exactly. Grandfathering, forced-at-renewal, and opt-in-with-deadline are three choice sets, not three engines.
+- **Model** — buyer segments with P50-centred size and willingness-to-pay bands, within-segment buyer spread, a keyboard-navigable segment × feature value matrix, usage metrics and bands, provenance tags and immediate engine-backed KPIs. Three template scenarios give you a practical first run.
+- **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat, metered or prepaid-credit pricing, trial and retention assumptions, permitted discount floors and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, overage cliffs, dead allowances, stranded legacy cohorts, un-fenced discounts and directional behavioral considerations without inventing numeric effects.
+- **Simulate** — closed-form self-selection turns the active model and menu into live MRR, conversion, ARPA, capture rate, buyer sorting, a reconciled value waterfall and a 400-point residual price sweep for each tier.
+- **Analyze — Uncertainty** — seeded Monte Carlo over assumption uncertainty, P10/P50/P90 MRR bands, paired design win rates and a tornado chart that tells you _which assumption to validate first_.
+- **Analyze — Research** — survey-first Van Westendorp price sensitivity with manual/CSV input, exclusion reporting, cumulative curves, interpolated points and a clearly labeled illustrative mode. Choice-based conjoint, MaxDiff and bundling economics are available alongside it.
+- **Analyze — Elasticity and price search** — own-price and revenue elasticity, a cross-tier substitution heatmap and a price search that reports the best menu it found by local search, presented as a candidate rather than a proven optimum.
+- **Analyze — Positioning** — competitor entry (per-segment values with an "overall" default), a segment-scoped Pareto price-value map with P10/P50/P90 break-even rays and direct-dominance verdicts, per-segment competitor share and a live competitor-loss KPI.
+- **Analyze — Usage** — the expected metered bill by segment, plus prepaid credit packs priced against each segment's own usage band: expected utilisation, the probability of overage, the overage cliff and **breakage** — the units a buyer is expected to pay for and never spend — reported as a disclosed share of revenue rather than as an addition to it.
+- **Analyze — Migration** — repricing an existing base rather than selling to a new one. The legacy plan enters each account's choice set as one more alternative in the same envelope, with the switching cost charged on every move away from it and the readout is a migration matrix (who lands where, who churns at the event) and a revenue bridge that reconciles old MRR to new exactly. Grandfathering, forced-at-renewal and opt-in-with-deadline are three choice sets, not three engines.
 - **Analyze — Discounts** — list price is a ceiling; achieved price is a policy outcome. Set a permitted floor and expected hit rate per tier and the effective menu runs through the same choice engine, reporting discount leakage in dollars and **fence erosion**: the floors that make a discounted Better beat an undiscounted Best for the buyers Best was built for.
-- **Communicate** — an exportable Pricing Decision Record, pricing-page mock, browser-local scenario history and diffs, readiness and model-limit disclosures, PNG/ZIP decision snapshots, and a worked tutorial.
+- **Communicate** — an exportable Pricing Decision Record, pricing-page mock, browser-local scenario history and diffs, readiness and model-limit disclosures, PNG/ZIP decision snapshots and a worked tutorial.
 
-The economics is the point: the engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Every formula is tested against closed-form results, and a value-conservation identity must hold on every simulation. `docs/MODEL-SPEC.md` states the math in full.
+The economics is the point: the engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Every formula is tested against closed-form results and a value-conservation identity must hold on every simulation. `docs/MODEL-SPEC.md` states the math in full.
 
 ## What it is not
 
@@ -30,12 +30,12 @@ No accounts, no server, no telemetry, no data connectors. Fully client-side: you
 
 ## Limitations
 
-- **Advanced conjoint estimation is opt-in, not the default screen.** Pooled MNL is what the research flow estimates automatically. The deterministic hierarchical-Bayes sampler runs only when you ask for per-respondent part-worths, because it is slow enough to be felt, and it is offered only once the pooled fit is identifiable — HB on a degenerate design returns numbers that are confident and wrong. The D-efficient task generator is likewise a choice alongside the random-balanced default, and reports when its search failed to beat that baseline.
+- **Advanced conjoint estimation is opt-in, not the default screen.** Pooled MNL is what the research flow estimates automatically. The deterministic hierarchical-Bayes sampler runs only when you ask for per-respondent part-worths, because it is slow enough to be felt and it is offered only once the pooled fit is identifiable — HB on a degenerate design returns numbers that are confident and wrong. The D-efficient task generator is likewise a choice alongside the random-balanced default and reports when its search failed to beat that baseline.
 - **Assumptions in, assumptions out.** There is no market data and no calibration against your actual revenue. The engine is exact given your inputs; it has no opinion about whether those inputs are right.
-- **Usage is an expected cost, not a joint distribution.** Metered lines, allowances, and credit packs are priced against each segment's usage band as a per-segment expected bill, not as a per-buyer joint distribution over consumption and buyer scale. Breakage is computed from that band rather than assumed, and it is always shown as a slice of revenue — never a sixth term in the value waterfall.
-- **Migration and discount results sit beside the headline numbers, never inside them.** MRR, conversion, and capture rate are about new buyers at list price. The installed base is a different population and the permitted menu is a different menu; mixing either into the headline would answer a question you did not ask. Discount leakage assumes the stated hit rates land at the permitted floor — a mixture over cohorts, not a distribution over discount depth.
+- **Usage is an expected cost, not a joint distribution.** Metered lines, allowances and credit packs are priced against each segment's usage band as a per-segment expected bill, not as a per-buyer joint distribution over consumption and buyer scale. Breakage is computed from that band rather than assumed and it is always shown as a slice of revenue — never a sixth term in the value waterfall.
+- **Migration and discount results sit beside the headline numbers, never inside them.** MRR, conversion and capture rate are about new buyers at list price. The installed base is a different population and the permitted menu is a different menu; mixing either into the headline would answer a question you did not ask. Discount leakage assumes the stated hit rates land at the permitted floor — a mixture over cohorts, not a distribution over discount depth.
 - **Opt-in take-up and other inertia are not modeled.** A migration policy that depends on buyers acting by a deadline reports the full exposure as a ceiling. The tool does not invent a behavioral coefficient to discount it, here or anywhere else.
-- **Accessibility** targets WCAG 2.1 AA. Critical flows are checked with axe across Chromium, Firefox, and WebKit, including light- and dark-theme coverage, but the documented manual audit is not complete and the app has not been independently audited.
+- **Accessibility** targets WCAG 2.1 AA. Critical flows are checked with axe across Chromium, Firefox and WebKit, including light- and dark-theme coverage, but the documented manual audit is not complete and the app has not been independently audited.
 
 ## Stack
 
@@ -45,7 +45,7 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 
 - `docs/MODEL-SPEC.md` — the normative math specification the engine implements.
 - `docs/STATIC-HOST-HEADERS.md` — CSP and equivalent static-host security headers.
-- `docs/DATA-LIFECYCLE.md` — every persistence surface, its retention model, and its recovery path.
+- `docs/DATA-LIFECYCLE.md` — every persistence surface, its retention model and its recovery path.
 - `docs/ACCESSIBILITY-AUDIT.md` — automated coverage and the remaining manual WCAG matrix.
 
 ## Run locally
@@ -76,7 +76,7 @@ npm run web-vitals
 npm run e2e
 ```
 
-`npm run e2e` serves the static export locally and verifies the light/dark shell, zero serious or critical axe violations, and the same-origin request allowlist. The local server replays the `vercel.json` response headers, so the suite runs under the production Content-Security-Policy rather than without one.
+`npm run e2e` serves the static export locally and verifies the light/dark shell, zero serious or critical axe violations and the same-origin request allowlist. The local server replays the `vercel.json` response headers, so the suite runs under the production Content-Security-Policy rather than without one.
 
 The production dependency audit used by CI is `npm audit --omit=dev --audit-level=high`. `npm run build` includes the privacy scan and bundle-size gate; `npm run web-vitals` combines the static heuristic with the Chromium runtime measurement.
 
@@ -92,30 +92,14 @@ This emits a portable static site in `out/` — it also runs the privacy scan an
 
 The full verification pipeline is defined in `.github/workflows/ci.yml`.
 
-## Status and contributing
+## Contributing
 
-Pre-1.0 and single-maintainer. The economic model is specified in
-`docs/MODEL-SPEC.md` and every section it marks as shipped is covered by a cited
-test, so the engine's behaviour is stable in the sense that a change to it is a
-reviewable change to the specification. The persisted scenario format is at
-`schemaVersion` 1; a breaking change to it ships with a migration and a
-round-trip test (`docs/DATA-LIFECYCLE.md`). The interface, the surface layout,
-and the version number are not stable.
-
-There is no separate contributor guide: the verification list above is the bar
-for a change, and CI runs the same list on every pull request and on pushes to
-`main`. Two gates are worth knowing about before you start — `npm run spec-coverage`
-requires each shipped model section to carry at least one `@spec §…` test
-citation, so pricing-math changes land together with their specification and
-test updates; and `npm run coverage` fails below 90% branch coverage of
-`lib/engine`, which is met with more tests rather than a lower threshold.
-Issues and pull requests belong on the
-[GitHub repository](https://github.com/ItsMonarch04/wind-tunnel).
+Issues and pull requests are welcome on [GitHub](https://github.com/impreetentious/wind-tunnel). Open an issue before anything substantial, keep changes focused and leave the checks under [Verify](#verify) green.
 
 ## License
 
-[MIT](LICENSE) © 2025-2026 Sidakpreet Singh
+Apache-2.0 © 2025-2026 Sidakpreet Singh — see [LICENSE](LICENSE).
 
 ---
 
-**Version:** v0.25.0
+**Version:** v0.25.1

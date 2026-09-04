@@ -311,8 +311,7 @@ describe("competitive positioning guards", () => {
       sigma: 0.4,
       competitors: [competitor("rival", 200, 30, { priceMetric: "per-seat" as const })],
       tiers: [{ id: "pro", name: "Pro", price: 100, priceMetric: "flat" as const, value: 180 }] as
-        | PositioningTierPoint[]
-        | unknown,
+        PositioningTierPoint[] | unknown,
       ...overrides,
     } as Parameters<typeof buildPositioningMap>[0];
   }

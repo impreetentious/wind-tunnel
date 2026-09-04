@@ -200,8 +200,20 @@ describe("repricing and migration (@spec §4.18)", () => {
       policy: "grandfather",
       segments: [segment(overrides)],
     });
+    expect(() => simulateMigration(bad({ id: "" }))).toThrow(/non-empty ID/);
     expect(() => simulateMigration(bad({ baseCount: -1 }))).toThrow(RangeError);
     expect(() => simulateMigration(bad({ switchingCost: -1 }))).toThrow(RangeError);
+    expect(() => simulateMigration(bad({ sigma: -1 }))).toThrow(RangeError);
+    expect(() =>
+      simulateMigration(
+        bad({ incumbent: { id: "legacy", name: "x", value: -1, effectivePrice: 1 } }),
+      ),
+    ).toThrow(RangeError);
+    expect(() =>
+      simulateMigration(
+        bad({ incumbent: { id: "legacy", name: "x", value: 1, effectivePrice: -1 } }),
+      ),
+    ).toThrow(RangeError);
     expect(() =>
       simulateMigration(bad({ incumbent: { id: "", name: "x", value: 1, effectivePrice: 1 } })),
     ).toThrow(RangeError);

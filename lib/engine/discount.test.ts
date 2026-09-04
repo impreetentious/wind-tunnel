@@ -125,6 +125,46 @@ describe("discount-policy leakage (@spec §4.19)", () => {
     expect(erosion.approver).toBe("VP Sales");
   });
 
+  // T-DSC-03b @spec §4.19 — "the shallowest approver whose band covers the permitted depth".
+  it("names the least-senior approver who can sign for the floor when several bands cover it", () => {
+    // A 90% floor: every one of these bands reaches it, so the discriminating question is which
+    // of them the readout names. The spec answers "shallowest covering", i.e. who has to sign —
+    // naming the VP when a director's authority already reaches the floor overstates the ask.
+    const readout = evaluateDiscountPolicy(
+      input([
+        {
+          tierId: "better",
+          floorFraction: 0.9,
+          hitRateBySegment: { midmarket: 1 },
+          approvalBands: [
+            { upToFraction: 0.99, approver: "VP Sales" },
+            { upToFraction: 0.92, approver: "Director" },
+            { upToFraction: 0.95, approver: "Regional lead" },
+          ],
+        },
+      ]),
+    );
+    expect(readout.fenceErosions).toHaveLength(1);
+    expect(readout.fenceErosions[0].approver).toBe("Director");
+
+    // A band that stops short of the floor cannot authorize it and is never named, even when it
+    // is the shallowest band defined.
+    const tooShallow = evaluateDiscountPolicy(
+      input([
+        {
+          tierId: "better",
+          floorFraction: 0.9,
+          hitRateBySegment: { midmarket: 1 },
+          approvalBands: [
+            { upToFraction: 0.1, approver: "Account executive" },
+            { upToFraction: 0.95, approver: "Regional lead" },
+          ],
+        },
+      ]),
+    );
+    expect(tooShallow.fenceErosions[0].approver).toBe("Regional lead");
+  });
+
   // T-DSC-04 @spec §4.19
   it("checks erosion at the permitted floor even when nobody is expected to reach it", () => {
     // Erosion is a property of the policy: a floor that un-fences the menu does so on the

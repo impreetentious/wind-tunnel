@@ -1,3 +1,5 @@
+// Reader-facing definitions. Every term the surfaces use in a tooltip resolves here,
+// so the copy and the model cannot drift apart.
 export const glossary = {
   wtp: {
     label: "WTP",

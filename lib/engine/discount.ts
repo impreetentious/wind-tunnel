@@ -96,7 +96,7 @@ export interface FenceErosion {
   shareAtList: number;
   /** That share's MRR at list: what the erosion puts at risk in this segment. */
   mrrAtRisk: number;
-  /** Deepest approver the policy names, when it names any. */
+  /** Shallowest approver whose band covers the permitted floor, when the policy names one. */
   approver?: string;
 }
 
@@ -239,12 +239,16 @@ function tierAtScale(
   return chosen.owner === "own" ? (chosen.tierId ?? null) : null;
 }
 
-function deepestApprover(policy: DiscountPolicy): string | undefined {
-  const bands = [...(policy.approvalBands ?? [])].sort(
-    (left, right) => right.upToFraction - left.upToFraction,
-  );
-  // The band that has to sign for the deepest permitted discount, not the deepest band defined.
-  return bands.find((band) => band.upToFraction + EPSILON >= policy.floorFraction)?.approver;
+/**
+ * §4.19: "the shallowest approver whose band covers the permitted depth". The question the
+ * readout answers is *who has to sign* for a deal at the floor, which is the least-senior band
+ * that reaches it — not the most senior band that happens to also reach it. Bands too shallow to
+ * cover the floor are excluded first, so this is never merely the shallowest band defined.
+ */
+function coveringApprover(policy: DiscountPolicy): string | undefined {
+  return [...(policy.approvalBands ?? [])]
+    .filter((band) => band.upToFraction + EPSILON >= policy.floorFraction)
+    .sort((left, right) => left.upToFraction - right.upToFraction)[0]?.approver;
 }
 
 function simulateSegment(
@@ -282,7 +286,7 @@ function simulateSegment(
       const flipsToDiscounted = tierAtScale(segment, menu, topDecileScale) === policy.tierId;
       if (eroded && flipsToDiscounted && eroded.value > plain.value + EPSILON) {
         const shareAtList = atList.shareByTier.get(topTierAtList) ?? 0;
-        const approver = deepestApprover(policy);
+        const approver = coveringApprover(policy);
         fenceErosions.push({
           segmentId: segment.id,
           segmentName: segment.name,

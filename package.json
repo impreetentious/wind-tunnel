@@ -1,6 +1,6 @@
 {
   "name": "wind-tunnel",
-  "version": "0.25.0",
+  "version": "0.25.1",
   "private": true,
   "description": "Client-side SaaS pricing and packaging decision studio.",
   "scripts": {
@@ -25,56 +25,58 @@
   },
   "dependencies": {
     "lz-string": "1.5.0",
-    "next": "16.2.4",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
-    "zod": "4.3.6",
+    "next": "16.3.3",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "zod": "4.4.3",
     "zundo": "2.3.0",
-    "zustand": "5.0.12"
+    "zustand": "5.0.14"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.11.2",
-    "@playwright/test": "1.59.1",
-    "@tailwindcss/postcss": "4.2.4",
+    "@axe-core/playwright": "4.12.1",
+    "@playwright/test": "1.61.1",
+    "@tailwindcss/postcss": "4.3.2",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
-    "@types/node": "25.6.0",
-    "@types/react": "19.2.14",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "@vitest/coverage-v8": "^4.1.5",
-    "eslint": "9.39.4",
-    "eslint-config-next": "16.2.4",
-    "fast-check": "4.7.0",
-    "jsdom": "29.0.2",
-    "postcss": "8.5.10",
-    "prettier": "3.8.3",
-    "tailwindcss": "4.2.4",
+    "@vitest/coverage-v8": "^4.1.10",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.3",
+    "fast-check": "4.9.0",
+    "jsdom": "29.1.1",
+    "postcss": "8.5.25",
+    "prettier": "3.9.5",
+    "tailwindcss": "4.3.2",
     "typescript": "5.9.3",
-    "vitest": "4.1.5"
+    "vitest": "4.1.10"
   },
   "overrides": {
-    "postcss": "8.5.10",
-    "brace-expansion": "~5.0.5",
+    "postcss": "8.5.25",
+    "brace-expansion": "~5.0.9",
     "minimatch@3": {
-      "brace-expansion": "~1.1.14"
+      "brace-expansion": "~1.1.18"
     },
-    "undici": "^7.25.0",
+    "undici": "^7.29.0",
     "next": {
-      "sharp": "^0.34.5"
-    }
+      "sharp": "0.35.4"
+    },
+    "sharp": "0.35.4",
+    "nanoid@<3.3.18": "3.3.18"
   },
   "engines": {
     "node": "24.15.0",
     "npm": ">=10.0.0"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "Sidakpreet Singh",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ItsMonarch04/wind-tunnel.git"
+    "url": "git+https://github.com/impreetentious/wind-tunnel.git"
   },
   "bugs": {
-    "url": "https://github.com/ItsMonarch04/wind-tunnel/issues"
+    "url": "https://github.com/impreetentious/wind-tunnel/issues"
   },
-  "homepage": "https://github.com/ItsMonarch04/wind-tunnel#readme"
+  "homepage": "https://github.com/impreetentious/wind-tunnel#readme"
 }

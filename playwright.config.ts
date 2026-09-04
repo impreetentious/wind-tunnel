@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// End-to-end runs against the built export served by `serve`, not the dev server,
+// so the suite exercises the same bytes the host will publish.
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,

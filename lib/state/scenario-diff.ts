@@ -192,6 +192,228 @@ function diffSegment(
       });
     }
   }
+  // §4.15 usage bands and §4.16 trial/retention move simulated revenue without touching any
+  // field above, so a diff that skipped them would report "no change" on a real repricing —
+  // the same reason `diffTier` carries metering.
+  for (const metricId of Object.keys({
+    ...before.usageBands,
+    ...after.usageBands,
+  }).sort()) {
+    for (const key of ["p10", "p50", "p90"] as const) {
+      const b = before.usageBands?.[metricId]?.[key];
+      const a = after.usageBands?.[metricId]?.[key];
+      if (b !== a) {
+        push(out, {
+          category: "segments",
+          kind: "changed",
+          path: `${path}.usageBands.${metricId}.${key}`,
+          before: b,
+          after: a,
+        });
+      }
+    }
+  }
+  for (const key of [
+    "trialLengthMonths",
+    "trialConversion",
+    "monthlyRetention",
+    "contractTerm",
+  ] as const) {
+    const b = before.timeDynamics?.[key];
+    const a = after.timeDynamics?.[key];
+    if (b !== a) {
+      push(out, {
+        category: "segments",
+        kind: "changed",
+        path: `${path}.timeDynamics.${key}`,
+        before: b,
+        after: a,
+      });
+    }
+  }
+}
+
+/**
+ * §4.1.1 pair interactions, keyed by the unordered pair rather than by array position, so
+ * reordering the list is not a change and editing one pair's adjustment is.
+ */
+function diffInteractions(
+  before: Scenario["model"]["interactions"],
+  after: Scenario["model"]["interactions"],
+  out: ScenarioDiffEntry[],
+) {
+  const key = (interaction: Scenario["model"]["interactions"][number]) =>
+    [...interaction.featureIds].sort().join("+");
+  const beforeByPair = new Map(before.map((entry) => [key(entry), entry]));
+  const afterByPair = new Map(after.map((entry) => [key(entry), entry]));
+  for (const pair of [...new Set([...beforeByPair.keys(), ...afterByPair.keys()])].sort()) {
+    const b = beforeByPair.get(pair);
+    const a = afterByPair.get(pair);
+    const path = `interactions.${pair}`;
+    if (!b || !a) {
+      push(out, {
+        category: "interactions",
+        kind: b ? "removed" : "added",
+        path,
+        before: b?.valueFraction,
+        after: a?.valueFraction,
+      });
+      continue;
+    }
+    for (const field of ["valueFraction", "note"] as const) {
+      if (b[field] !== a[field]) {
+        push(out, {
+          category: "interactions",
+          kind: "changed",
+          path: `${path}.${field}`,
+          before: b[field],
+          after: a[field],
+        });
+      }
+    }
+  }
+}
+
+/** §4.15/§4.17 metric catalog. `unitKind` is diffed because U3 reads consumption and outcome
+ * lines differently, so flipping it changes which findings the linter reports. */
+function diffUsageMetric(
+  before: Scenario["model"]["usageMetrics"][number],
+  after: Scenario["model"]["usageMetrics"][number],
+  path: string,
+  out: ScenarioDiffEntry[],
+) {
+  for (const field of ["name", "unitLabel", "unitKind"] as const) {
+    if (before[field] !== after[field]) {
+      push(out, {
+        category: "usageMetrics",
+        kind: "changed",
+        path: `${path}.${field}`,
+        before: before[field],
+        after: after[field],
+      });
+    }
+  }
+}
+
+/**
+ * §4.19 discount policies, keyed by the tier they govern. A policy is design state that changes
+ * achieved MRR and the P-family linter findings, so it belongs in the structural diff even
+ * though it never touches a list price.
+ */
+function diffDiscountPolicies(
+  before: Scenario["designs"][number],
+  after: Scenario["designs"][number],
+  path: string,
+  out: ScenarioDiffEntry[],
+) {
+  const byTier = (design: Scenario["designs"][number]) =>
+    new Map((design.discountPolicies ?? []).map((policy) => [policy.tierId, policy]));
+  const beforeByTier = byTier(before);
+  const afterByTier = byTier(after);
+  const describe = (policy: NonNullable<Scenario["designs"][number]["discountPolicies"]>[number]) =>
+    `floor ${policy.floorFraction}`;
+  for (const tierId of [...new Set([...beforeByTier.keys(), ...afterByTier.keys()])].sort()) {
+    const b = beforeByTier.get(tierId);
+    const a = afterByTier.get(tierId);
+    const policyPath = `${path}.discountPolicies.${tierId}`;
+    if (!b || !a) {
+      push(out, {
+        category: "designs",
+        kind: b ? "removed" : "added",
+        path: policyPath,
+        before: b ? describe(b) : undefined,
+        after: a ? describe(a) : undefined,
+      });
+      continue;
+    }
+    if (b.floorFraction !== a.floorFraction) {
+      push(out, {
+        category: "designs",
+        kind: "changed",
+        path: `${policyPath}.floorFraction`,
+        before: b.floorFraction,
+        after: a.floorFraction,
+      });
+    }
+    for (const segmentId of Object.keys({
+      ...b.hitRateBySegment,
+      ...a.hitRateBySegment,
+    }).sort()) {
+      const beforeRate = b.hitRateBySegment?.[segmentId];
+      const afterRate = a.hitRateBySegment?.[segmentId];
+      if (beforeRate !== afterRate) {
+        push(out, {
+          category: "designs",
+          kind: "changed",
+          path: `${policyPath}.hitRate.${segmentId}`,
+          before: beforeRate,
+          after: afterRate,
+        });
+      }
+    }
+    const bands = (policy: typeof b) =>
+      (policy.approvalBands ?? [])
+        .map((band) => `${band.approver} ≤ ${band.upToFraction}`)
+        .sort()
+        .join(" · ");
+    if (bands(b) !== bands(a)) {
+      push(out, {
+        category: "designs",
+        kind: "changed",
+        path: `${policyPath}.approvalBands`,
+        before: bands(b) || "none",
+        after: bands(a) || "none",
+      });
+    }
+  }
+}
+
+/**
+ * Research artifacts, summarized by study shape rather than row by row: a respondent-level diff
+ * of a 1,000-row PSM study is noise, while "the study arrived, grew, or was replaced" is the
+ * change a reader of the history needs. Fielding evidence is a scenario change like any other.
+ */
+function diffResearch(
+  before: Scenario["research"],
+  after: Scenario["research"],
+  out: ScenarioDiffEntry[],
+) {
+  const labels = {
+    vanWestendorp: (study: NonNullable<Scenario["research"]["vanWestendorp"]>) =>
+      `${study.source}, ${study.responses.length} responses`,
+    conjoint: (study: NonNullable<Scenario["research"]["conjoint"]>) =>
+      `${study.attributes.length} attributes, ${study.tasks.length} tasks, ${study.observations.length} observations${study.numericPrice ? ", numeric price" : ""}`,
+    maxDiff: (study: NonNullable<Scenario["research"]["maxDiff"]>) =>
+      `${study.items.length} items, ${study.tasks.length} tasks, ${study.responses.length} responses`,
+  } as const;
+
+  for (const key of ["conjoint", "maxDiff", "vanWestendorp"] as const) {
+    const b = before[key];
+    const a = after[key];
+    if (!b && !a) continue;
+    // A widening `labels` lookup would lose the per-study type; resolve it per branch instead.
+    const label = (study: NonNullable<typeof b> | NonNullable<typeof a>) =>
+      (labels[key] as (value: typeof study) => string)(study);
+    if (!b || !a) {
+      push(out, {
+        category: "research",
+        kind: b ? "removed" : "added",
+        path: `research.${key}`,
+        before: b ? label(b) : undefined,
+        after: a ? label(a) : undefined,
+      });
+      continue;
+    }
+    if (label(b) !== label(a)) {
+      push(out, {
+        category: "research",
+        kind: "changed",
+        path: `research.${key}`,
+        before: label(b),
+        after: label(a),
+      });
+    }
+  }
 }
 
 function diffTier(
@@ -265,6 +487,7 @@ function diffDesign(
   }
   diffCollectionByIds(before.tiers, after.tiers, "tiers", `${path}.tiers`, diffTier, out);
   diffCollectionByIds(before.addOns, after.addOns, "addOns", `${path}.addOns`, diffTier, out);
+  diffDiscountPolicies(before, after, path, out);
 }
 
 function diffCompetitor(
@@ -428,8 +651,18 @@ export function diffScenarios(before: Scenario, after: Scenario): readonly Scena
     diffSegment,
     out,
   );
+  diffInteractions(before.model.interactions, after.model.interactions, out);
+  diffCollectionByIds(
+    before.model.usageMetrics,
+    after.model.usageMetrics,
+    "usageMetrics",
+    "usageMetrics",
+    diffUsageMetric,
+    out,
+  );
   diffCollectionByIds(before.designs, after.designs, "designs", "designs", diffDesign, out);
   diffMigration(before.migration, after.migration, out);
+  diffResearch(before.research, after.research, out);
   diffCollectionByIds(
     before.competitors,
     after.competitors,

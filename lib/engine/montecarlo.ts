@@ -49,13 +49,11 @@ function assertInput(input: MonteCarloInput): void {
   if (!(Number.isInteger(input.seed) && input.seed >= 0 && input.seed <= 4_294_967_295)) {
     throw new RangeError("Monte Carlo seed must be a uint32 integer.");
   }
-  if (
-    !(
-      Number.isInteger(input.drawCount) &&
-      input.drawCount >= MIN_MONTE_CARLO_DRAWS &&
-      input.drawCount <= MAX_MONTE_CARLO_DRAWS
-    )
-  ) {
+  if (!(
+    Number.isInteger(input.drawCount) &&
+    input.drawCount >= MIN_MONTE_CARLO_DRAWS &&
+    input.drawCount <= MAX_MONTE_CARLO_DRAWS
+  )) {
     throw new RangeError(
       `Monte Carlo draw count must be an integer between ${MIN_MONTE_CARLO_DRAWS} and ${MAX_MONTE_CARLO_DRAWS}.`,
     );

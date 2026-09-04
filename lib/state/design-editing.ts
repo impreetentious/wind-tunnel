@@ -23,6 +23,23 @@ function nextId(existingIds: readonly string[], base: string) {
   return `${base}-${suffix}`;
 }
 
+/**
+ * Re-points a design's §4.19 discount policies through `resolve`, dropping any whose tier the
+ * caller has removed. Returns `undefined` for an empty result so a policy-free design keeps the
+ * absent key the schema and the discount surface both treat as "list price is the achieved price".
+ */
+function remapDiscountPolicies(
+  policies: Design["discountPolicies"],
+  resolve: (tierId: string) => string | undefined,
+): Design["discountPolicies"] {
+  if (!policies) return undefined;
+  const next = policies.flatMap((policy) => {
+    const tierId = resolve(policy.tierId);
+    return tierId === undefined ? [] : [{ ...policy, tierId }];
+  });
+  return next.length > 0 ? next : undefined;
+}
+
 function updateActiveDesign(scenario: Scenario, updater: (design: Design) => Design): Scenario {
   return {
     ...scenario,
@@ -76,9 +93,14 @@ export function duplicateActiveDesign(scenario: Scenario): Scenario {
   );
   const tierIds = new Set<string>();
   const addOnIds = new Set<string>();
+  // §4.19 policies name a tier of their own design, so the copy has to follow the renamed tiers.
+  // Carrying the source ids over produces a design the schema rejects, which the store surfaces
+  // as a failed edit — the duplicate silently never happens.
+  const copiedTierId = new Map<string, string>();
   const tiers = source.tiers.map((tier) => {
     const id = nextId([...tierIds], `${tier.id}-copy`);
     tierIds.add(id);
+    copiedTierId.set(tier.id, id);
     return { ...tier, id };
   });
   const addOns = source.addOns.map((addOn) => {
@@ -86,9 +108,15 @@ export function duplicateActiveDesign(scenario: Scenario): Scenario {
     addOnIds.add(id);
     return { ...addOn, id };
   });
+  const discountPolicies = remapDiscountPolicies(source.discountPolicies, (tierId) =>
+    copiedTierId.get(tierId),
+  );
   return {
     ...scenario,
-    designs: [...scenario.designs, { ...source, id: designId, name, tiers, addOns }],
+    designs: [
+      ...scenario.designs,
+      { ...source, id: designId, name, tiers, addOns, discountPolicies },
+    ],
     activeDesignId: designId,
   };
 }
@@ -123,11 +151,29 @@ export function addTier(scenario: Scenario, options: { free?: boolean } = {}): S
   }));
 }
 
+/**
+ * Removes a tier from the active design along with the two things that point at it by id: the
+ * §4.19 discount policy written against it, and — when the active design is also the §4.18
+ * incumbent — the installed-base rows that sit on it. Both are schema cross-validated, so
+ * leaving either behind makes the whole edit invalid and the store rejects the removal outright.
+ */
 export function removeTier(scenario: Scenario, tierId: string): Scenario {
-  return updateActiveDesign(scenario, (design) => ({
+  const withoutTier = updateActiveDesign(scenario, (design) => ({
     ...design,
     tiers: design.tiers.filter((tier) => tier.id !== tierId),
+    discountPolicies: remapDiscountPolicies(design.discountPolicies, (candidate) =>
+      candidate === tierId ? undefined : candidate,
+    ),
   }));
+  const migration = withoutTier.migration;
+  if (!migration || migration.incumbentDesignId !== withoutTier.activeDesignId) return withoutTier;
+  return {
+    ...withoutTier,
+    migration: {
+      ...migration,
+      base: migration.base.filter((row) => row.incumbentTierId !== tierId),
+    },
+  };
 }
 
 export function updateTier(

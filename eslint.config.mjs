@@ -2,6 +2,8 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 import { defineConfig, globalIgnores } from "eslint/config";
 
+// Flat config. Generated and build output are ignored here rather than in .eslintignore,
+// which flat config no longer reads.
 const forbiddenEngineImports = [
   /^@\/components(?:\/|$)/,
   /^@\/lib\/state(?:\/|$)/,

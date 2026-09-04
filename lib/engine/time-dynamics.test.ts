@@ -21,14 +21,22 @@ describe("time dynamics (@spec §4.16)", () => {
     expect(result.segments[0].ltvPerAcquired).toBeCloseTo(100, 12);
   });
 
-  it("T-TIME-02 a paid-trial delay zeroes revenue until conversion", () => {
+  it("T-TIME-02 a paid-trial delay zeroes revenue until conversion, then scales it by the rate", () => {
     const result = projectTimeDynamics({
       segments: [{ ...baseSegment, trialLength: 3, trialConversion: 0.5 }],
       periods: 5,
     });
-    expect(result.points.map((p) => p.mrr)).toEqual([0, 0, 0, 1_000, 1_000, 1_000]);
+    // §4.16: `mrr_s(t ≥ trialLength) = trialConversion_s · M_s`. Half the cohort converts, so
+    // half the §4.3 MRR arrives — the rate has to move revenue and buyers by the same factor,
+    // or ARPA silently doubles at trial end.
+    expect(result.points.map((p) => p.mrr)).toEqual([0, 0, 0, 500, 500, 500]);
     expect(result.segments[0].points[3].activeBuyers).toBeCloseTo(5, 12);
-    expect(result.cumulativeRevenue).toBeCloseTo(3 * 1_000, 12);
+    expect(result.cumulativeRevenue).toBeCloseTo(3 * 500, 12);
+    // ARPA is invariant across trial end: 500 / 5 converted = the pre-trial 1000 / 10 selectors.
+    const paid = result.segments[0].points[3];
+    expect(paid.mrr / paid.activeBuyers).toBeCloseTo(baseSegment.monthlyMrr / 10, 12);
+    // §4.16 LTV per *acquired* selector: trialConversion · ARPA · Σ retention^k, retention = 1.
+    expect(result.segments[0].ltvPerAcquired).toBeCloseTo(0.5 * 100 * 3, 12);
   });
 
   it("T-TIME-03 retention < 1 shrinks MRR geometrically each month", () => {

@@ -1,3 +1,4 @@
+// Root layout: fonts are self-hosted and no third-party origin is contacted.
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 

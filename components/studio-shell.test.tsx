@@ -644,6 +644,33 @@ describe("StudioShell", () => {
     expect(interactions[0].valueFraction).toBeCloseTo(0.25, 10);
   });
 
+  it("adds a segment after a competitor exists, sizing the competitor against it", () => {
+    render(<StudioShell version="0.19.0" />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Use this template" })[0]);
+    fireEvent.click(screen.getByRole("tab", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Positioning" }));
+    fireEvent.click(screen.getByTestId("positioning-add-competitor"));
+    const competitorId = scenarioStore.getState().scenario.competitors[0].id;
+    const before = scenarioStore.getState().scenario.model.segments.length;
+
+    fireEvent.click(screen.getByRole("tab", { name: "Model" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add segment" }));
+
+    // A competitor's value map has to cover the segment list exactly, so the segment and the
+    // competitor entry for it are one edit. Missing that, the whole scenario fails to parse and
+    // the store silently discards the addition.
+    const scenario = scenarioStore.getState().scenario;
+    expect(scenario.model.segments).toHaveLength(before + 1);
+    expect(scenarioStore.getState().message).toBeNull();
+    const added = scenario.model.segments.at(-1)!;
+    const competitor = scenario.competitors.find((entry) => entry.id === competitorId)!;
+    expect(Object.keys(competitor.valueBySegment).sort()).toEqual(
+      scenario.model.segments.map((segment) => segment.id).sort(),
+    );
+    expect(competitor.valueBySegment[added.id]).toBe(added.wtpBand.p50);
+  });
+
   it("fills a competitor's segment value from the survey shortcut median", () => {
     render(<StudioShell version="0.19.0" />);
 

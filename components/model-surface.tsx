@@ -18,6 +18,7 @@ import {
   type BandField,
   type QuantileBand,
 } from "@/lib/state/model-editing";
+import { defaultCompetitorValueForSegment } from "@/lib/state/positioning";
 import { scenarioStore, useScenarioStore } from "@/lib/state/scenario-store";
 import { formatMoney, formatNumber, formatPercent } from "@/lib/state/formatting";
 import { simulateScenarioDesign } from "@/lib/state/scenario-economics";
@@ -718,32 +719,41 @@ function addSegment(scenario: Scenario): Scenario | null {
   const index = scenario.model.segments.length + 1;
   const id = `segment-${index}`;
   const allocation = 1 / scenario.model.features.length;
+  const segment = {
+    id,
+    name: `Segment ${index}`,
+    prospectBand: { p10: 100, p50: 150, p90: 225 },
+    seatCount: 5,
+    wtpBand: { p10: 50, p50: 75, p90: 112.5 },
+    withinSegmentSigma: 0.5,
+    featureAllocation: Object.fromEntries(
+      scenario.model.features.map((feature) => [feature.id, allocation]),
+    ),
+    provenance: {
+      prospectCount: emptyProvenance,
+      willingnessToPay: emptyProvenance,
+      featureValues: Object.fromEntries(
+        scenario.model.features.map((feature) => [feature.id, emptyProvenance]),
+      ),
+    },
+  };
   return {
     ...scenario,
     model: {
       ...scenario.model,
-      segments: [
-        ...scenario.model.segments,
-        {
-          id,
-          name: `Segment ${index}`,
-          prospectBand: { p10: 100, p50: 150, p90: 225 },
-          seatCount: 5,
-          wtpBand: { p10: 50, p50: 75, p90: 112.5 },
-          withinSegmentSigma: 0.5,
-          featureAllocation: Object.fromEntries(
-            scenario.model.features.map((feature) => [feature.id, allocation]),
-          ),
-          provenance: {
-            prospectCount: emptyProvenance,
-            willingnessToPay: emptyProvenance,
-            featureValues: Object.fromEntries(
-              scenario.model.features.map((feature) => [feature.id, emptyProvenance]),
-            ),
-          },
-        },
-      ],
+      segments: [...scenario.model.segments, segment],
     },
+    // A competitor's value map is schema-required to cover the segment list exactly, so a new
+    // segment has to reach every existing competitor in the same edit. Without this the whole
+    // scenario fails to parse and the store discards the edit — "Add segment" simply stops
+    // working the moment the scenario has a competitor.
+    competitors: scenario.competitors.map((competitor) => ({
+      ...competitor,
+      valueBySegment: {
+        ...competitor.valueBySegment,
+        [id]: defaultCompetitorValueForSegment(segment),
+      },
+    })),
   };
 }
 

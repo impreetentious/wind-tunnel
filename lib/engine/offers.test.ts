@@ -332,6 +332,25 @@ describe("offer expansion guards", () => {
     expect(find(withoutUsage)).toBe(find(baseline));
   });
 
+  // @spec §4.15 T-OFR-G8 — §4.15 and §4.17 both make a metered line inert when the segment has
+  // no band for its metric. The expansion input may omit `usageBands` altogether, which is the
+  // shape a pre-extension scenario has: a metered template opened against such a segment must
+  // price at its list price rather than throwing on the missing record.
+  it("prices usage lines and credit packs at list when the segment carries no usage bands", () => {
+    const metered = {
+      ...tier,
+      usagePricing: [{ metricId: "api-calls", perUnitPrice: 0.02, includedUnits: 10 }],
+      creditPacks: [{ metricId: "api-calls", packUnits: 500, packPrice: 40 }],
+    };
+    const bandless = expansion({ tiers: [metered] });
+    const offer = bandless.find((candidate) => candidate.id === "pro");
+    expect(offer?.effectivePrice).toBe(
+      expansion().find((candidate) => candidate.id === "pro")?.effectivePrice,
+    );
+    // No pack was priced, so the offer carries no breakage key to disclose.
+    expect(offer?.breakageRevenue).toBeUndefined();
+  });
+
   // @spec §4.2 T-OFR-G6 — substitutes may reduce value, but never below zero.
   it("floors offer value at zero", () => {
     expect(

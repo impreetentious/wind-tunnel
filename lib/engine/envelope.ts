@@ -140,7 +140,7 @@ function dedupeEqualValueOffers(
   );
   const result: ExpandedOffer[] = [];
 
-  for (let index = 0; index < sorted.length; ) {
+  for (let index = 0; index < sorted.length;) {
     const groupValue = sorted[index].value;
     const group: ExpandedOffer[] = [];
     while (index < sorted.length && sorted[index].value === groupValue) {

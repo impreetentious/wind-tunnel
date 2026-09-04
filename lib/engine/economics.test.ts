@@ -620,5 +620,42 @@ describe("economics input validation", () => {
     expect(() => sweepTierPrice({ ...base, segments: [base.segments[0], second] })).toThrow(
       RangeError,
     );
+    expect(() => sweepTierPrice({ ...base, tierId: "" })).toThrow(/non-empty tier ID/);
+  });
+
+  // @spec §4.4 T-ECO-G6 — the per-seat upper bound is `1.5 × max(V_full / c_s)`, so a segment
+  // with no seats has no bound to compute. Dividing by it anyway would hand the grid an infinite
+  // ceiling and silently sweep 400 identical points, so the sweep refuses the segment instead.
+  it("rejects a per-seat sweep on a segment with no seats", () => {
+    const base = basicSweepInput();
+    const perSeat = (seatCount: number): TierPriceSweepInput => ({
+      tierId: "pro",
+      segments: [
+        {
+          ...base.segments[0],
+          offerExpansion: {
+            ...base.segments[0].offerExpansion,
+            seatCount,
+            tiers: base.segments[0].offerExpansion.tiers.map((tier) =>
+              tier.id === "pro" ? { ...tier, priceMetric: "per-seat" as const } : tier,
+            ),
+          },
+        },
+      ],
+    });
+    expect(() => sweepTierPrice(perSeat(0))).toThrow(/at least one seat/);
+    // A flat tier never reads the seat count for its bound, so the same segment sweeps fine.
+    expect(() =>
+      sweepTierPrice({
+        ...base,
+        segments: perSeat(0).segments.map((segment) => ({
+          ...segment,
+          offerExpansion: {
+            ...segment.offerExpansion,
+            tiers: base.segments[0].offerExpansion.tiers,
+          },
+        })),
+      }),
+    ).not.toThrow();
   });
 });

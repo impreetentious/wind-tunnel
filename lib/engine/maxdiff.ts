@@ -492,9 +492,11 @@ export function generateMaxDiffDesign(
   if (itemIds.length < itemsPerTask || itemsPerTask < 3 || itemsPerTask > 5) {
     throw new RangeError("MaxDiff tasks show 3–5 distinct items from a large-enough item list.");
   }
-  if (
-    !(Number.isInteger(taskCount) && taskCount > 0 && taskCount * itemsPerTask >= itemIds.length)
-  ) {
+  if (!(
+    Number.isInteger(taskCount) &&
+    taskCount > 0 &&
+    taskCount * itemsPerTask >= itemIds.length
+  )) {
     throw new RangeError(
       "MaxDiff task count must be positive and expose every item at least once.",
     );

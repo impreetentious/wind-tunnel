@@ -26,7 +26,7 @@ export interface SegmentTimeDynamics {
   /** Month-over-month retention among converted buyers; 1 = no churn. */
   monthlyRetention: number;
   contractTerm: ContractTerm;
-  /** Monthly MRR from a converted buyer at post-trial (§4.3 readout). */
+  /** The segment's §4.3 monthly MRR across every paid selector, before conversion. */
   monthlyMrr: number;
   /** Average revenue per converted account (used for LTV). */
   arpa: number;
@@ -102,6 +102,10 @@ function projectSegment(input: SegmentTimeDynamics, periods: number): SegmentTim
 
   const points: SegmentPeriodPoint[] = [];
   const convertedBuyers = input.paidSelectors * input.trialConversion;
+  // §4.16: `mrr_s(t) = trialConversion_s · M_s · retention^(t − trialLength)`. The conversion
+  // rate gates the paid cohort, so it scales the revenue exactly as it scales the buyer count —
+  // applying it to one and not the other would silently inflate ARPA at trial end.
+  const convertedMrr = convertedBuyers > 0 ? input.monthlyMrr * input.trialConversion : 0;
   let retentionFactor = 1;
   let cumulativeRevenue = 0;
 
@@ -111,18 +115,15 @@ function projectSegment(input: SegmentTimeDynamics, periods: number): SegmentTim
       continue;
     }
     if (period === input.trialLength) {
-      const mrr = convertedBuyers > 0 ? input.monthlyMrr : 0;
-      points.push({ period, mrr, activeBuyers: convertedBuyers });
-      cumulativeRevenue += mrr;
+      points.push({ period, mrr: convertedMrr, activeBuyers: convertedBuyers });
+      cumulativeRevenue += convertedMrr;
       continue;
     }
     if (isRetentionMonth(period, input.contractTerm, input.trialLength)) {
       retentionFactor *= input.monthlyRetention;
     }
-    const activeBuyers = convertedBuyers * retentionFactor;
-    const mrr =
-      convertedBuyers > 0 ? input.monthlyMrr * (retentionFactor === 0 ? 0 : retentionFactor) : 0;
-    points.push({ period, mrr, activeBuyers });
+    const mrr = convertedMrr * retentionFactor;
+    points.push({ period, mrr, activeBuyers: convertedBuyers * retentionFactor });
     cumulativeRevenue += mrr;
   }
 

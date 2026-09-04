@@ -26,7 +26,14 @@ function nextId(existingIds: readonly string[], base: string) {
   return `${base}-${suffix}`;
 }
 
-function defaultCompetitorValueForSegment(segment: ScenarioSegment) {
+/**
+ * The value a competitor is assumed to carry for a segment until the owner says otherwise.
+ * Exported because the two directions of the same cross-reference have to agree: a new
+ * competitor is sized against every current segment, and a new segment has to be added to every
+ * current competitor — `competitor.valueBySegment` is schema-required to cover the segment list
+ * exactly, so whichever side is added second must fill the gap with the same number.
+ */
+export function defaultCompetitorValueForSegment(segment: ScenarioSegment) {
   // The Model already knows a plausible whole-catalog value for this segment.
   // Using the P50 WTP as the default keeps the map calibrated to owner input
   // rather than an arbitrary constant.

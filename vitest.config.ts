@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import path from "node:path";
 
+// Unit scope: engine and state only. Browser behaviour belongs to the Playwright suite.
 export default defineConfig({
   resolve: {
     alias: {

@@ -11,7 +11,7 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Cross-Origin-Opener-Policy: same-origin
 Cross-Origin-Resource-Policy: same-origin
-Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()
+Permissions-Policy: browsing-topics=(), camera=(), geolocation=(), microphone=(), payment=(), usb=()
 ```
 
 The `script-src` and `style-src` inline allowances exist for the framework's static bootstrap and generated styles. They do not permit a remote origin. Changes to this policy require reviewing both the static privacy scan and the Playwright request allowlist.
