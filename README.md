@@ -50,7 +50,7 @@ Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind 
 
 ## Run locally
 
-Requires Node `24.15.0` (see `.nvmrc`).
+Requires Node `24.21.0` (see `.nvmrc`).
 
 ```sh
 npm ci
@@ -102,4 +102,4 @@ Apache-2.0 © 2025-2026 Sidakpreet Singh — see [LICENSE](LICENSE).
 
 ---
 
-**Version:** v0.25.1
+**Version:** v0.25.2

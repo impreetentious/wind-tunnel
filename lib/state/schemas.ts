@@ -1,4 +1,17 @@
-import { z } from "zod";
+import {
+  type RefinementCtx,
+  array,
+  boolean,
+  type core,
+  enum as enumSchema,
+  type infer as Infer,
+  literal,
+  number,
+  record,
+  strictObject,
+  string,
+  tuple,
+} from "zod";
 
 /** The persisted-data format. Increment only alongside an explicit migration. */
 export const SCHEMA_VERSION = 1;
@@ -21,52 +34,48 @@ function isIntlLocale(tag: string): boolean {
   }
 }
 
-const identifierSchema = z.string().trim().min(1).max(80);
-const labelSchema = z.string().trim().min(1).max(120);
-const nonNegativeNumber = z.number().finite().min(0);
-const positiveNumber = z.number().finite().positive();
+const identifierSchema = string().trim().min(1).max(80);
+const labelSchema = string().trim().min(1).max(120);
+const nonNegativeNumber = number().finite().min(0);
+const positiveNumber = number().finite().positive();
 
-export const quantileBandSchema = z
-  .strictObject({
-    p10: positiveNumber,
-    p50: positiveNumber,
-    p90: positiveNumber,
-  })
-  .superRefine((band, context) => {
-    if (band.p10 > band.p50 || band.p50 > band.p90) {
-      context.addIssue({
-        code: "custom",
-        message: "A confidence band must be ordered P10 ≤ P50 ≤ P90.",
-      });
-    }
+export const quantileBandSchema = strictObject({
+  p10: positiveNumber,
+  p50: positiveNumber,
+  p90: positiveNumber,
+}).superRefine((band, context) => {
+  if (band.p10 > band.p50 || band.p50 > band.p90) {
+    context.addIssue({
+      code: "custom",
+      message: "A confidence band must be ordered P10 ≤ P50 ≤ P90.",
+    });
+  }
 
-    const expectedMedian = Math.sqrt(band.p10 * band.p90);
-    const scale = Math.max(1, expectedMedian, band.p50);
-    if (Math.abs(expectedMedian - band.p50) > scale * 1e-10) {
-      context.addIssue({
-        code: "custom",
-        message: "P50 must be the geometric midpoint of P10 and P90.",
-      });
-    }
-  });
+  const expectedMedian = Math.sqrt(band.p10 * band.p90);
+  const scale = Math.max(1, expectedMedian, band.p50);
+  if (Math.abs(expectedMedian - band.p50) > scale * 1e-10) {
+    context.addIssue({
+      code: "custom",
+      message: "P50 must be the geometric midpoint of P10 and P90.",
+    });
+  }
+});
 
-export const provenanceSchema = z
-  .strictObject({
-    kind: z.enum(["guess", "interview", "survey", "conjoint", "benchmark"]),
-    confidence: z.enum(["low", "medium", "high"]),
-    note: z.string().trim().max(500).optional(),
-  })
-  .superRefine((provenance, context) => {
-    if (provenance.kind === "benchmark" && !provenance.note) {
-      context.addIssue({
-        code: "custom",
-        message: "A benchmark assumption needs a source note.",
-        path: ["note"],
-      });
-    }
-  });
+export const provenanceSchema = strictObject({
+  kind: enumSchema(["guess", "interview", "survey", "conjoint", "benchmark"]),
+  confidence: enumSchema(["low", "medium", "high"]),
+  note: string().trim().max(500).optional(),
+}).superRefine((provenance, context) => {
+  if (provenance.kind === "benchmark" && !provenance.note) {
+    context.addIssue({
+      code: "custom",
+      message: "A benchmark assumption needs a source note.",
+      path: ["note"],
+    });
+  }
+});
 
-export const featureSchema = z.strictObject({
+export const featureSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
 });
@@ -76,7 +85,7 @@ export const featureSchema = z.strictObject({
  * user-facing name, and free-form unit label ("API calls", "GB egress"). Metric
  * IDs are catalog-wide; segments reference them in `usageBands`.
  */
-export const usageMetricSchema = z.strictObject({
+export const usageMetricSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
   unitLabel: labelSchema,
@@ -84,33 +93,31 @@ export const usageMetricSchema = z.strictObject({
    * Optional (§4.17). `consumption` counts resource spent, `outcome` counts results
    * delivered. Absent reads as `consumption`, so no stored scenario changes meaning.
    */
-  unitKind: z.enum(["consumption", "outcome"]).optional(),
+  unitKind: enumSchema(["consumption", "outcome"]).optional(),
 });
 
 /**
  * Segment expected-usage band (§4.15). Positive-domain quantiles reusing the
  * lognormal contract from `quantileBandSchema`.
  */
-export const usageBandSchema = z
-  .strictObject({
-    p10: nonNegativeNumber,
-    p50: nonNegativeNumber,
-    p90: nonNegativeNumber,
-  })
-  .superRefine((band, context) => {
-    if (!(band.p10 <= band.p50 && band.p50 <= band.p90)) {
-      context.addIssue({
-        code: "custom",
-        message: "A usage band must be ordered P10 ≤ P50 ≤ P90.",
-      });
-    }
-  });
+export const usageBandSchema = strictObject({
+  p10: nonNegativeNumber,
+  p50: nonNegativeNumber,
+  p90: nonNegativeNumber,
+}).superRefine((band, context) => {
+  if (!(band.p10 <= band.p50 && band.p50 <= band.p90)) {
+    context.addIssue({
+      code: "custom",
+      message: "A usage band must be ordered P10 ≤ P50 ≤ P90.",
+    });
+  }
+});
 
 /**
  * A single usage line on a tier or add-on (§4.15). `perUnitPrice` is
  * $/unit/month; `includedUnits` is an optional free monthly allowance.
  */
-export const usagePricingLineSchema = z.strictObject({
+export const usagePricingLineSchema = strictObject({
   metricId: identifierSchema,
   perUnitPrice: nonNegativeNumber,
   includedUnits: nonNegativeNumber.optional(),
@@ -122,12 +129,12 @@ export const usagePricingLineSchema = z.strictObject({
  * defaults to true — a pack that rolls over carries no breakage and is a deferred-revenue
  * question rather than a pricing one.
  */
-export const creditPackSchema = z.strictObject({
+export const creditPackSchema = strictObject({
   metricId: identifierSchema,
   packUnits: positiveNumber,
   packPrice: nonNegativeNumber,
   overagePerUnit: nonNegativeNumber.optional(),
-  expiresAtPeriodEnd: z.boolean().optional(),
+  expiresAtPeriodEnd: boolean().optional(),
 });
 
 /**
@@ -136,10 +143,10 @@ export const creditPackSchema = z.strictObject({
  * WTP so it scales per segment exactly like the additive allocation shares:
  * positive is a complement, negative a substitute. Bounded to ±100% of WTP.
  */
-export const featureInteractionSchema = z.strictObject({
-  featureIds: z.tuple([identifierSchema, identifierSchema]),
-  valueFraction: z.number().finite().min(-1).max(1),
-  note: z.string().trim().max(200).optional(),
+export const featureInteractionSchema = strictObject({
+  featureIds: tuple([identifierSchema, identifierSchema]),
+  valueFraction: number().finite().min(-1).max(1),
+  note: string().trim().max(200).optional(),
 });
 
 /**
@@ -147,56 +154,56 @@ export const featureInteractionSchema = z.strictObject({
  * behavior byte-identical to §4.3. `trialLength` is whole months; conversion
  * and retention are point probabilities in [0, 1].
  */
-export const timeDynamicsSchema = z.strictObject({
-  trialLengthMonths: z.number().int().min(0).max(24),
-  trialConversion: z.number().finite().min(0).max(1),
-  monthlyRetention: z.number().finite().min(0).max(1),
-  contractTerm: z.enum(["monthly", "annual"]),
+export const timeDynamicsSchema = strictObject({
+  trialLengthMonths: number().int().min(0).max(24),
+  trialConversion: number().finite().min(0).max(1),
+  monthlyRetention: number().finite().min(0).max(1),
+  contractTerm: enumSchema(["monthly", "annual"]),
 });
 
-export const segmentSchema = z.strictObject({
+export const segmentSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
   prospectBand: quantileBandSchema,
-  seatCount: z.number().int().min(1),
+  seatCount: number().int().min(1),
   wtpBand: quantileBandSchema,
   withinSegmentSigma: nonNegativeNumber.max(2),
-  featureAllocation: z.record(identifierSchema, nonNegativeNumber),
-  provenance: z.strictObject({
+  featureAllocation: record(identifierSchema, nonNegativeNumber),
+  provenance: strictObject({
     prospectCount: provenanceSchema,
     willingnessToPay: provenanceSchema,
-    featureValues: z.record(identifierSchema, provenanceSchema),
+    featureValues: record(identifierSchema, provenanceSchema),
   }),
   /** Optional segment usage bands (§4.15). */
-  usageBands: z.record(identifierSchema, usageBandSchema).optional(),
+  usageBands: record(identifierSchema, usageBandSchema).optional(),
   /** Optional segment time dynamics (§4.16). */
   timeDynamics: timeDynamicsSchema.optional(),
 });
 
-const priceMetricSchema = z.enum(["flat", "per-seat"]);
+const priceMetricSchema = enumSchema(["flat", "per-seat"]);
 
-export const tierSchema = z.strictObject({
+export const tierSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
   price: nonNegativeNumber,
   priceMetric: priceMetricSchema,
-  featureIds: z.array(identifierSchema).max(12),
+  featureIds: array(identifierSchema).max(12),
   /** Optional usage-based lines (§4.15). */
-  usagePricing: z.array(usagePricingLineSchema).max(3).optional(),
+  usagePricing: array(usagePricingLineSchema).max(3).optional(),
   /** Optional prepaid credit packs (§4.17). */
-  creditPacks: z.array(creditPackSchema).max(3).optional(),
+  creditPacks: array(creditPackSchema).max(3).optional(),
 });
 
-export const addOnSchema = z.strictObject({
+export const addOnSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
   price: nonNegativeNumber,
   priceMetric: priceMetricSchema,
-  featureIds: z.array(identifierSchema).min(1).max(12),
+  featureIds: array(identifierSchema).min(1).max(12),
   /** Optional usage-based lines (§4.15). */
-  usagePricing: z.array(usagePricingLineSchema).max(3).optional(),
+  usagePricing: array(usagePricingLineSchema).max(3).optional(),
   /** Optional prepaid credit packs (§4.17). */
-  creditPacks: z.array(creditPackSchema).max(3).optional(),
+  creditPacks: array(creditPackSchema).max(3).optional(),
 });
 
 /**
@@ -204,7 +211,7 @@ export const addOnSchema = z.strictObject({
  * prospects — a different population from `segment.prospectBand`, which is why it lives here
  * rather than on the segment.
  */
-export const migrationBaseSchema = z.strictObject({
+export const migrationBaseSchema = strictObject({
   segmentId: identifierSchema,
   /** The tier of the incumbent design these accounts sit on today. */
   incumbentTierId: identifierSchema,
@@ -218,16 +225,16 @@ export const migrationBaseSchema = z.strictObject({
  * the scenario's active design is the proposal. Absent = a greenfield scenario, and every
  * migration readout and M-family linter rule stays silent.
  */
-export const migrationSchema = z.strictObject({
-  policy: z.enum(["grandfather", "forced-at-renewal", "opt-in-with-deadline"]),
+export const migrationSchema = strictObject({
+  policy: enumSchema(["grandfather", "forced-at-renewal", "opt-in-with-deadline"]),
   incumbentDesignId: identifierSchema,
-  base: z.array(migrationBaseSchema).max(6),
+  base: array(migrationBaseSchema).max(6),
 });
 
-const discountFraction = z.number().finite().min(0).max(1);
+const discountFraction = number().finite().min(0).max(1);
 
 /** Who has to sign for a discount of a given depth (§4.19). Reported, never simulated. */
-export const discountApprovalBandSchema = z.strictObject({
+export const discountApprovalBandSchema = strictObject({
   upToFraction: discountFraction,
   approver: labelSchema,
 });
@@ -237,189 +244,185 @@ export const discountApprovalBandSchema = z.strictObject({
  * discount sales may reach as a fraction of list; `hitRateBySegment` is the expected share of a
  * segment's deals that reach it.
  */
-export const discountPolicySchema = z.strictObject({
+export const discountPolicySchema = strictObject({
   tierId: identifierSchema,
   floorFraction: discountFraction,
-  approvalBands: z.array(discountApprovalBandSchema).max(4).optional(),
-  hitRateBySegment: z.record(identifierSchema, discountFraction).optional(),
+  approvalBands: array(discountApprovalBandSchema).max(4).optional(),
+  hitRateBySegment: record(identifierSchema, discountFraction).optional(),
 });
 
-export const designSchema = z.strictObject({
+export const designSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
-  tiers: z.array(tierSchema).max(5),
-  addOns: z.array(addOnSchema).max(3),
+  tiers: array(tierSchema).max(5),
+  addOns: array(addOnSchema).max(3),
   /** Optional per-tier discount policy (§4.19). Absent = list price is the achieved price. */
-  discountPolicies: z.array(discountPolicySchema).max(5).optional(),
+  discountPolicies: array(discountPolicySchema).max(5).optional(),
 });
 
-export const competitorSchema = z.strictObject({
+export const competitorSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
   price: nonNegativeNumber,
   priceMetric: priceMetricSchema,
-  valueBySegment: z.record(identifierSchema, nonNegativeNumber),
+  valueBySegment: record(identifierSchema, nonNegativeNumber),
 });
 
-const researchPrice = z.number().finite().min(0);
+const researchPrice = number().finite().min(0);
 
 /** Durable PSM records retain both valid and monotonicity-violating rows. */
-export const vanWestendorpResponseSchema = z.strictObject({
+export const vanWestendorpResponseSchema = strictObject({
   tooCheap: researchPrice,
   cheap: researchPrice,
   expensive: researchPrice,
   tooExpensive: researchPrice,
 });
 
-export const vanWestendorpStudySchema = z.strictObject({
-  source: z.enum(["survey", "illustrative"]),
-  responses: z.array(vanWestendorpResponseSchema).max(1_000),
+export const vanWestendorpStudySchema = strictObject({
+  source: enumSchema(["survey", "illustrative"]),
+  responses: array(vanWestendorpResponseSchema).max(1_000),
 });
 
 /** Durable Conjoint records persist the full study needed to re-run the pooled MNL estimator. */
-export const conjointAttributeSchema = z.strictObject({
+export const conjointAttributeSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
-  levels: z.array(labelSchema).min(2).max(4),
+  levels: array(labelSchema).min(2).max(4),
 });
 
-export const conjointAlternativeSchema = z.strictObject({
+export const conjointAlternativeSchema = strictObject({
   id: identifierSchema,
-  levels: z.record(identifierSchema, labelSchema).optional(),
-  price: z.number().finite().min(0).optional(),
-  none: z.literal(true).optional(),
+  levels: record(identifierSchema, labelSchema).optional(),
+  price: number().finite().min(0).optional(),
+  none: literal(true).optional(),
 });
 
-export const conjointTaskSchema = z.strictObject({
+export const conjointTaskSchema = strictObject({
   id: identifierSchema,
-  alternatives: z.array(conjointAlternativeSchema).min(2).max(5),
+  alternatives: array(conjointAlternativeSchema).min(2).max(5),
 });
 
-export const conjointObservationSchema = z.strictObject({
+export const conjointObservationSchema = strictObject({
   respondentId: identifierSchema,
   taskId: identifierSchema,
   chosenAlternativeId: identifierSchema,
 });
 
-export const conjointStudySchema = z
-  .strictObject({
-    attributes: z.array(conjointAttributeSchema).min(1).max(5),
-    tasks: z.array(conjointTaskSchema).min(1).max(30),
-    observations: z.array(conjointObservationSchema).max(50_000),
-    numericPrice: z.boolean(),
-  })
-  .superRefine((study, context) => {
-    uniqueIds(study.attributes, "Conjoint attribute", context, ["attributes"]);
-    uniqueIds(study.tasks, "Conjoint task", context, ["tasks"]);
-    const levelsByAttribute = new Map(
-      study.attributes.map((attribute) => [attribute.id, new Set(attribute.levels)]),
-    );
-    const alternativesByTask = new Map<string, Set<string>>();
-    study.tasks.forEach((task, taskIndex) => {
-      uniqueIds(task.alternatives, "Conjoint alternative", context, [
-        "tasks",
-        taskIndex,
-        "alternatives",
-      ]);
-      alternativesByTask.set(task.id, new Set(task.alternatives.map((entry) => entry.id)));
-      task.alternatives.forEach((alternative, alternativeIndex) => {
-        if (alternative.none) return;
-        for (const attribute of study.attributes) {
-          const level = alternative.levels?.[attribute.id];
-          if (level === undefined || !levelsByAttribute.get(attribute.id)?.has(level)) {
-            context.addIssue({
-              code: "custom",
-              message: `Concept “${alternative.id}” needs a valid level for attribute “${attribute.id}”.`,
-              path: ["tasks", taskIndex, "alternatives", alternativeIndex, "levels"],
-            });
-          }
-        }
-        if (study.numericPrice && alternative.price === undefined) {
+export const conjointStudySchema = strictObject({
+  attributes: array(conjointAttributeSchema).min(1).max(5),
+  tasks: array(conjointTaskSchema).min(1).max(30),
+  observations: array(conjointObservationSchema).max(50_000),
+  numericPrice: boolean(),
+}).superRefine((study, context) => {
+  uniqueIds(study.attributes, "Conjoint attribute", context, ["attributes"]);
+  uniqueIds(study.tasks, "Conjoint task", context, ["tasks"]);
+  const levelsByAttribute = new Map(
+    study.attributes.map((attribute) => [attribute.id, new Set(attribute.levels)]),
+  );
+  const alternativesByTask = new Map<string, Set<string>>();
+  study.tasks.forEach((task, taskIndex) => {
+    uniqueIds(task.alternatives, "Conjoint alternative", context, [
+      "tasks",
+      taskIndex,
+      "alternatives",
+    ]);
+    alternativesByTask.set(task.id, new Set(task.alternatives.map((entry) => entry.id)));
+    task.alternatives.forEach((alternative, alternativeIndex) => {
+      if (alternative.none) return;
+      for (const attribute of study.attributes) {
+        const level = alternative.levels?.[attribute.id];
+        if (level === undefined || !levelsByAttribute.get(attribute.id)?.has(level)) {
           context.addIssue({
             code: "custom",
-            message: `Concept “${alternative.id}” needs a numeric price in a numeric-price study.`,
-            path: ["tasks", taskIndex, "alternatives", alternativeIndex, "price"],
+            message: `Concept “${alternative.id}” needs a valid level for attribute “${attribute.id}”.`,
+            path: ["tasks", taskIndex, "alternatives", alternativeIndex, "levels"],
           });
         }
-      });
-    });
-    study.observations.forEach((observation, observationIndex) => {
-      const alternatives = alternativesByTask.get(observation.taskId);
-      if (!alternatives) {
-        context.addIssue({
-          code: "custom",
-          message: `Observation references unknown task “${observation.taskId}”.`,
-          path: ["observations", observationIndex, "taskId"],
-        });
-        return;
       }
-      if (!alternatives.has(observation.chosenAlternativeId)) {
+      if (study.numericPrice && alternative.price === undefined) {
         context.addIssue({
           code: "custom",
-          message: `Observation chooses an alternative that task “${observation.taskId}” does not show.`,
-          path: ["observations", observationIndex, "chosenAlternativeId"],
+          message: `Concept “${alternative.id}” needs a numeric price in a numeric-price study.`,
+          path: ["tasks", taskIndex, "alternatives", alternativeIndex, "price"],
         });
       }
     });
   });
+  study.observations.forEach((observation, observationIndex) => {
+    const alternatives = alternativesByTask.get(observation.taskId);
+    if (!alternatives) {
+      context.addIssue({
+        code: "custom",
+        message: `Observation references unknown task “${observation.taskId}”.`,
+        path: ["observations", observationIndex, "taskId"],
+      });
+      return;
+    }
+    if (!alternatives.has(observation.chosenAlternativeId)) {
+      context.addIssue({
+        code: "custom",
+        message: `Observation chooses an alternative that task “${observation.taskId}” does not show.`,
+        path: ["observations", observationIndex, "chosenAlternativeId"],
+      });
+    }
+  });
+});
 
 /** Durable MaxDiff records persist item labels, tasks, and best-worst picks. */
-export const maxDiffItemSchema = z.strictObject({
+export const maxDiffItemSchema = strictObject({
   id: identifierSchema,
   name: labelSchema,
 });
 
-export const maxDiffTaskSchema = z.strictObject({
+export const maxDiffTaskSchema = strictObject({
   id: identifierSchema,
-  itemIds: z.array(identifierSchema).min(3).max(5),
+  itemIds: array(identifierSchema).min(3).max(5),
 });
 
-export const maxDiffResponseSchema = z.strictObject({
+export const maxDiffResponseSchema = strictObject({
   respondentId: identifierSchema,
   taskId: identifierSchema,
   bestItemId: identifierSchema,
   worstItemId: identifierSchema,
 });
 
-export const maxDiffStudySchema = z
-  .strictObject({
-    items: z.array(maxDiffItemSchema).min(2).max(12),
-    tasks: z.array(maxDiffTaskSchema).min(1).max(30),
-    responses: z.array(maxDiffResponseSchema).max(50_000),
-  })
-  .superRefine((study, context) => {
-    uniqueIds(study.items, "MaxDiff item", context, ["items"]);
-    uniqueIds(study.tasks, "MaxDiff task", context, ["tasks"]);
-    const itemIds = new Set(study.items.map((item) => item.id));
-    study.tasks.forEach((task, taskIndex) => {
-      if (new Set(task.itemIds).size !== task.itemIds.length) {
-        context.addIssue({
-          code: "custom",
-          message: `Task “${task.id}” repeats an item.`,
-          path: ["tasks", taskIndex, "itemIds"],
-        });
-      }
-      const unknown = task.itemIds.find((itemId) => !itemIds.has(itemId));
-      if (unknown) {
-        context.addIssue({
-          code: "custom",
-          message: `Task “${task.id}” shows unknown item “${unknown}”.`,
-          path: ["tasks", taskIndex, "itemIds"],
-        });
-      }
-    });
+export const maxDiffStudySchema = strictObject({
+  items: array(maxDiffItemSchema).min(2).max(12),
+  tasks: array(maxDiffTaskSchema).min(1).max(30),
+  responses: array(maxDiffResponseSchema).max(50_000),
+}).superRefine((study, context) => {
+  uniqueIds(study.items, "MaxDiff item", context, ["items"]);
+  uniqueIds(study.tasks, "MaxDiff task", context, ["tasks"]);
+  const itemIds = new Set(study.items.map((item) => item.id));
+  study.tasks.forEach((task, taskIndex) => {
+    if (new Set(task.itemIds).size !== task.itemIds.length) {
+      context.addIssue({
+        code: "custom",
+        message: `Task “${task.id}” repeats an item.`,
+        path: ["tasks", taskIndex, "itemIds"],
+      });
+    }
+    const unknown = task.itemIds.find((itemId) => !itemIds.has(itemId));
+    if (unknown) {
+      context.addIssue({
+        code: "custom",
+        message: `Task “${task.id}” shows unknown item “${unknown}”.`,
+        path: ["tasks", taskIndex, "itemIds"],
+      });
+    }
   });
+});
 
-export const researchArtifactsSchema = z.strictObject({
+export const researchArtifactsSchema = strictObject({
   vanWestendorp: vanWestendorpStudySchema.optional(),
   conjoint: conjointStudySchema.optional(),
   maxDiff: maxDiffStudySchema.optional(),
 });
 
-export const settingsSchema = z.strictObject({
-  seed: z.number().int().min(0).max(4_294_967_295),
-  currency: z.string().regex(/^[A-Z]{3}$/, "Use a three-letter ISO currency code."),
-  theme: z.enum(["system", "light", "dark"]),
+export const settingsSchema = strictObject({
+  seed: number().int().min(0).max(4_294_967_295),
+  currency: string().regex(/^[A-Z]{3}$/, "Use a three-letter ISO currency code."),
+  theme: enumSchema(["system", "light", "dark"]),
   /**
    * BCP-47 locale for `Intl.NumberFormat`. The backward-compatible default is
    * `en-US`. Validated with `Intl.getCanonicalLocales`, which accepts exactly
@@ -428,24 +431,23 @@ export const settingsSchema = z.strictObject({
    * throws a `RangeError` on, and this field reaches every formatted number in
    * the app through an imported or shared scenario.
    */
-  locale: z
-    .string()
+  locale: string()
     .refine(isIntlLocale, "Use a BCP-47 locale tag, e.g. en-US, de-DE, ja-JP.")
     .default("en-US"),
 });
 
-const modelSchema = z.strictObject({
-  features: z.array(featureSchema).max(12),
-  segments: z.array(segmentSchema).max(6),
-  interactions: z.array(featureInteractionSchema).max(12).default([]),
+const modelSchema = strictObject({
+  features: array(featureSchema).max(12),
+  segments: array(segmentSchema).max(6),
+  interactions: array(featureInteractionSchema).max(12).default([]),
   /** Optional usage metric catalog (§4.15). Absent = flat/per-seat only. */
-  usageMetrics: z.array(usageMetricSchema).max(4).default([]),
+  usageMetrics: array(usageMetricSchema).max(4).default([]),
 });
 
 function uniqueIds(
   entries: readonly { id: string }[],
   label: string,
-  context: z.RefinementCtx,
+  context: RefinementCtx,
   path: readonly (string | number)[],
 ) {
   const seen = new Set<string>();
@@ -466,315 +468,313 @@ function hasExactlyKeys(record: Record<string, unknown>, expected: ReadonlySet<s
   return keys.length === expected.size && keys.every((key) => expected.has(key));
 }
 
-export const scenarioSchema = z
-  .strictObject({
-    schemaVersion: z.literal(SCHEMA_VERSION),
-    id: identifierSchema,
-    name: labelSchema,
-    status: z.enum(["draft", "ready"]),
-    model: modelSchema,
-    designs: z.array(designSchema).min(1),
-    activeDesignId: identifierSchema,
-    competitors: z.array(competitorSchema).max(6),
-    research: researchArtifactsSchema.default({}),
-    /** Optional installed base being repriced (§4.18). */
-    migration: migrationSchema.optional(),
-    settings: settingsSchema,
-  })
-  .superRefine((scenario, context) => {
-    const featureIds = new Set(scenario.model.features.map((feature) => feature.id));
-    const segmentIds = new Set(scenario.model.segments.map((segment) => segment.id));
+export const scenarioSchema = strictObject({
+  schemaVersion: literal(SCHEMA_VERSION),
+  id: identifierSchema,
+  name: labelSchema,
+  status: enumSchema(["draft", "ready"]),
+  model: modelSchema,
+  designs: array(designSchema).min(1),
+  activeDesignId: identifierSchema,
+  competitors: array(competitorSchema).max(6),
+  research: researchArtifactsSchema.default({}),
+  /** Optional installed base being repriced (§4.18). */
+  migration: migrationSchema.optional(),
+  settings: settingsSchema,
+}).superRefine((scenario, context) => {
+  const featureIds = new Set(scenario.model.features.map((feature) => feature.id));
+  const segmentIds = new Set(scenario.model.segments.map((segment) => segment.id));
 
-    uniqueIds(scenario.model.features, "Feature", context, ["model", "features"]);
-    uniqueIds(scenario.model.segments, "Segment", context, ["model", "segments"]);
-    uniqueIds(scenario.designs, "Design", context, ["designs"]);
-    uniqueIds(scenario.competitors, "Competitor", context, ["competitors"]);
+  uniqueIds(scenario.model.features, "Feature", context, ["model", "features"]);
+  uniqueIds(scenario.model.segments, "Segment", context, ["model", "segments"]);
+  uniqueIds(scenario.designs, "Design", context, ["designs"]);
+  uniqueIds(scenario.competitors, "Competitor", context, ["competitors"]);
 
-    if (!scenario.designs.some((design) => design.id === scenario.activeDesignId)) {
+  if (!scenario.designs.some((design) => design.id === scenario.activeDesignId)) {
+    context.addIssue({
+      code: "custom",
+      message: "The active design must belong to this scenario.",
+      path: ["activeDesignId"],
+    });
+  }
+
+  const seenInteractionPairs = new Set<string>();
+  scenario.model.interactions.forEach((interaction, interactionIndex) => {
+    const [a, b] = interaction.featureIds;
+    if (a === b) {
       context.addIssue({
         code: "custom",
-        message: "The active design must belong to this scenario.",
-        path: ["activeDesignId"],
+        message: "A feature interaction must reference two different features.",
+        path: ["model", "interactions", interactionIndex, "featureIds"],
       });
     }
-
-    const seenInteractionPairs = new Set<string>();
-    scenario.model.interactions.forEach((interaction, interactionIndex) => {
-      const [a, b] = interaction.featureIds;
-      if (a === b) {
+    for (const featureId of interaction.featureIds) {
+      if (!featureIds.has(featureId)) {
         context.addIssue({
           code: "custom",
-          message: "A feature interaction must reference two different features.",
+          message: `Interaction references unknown feature “${featureId}”.`,
           path: ["model", "interactions", interactionIndex, "featureIds"],
         });
       }
-      for (const featureId of interaction.featureIds) {
-        if (!featureIds.has(featureId)) {
-          context.addIssue({
-            code: "custom",
-            message: `Interaction references unknown feature “${featureId}”.`,
-            path: ["model", "interactions", interactionIndex, "featureIds"],
-          });
-        }
-      }
-      const pairKey = [a, b].sort().join("|");
-      if (seenInteractionPairs.has(pairKey)) {
-        context.addIssue({
-          code: "custom",
-          message: "Each feature pair may have at most one interaction.",
-          path: ["model", "interactions", interactionIndex, "featureIds"],
-        });
-      }
-      seenInteractionPairs.add(pairKey);
-    });
-
-    scenario.model.segments.forEach((segment, segmentIndex) => {
-      if (!hasExactlyKeys(segment.featureAllocation, featureIds)) {
-        context.addIssue({
-          code: "custom",
-          message: "Feature allocations must include every catalog feature exactly once.",
-          path: ["model", "segments", segmentIndex, "featureAllocation"],
-        });
-      }
-      if (!hasExactlyKeys(segment.provenance.featureValues, featureIds)) {
-        context.addIssue({
-          code: "custom",
-          message: "Feature provenance must include every catalog feature exactly once.",
-          path: ["model", "segments", segmentIndex, "provenance", "featureValues"],
-        });
-      }
-
-      const allocationTotal = Object.values(segment.featureAllocation).reduce(
-        (sum, value) => sum + value,
-        0,
-      );
-      if (Math.abs(allocationTotal - 1) > 1e-9) {
-        context.addIssue({
-          code: "custom",
-          message: "Feature allocations must sum to 1.",
-          path: ["model", "segments", segmentIndex, "featureAllocation"],
-        });
-      }
-    });
-
-    scenario.designs.forEach((design, designIndex) => {
-      uniqueIds(design.tiers, "Tier", context, ["designs", designIndex, "tiers"]);
-      uniqueIds(design.addOns, "Add-on", context, ["designs", designIndex, "addOns"]);
-
-      // §4.19: a policy must name a tier of this design, and a segment's hit rates must add up
-      // to at most all of its deals — no deal can be discounted on more of the menu than exists.
-      const policiedTiers = new Set<string>();
-      const hitRateTotals = new Map<string, number>();
-      (design.discountPolicies ?? []).forEach((policy, policyIndex) => {
-        const path = ["designs", designIndex, "discountPolicies", policyIndex] as const;
-        if (!design.tiers.some((tier) => tier.id === policy.tierId)) {
-          context.addIssue({
-            code: "custom",
-            message: `Discount policy references a tier “${policy.tierId}” this design does not have.`,
-            path: [...path, "tierId"],
-          });
-        }
-        if (policiedTiers.has(policy.tierId)) {
-          context.addIssue({
-            code: "custom",
-            message: "Each tier may have at most one discount policy.",
-            path: [...path, "tierId"],
-          });
-        }
-        policiedTiers.add(policy.tierId);
-        for (const [segmentId, rate] of Object.entries(policy.hitRateBySegment ?? {})) {
-          if (!segmentIds.has(segmentId)) {
-            context.addIssue({
-              code: "custom",
-              message: `Discount hit rate references unknown segment “${segmentId}”.`,
-              path: [...path, "hitRateBySegment", segmentId],
-            });
-          }
-          hitRateTotals.set(segmentId, (hitRateTotals.get(segmentId) ?? 0) + rate);
-        }
+    }
+    const pairKey = [a, b].sort().join("|");
+    if (seenInteractionPairs.has(pairKey)) {
+      context.addIssue({
+        code: "custom",
+        message: "Each feature pair may have at most one interaction.",
+        path: ["model", "interactions", interactionIndex, "featureIds"],
       });
-      for (const [segmentId, total] of hitRateTotals) {
-        if (total > 1 + 1e-9) {
-          context.addIssue({
-            code: "custom",
-            message: `Discount hit rates for segment “${segmentId}” sum to more than 100% of its deals.`,
-            path: ["designs", designIndex, "discountPolicies"],
-          });
-        }
-      }
+    }
+    seenInteractionPairs.add(pairKey);
+  });
 
-      [...design.tiers, ...design.addOns].forEach((offer, offerIndex) => {
-        const unknownFeature = offer.featureIds.find((featureId) => !featureIds.has(featureId));
-        if (unknownFeature) {
-          context.addIssue({
-            code: "custom",
-            message: `Offer references unknown feature “${unknownFeature}”.`,
-            path: ["designs", designIndex, "offers", offerIndex, "featureIds"],
-          });
-        }
-        if (new Set(offer.featureIds).size !== offer.featureIds.length) {
-          context.addIssue({
-            code: "custom",
-            message: "Offer feature fences must not repeat a feature.",
-            path: ["designs", designIndex, "offers", offerIndex, "featureIds"],
-          });
-        }
+  scenario.model.segments.forEach((segment, segmentIndex) => {
+    if (!hasExactlyKeys(segment.featureAllocation, featureIds)) {
+      context.addIssue({
+        code: "custom",
+        message: "Feature allocations must include every catalog feature exactly once.",
+        path: ["model", "segments", segmentIndex, "featureAllocation"],
       });
-    });
-
-    // §4.15 usage metric cross-validation. Segment bands and offer usage lines
-    // may only reference metrics declared in the catalog. Missing declarations
-    // fail closed rather than being silently ignored.
-    const usageMetricIds = new Set(scenario.model.usageMetrics.map((metric) => metric.id));
-    uniqueIds(scenario.model.usageMetrics, "Usage metric", context, ["model", "usageMetrics"]);
-
-    scenario.model.segments.forEach((segment, segmentIndex) => {
-      const bands = segment.usageBands ?? {};
-      for (const metricId of Object.keys(bands)) {
-        if (!usageMetricIds.has(metricId)) {
-          context.addIssue({
-            code: "custom",
-            message: `Usage band references unknown metric “${metricId}”.`,
-            path: ["model", "segments", segmentIndex, "usageBands", metricId],
-          });
-        }
-      }
-    });
-
-    scenario.designs.forEach((design, designIndex) => {
-      [...design.tiers, ...design.addOns].forEach((offer, offerIndex) => {
-        for (const [lineIndex, line] of (offer.usagePricing ?? []).entries()) {
-          if (!usageMetricIds.has(line.metricId)) {
-            context.addIssue({
-              code: "custom",
-              message: `Usage line references unknown metric “${line.metricId}”.`,
-              path: [
-                "designs",
-                designIndex,
-                "offers",
-                offerIndex,
-                "usagePricing",
-                lineIndex,
-                "metricId",
-              ],
-            });
-          }
-        }
-        // §4.17 packs fail closed on an undeclared metric for the same reason usage lines do.
-        for (const [packIndex, pack] of (offer.creditPacks ?? []).entries()) {
-          if (!usageMetricIds.has(pack.metricId)) {
-            context.addIssue({
-              code: "custom",
-              message: `Credit pack references unknown metric “${pack.metricId}”.`,
-              path: [
-                "designs",
-                designIndex,
-                "offers",
-                offerIndex,
-                "creditPacks",
-                packIndex,
-                "metricId",
-              ],
-            });
-          }
-        }
-      });
-    });
-
-    // §4.18: the incumbent design and every base row must resolve, or the migration engine
-    // would silently reprice a base that does not exist.
-    if (scenario.migration) {
-      const incumbentDesign = scenario.designs.find(
-        (design) => design.id === scenario.migration?.incumbentDesignId,
-      );
-      if (!incumbentDesign) {
-        context.addIssue({
-          code: "custom",
-          message: "The incumbent design must belong to this scenario.",
-          path: ["migration", "incumbentDesignId"],
-        });
-      }
-      const seenSegments = new Set<string>();
-      scenario.migration.base.forEach((row, rowIndex) => {
-        if (!segmentIds.has(row.segmentId)) {
-          context.addIssue({
-            code: "custom",
-            message: `Installed base references unknown segment “${row.segmentId}”.`,
-            path: ["migration", "base", rowIndex, "segmentId"],
-          });
-        }
-        if (seenSegments.has(row.segmentId)) {
-          context.addIssue({
-            code: "custom",
-            message: "Each segment may have at most one installed-base row.",
-            path: ["migration", "base", rowIndex, "segmentId"],
-          });
-        }
-        seenSegments.add(row.segmentId);
-        if (
-          incumbentDesign &&
-          !incumbentDesign.tiers.some((tier) => tier.id === row.incumbentTierId)
-        ) {
-          context.addIssue({
-            code: "custom",
-            message: `Installed base references a tier “${row.incumbentTierId}” the incumbent design does not have.`,
-            path: ["migration", "base", rowIndex, "incumbentTierId"],
-          });
-        }
+    }
+    if (!hasExactlyKeys(segment.provenance.featureValues, featureIds)) {
+      context.addIssue({
+        code: "custom",
+        message: "Feature provenance must include every catalog feature exactly once.",
+        path: ["model", "segments", segmentIndex, "provenance", "featureValues"],
       });
     }
 
-    scenario.competitors.forEach((competitor, competitorIndex) => {
-      if (!hasExactlyKeys(competitor.valueBySegment, segmentIds)) {
+    const allocationTotal = Object.values(segment.featureAllocation).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    if (Math.abs(allocationTotal - 1) > 1e-9) {
+      context.addIssue({
+        code: "custom",
+        message: "Feature allocations must sum to 1.",
+        path: ["model", "segments", segmentIndex, "featureAllocation"],
+      });
+    }
+  });
+
+  scenario.designs.forEach((design, designIndex) => {
+    uniqueIds(design.tiers, "Tier", context, ["designs", designIndex, "tiers"]);
+    uniqueIds(design.addOns, "Add-on", context, ["designs", designIndex, "addOns"]);
+
+    // §4.19: a policy must name a tier of this design, and a segment's hit rates must add up
+    // to at most all of its deals — no deal can be discounted on more of the menu than exists.
+    const policiedTiers = new Set<string>();
+    const hitRateTotals = new Map<string, number>();
+    (design.discountPolicies ?? []).forEach((policy, policyIndex) => {
+      const path = ["designs", designIndex, "discountPolicies", policyIndex] as const;
+      if (!design.tiers.some((tier) => tier.id === policy.tierId)) {
         context.addIssue({
           code: "custom",
-          message: "Competitor values must include every current segment exactly once.",
-          path: ["competitors", competitorIndex, "valueBySegment"],
+          message: `Discount policy references a tier “${policy.tierId}” this design does not have.`,
+          path: [...path, "tierId"],
+        });
+      }
+      if (policiedTiers.has(policy.tierId)) {
+        context.addIssue({
+          code: "custom",
+          message: "Each tier may have at most one discount policy.",
+          path: [...path, "tierId"],
+        });
+      }
+      policiedTiers.add(policy.tierId);
+      for (const [segmentId, rate] of Object.entries(policy.hitRateBySegment ?? {})) {
+        if (!segmentIds.has(segmentId)) {
+          context.addIssue({
+            code: "custom",
+            message: `Discount hit rate references unknown segment “${segmentId}”.`,
+            path: [...path, "hitRateBySegment", segmentId],
+          });
+        }
+        hitRateTotals.set(segmentId, (hitRateTotals.get(segmentId) ?? 0) + rate);
+      }
+    });
+    for (const [segmentId, total] of hitRateTotals) {
+      if (total > 1 + 1e-9) {
+        context.addIssue({
+          code: "custom",
+          message: `Discount hit rates for segment “${segmentId}” sum to more than 100% of its deals.`,
+          path: ["designs", designIndex, "discountPolicies"],
+        });
+      }
+    }
+
+    [...design.tiers, ...design.addOns].forEach((offer, offerIndex) => {
+      const unknownFeature = offer.featureIds.find((featureId) => !featureIds.has(featureId));
+      if (unknownFeature) {
+        context.addIssue({
+          code: "custom",
+          message: `Offer references unknown feature “${unknownFeature}”.`,
+          path: ["designs", designIndex, "offers", offerIndex, "featureIds"],
+        });
+      }
+      if (new Set(offer.featureIds).size !== offer.featureIds.length) {
+        context.addIssue({
+          code: "custom",
+          message: "Offer feature fences must not repeat a feature.",
+          path: ["designs", designIndex, "offers", offerIndex, "featureIds"],
         });
       }
     });
+  });
 
-    if (scenario.status === "ready") {
-      if (scenario.model.features.length === 0 || scenario.model.segments.length < 2) {
+  // §4.15 usage metric cross-validation. Segment bands and offer usage lines
+  // may only reference metrics declared in the catalog. Missing declarations
+  // fail closed rather than being silently ignored.
+  const usageMetricIds = new Set(scenario.model.usageMetrics.map((metric) => metric.id));
+  uniqueIds(scenario.model.usageMetrics, "Usage metric", context, ["model", "usageMetrics"]);
+
+  scenario.model.segments.forEach((segment, segmentIndex) => {
+    const bands = segment.usageBands ?? {};
+    for (const metricId of Object.keys(bands)) {
+      if (!usageMetricIds.has(metricId)) {
         context.addIssue({
           code: "custom",
-          message: "A ready scenario needs 2–6 segments and at least one catalog feature.",
-          path: ["model"],
-        });
-      }
-      if (scenario.designs.some((design) => design.tiers.length === 0)) {
-        context.addIssue({
-          code: "custom",
-          message: "A ready scenario needs at least one tier in every design.",
-          path: ["designs"],
+          message: `Usage band references unknown metric “${metricId}”.`,
+          path: ["model", "segments", segmentIndex, "usageBands", metricId],
         });
       }
     }
   });
 
+  scenario.designs.forEach((design, designIndex) => {
+    [...design.tiers, ...design.addOns].forEach((offer, offerIndex) => {
+      for (const [lineIndex, line] of (offer.usagePricing ?? []).entries()) {
+        if (!usageMetricIds.has(line.metricId)) {
+          context.addIssue({
+            code: "custom",
+            message: `Usage line references unknown metric “${line.metricId}”.`,
+            path: [
+              "designs",
+              designIndex,
+              "offers",
+              offerIndex,
+              "usagePricing",
+              lineIndex,
+              "metricId",
+            ],
+          });
+        }
+      }
+      // §4.17 packs fail closed on an undeclared metric for the same reason usage lines do.
+      for (const [packIndex, pack] of (offer.creditPacks ?? []).entries()) {
+        if (!usageMetricIds.has(pack.metricId)) {
+          context.addIssue({
+            code: "custom",
+            message: `Credit pack references unknown metric “${pack.metricId}”.`,
+            path: [
+              "designs",
+              designIndex,
+              "offers",
+              offerIndex,
+              "creditPacks",
+              packIndex,
+              "metricId",
+            ],
+          });
+        }
+      }
+    });
+  });
+
+  // §4.18: the incumbent design and every base row must resolve, or the migration engine
+  // would silently reprice a base that does not exist.
+  if (scenario.migration) {
+    const incumbentDesign = scenario.designs.find(
+      (design) => design.id === scenario.migration?.incumbentDesignId,
+    );
+    if (!incumbentDesign) {
+      context.addIssue({
+        code: "custom",
+        message: "The incumbent design must belong to this scenario.",
+        path: ["migration", "incumbentDesignId"],
+      });
+    }
+    const seenSegments = new Set<string>();
+    scenario.migration.base.forEach((row, rowIndex) => {
+      if (!segmentIds.has(row.segmentId)) {
+        context.addIssue({
+          code: "custom",
+          message: `Installed base references unknown segment “${row.segmentId}”.`,
+          path: ["migration", "base", rowIndex, "segmentId"],
+        });
+      }
+      if (seenSegments.has(row.segmentId)) {
+        context.addIssue({
+          code: "custom",
+          message: "Each segment may have at most one installed-base row.",
+          path: ["migration", "base", rowIndex, "segmentId"],
+        });
+      }
+      seenSegments.add(row.segmentId);
+      if (
+        incumbentDesign &&
+        !incumbentDesign.tiers.some((tier) => tier.id === row.incumbentTierId)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: `Installed base references a tier “${row.incumbentTierId}” the incumbent design does not have.`,
+          path: ["migration", "base", rowIndex, "incumbentTierId"],
+        });
+      }
+    });
+  }
+
+  scenario.competitors.forEach((competitor, competitorIndex) => {
+    if (!hasExactlyKeys(competitor.valueBySegment, segmentIds)) {
+      context.addIssue({
+        code: "custom",
+        message: "Competitor values must include every current segment exactly once.",
+        path: ["competitors", competitorIndex, "valueBySegment"],
+      });
+    }
+  });
+
+  if (scenario.status === "ready") {
+    if (scenario.model.features.length === 0 || scenario.model.segments.length < 2) {
+      context.addIssue({
+        code: "custom",
+        message: "A ready scenario needs 2–6 segments and at least one catalog feature.",
+        path: ["model"],
+      });
+    }
+    if (scenario.designs.some((design) => design.tiers.length === 0)) {
+      context.addIssue({
+        code: "custom",
+        message: "A ready scenario needs at least one tier in every design.",
+        path: ["designs"],
+      });
+    }
+  }
+});
+
 /** The compact URL shape intentionally omits research artifacts. */
-export const sharePayloadSchema = z.strictObject({
-  schemaVersion: z.literal(SCHEMA_VERSION),
+export const sharePayloadSchema = strictObject({
+  schemaVersion: literal(SCHEMA_VERSION),
   id: identifierSchema,
   name: labelSchema,
-  status: z.enum(["draft", "ready"]),
+  status: enumSchema(["draft", "ready"]),
   model: modelSchema,
-  designs: z.array(designSchema).min(1),
+  designs: array(designSchema).min(1),
   activeDesignId: identifierSchema,
-  competitors: z.array(competitorSchema).max(6),
+  competitors: array(competitorSchema).max(6),
   /** §4.18 base composition is design state, so a shared link carries it. */
   migration: migrationSchema.optional(),
   settings: settingsSchema,
 });
 
-export type Scenario = z.infer<typeof scenarioSchema>;
-export type SharePayload = z.infer<typeof sharePayloadSchema>;
-export type ScenarioSettings = z.infer<typeof settingsSchema>;
-export type VanWestendorpStudy = z.infer<typeof vanWestendorpStudySchema>;
-export type ConjointStudyRecord = z.infer<typeof conjointStudySchema>;
-export type MaxDiffStudyRecord = z.infer<typeof maxDiffStudySchema>;
+export type Scenario = Infer<typeof scenarioSchema>;
+export type SharePayload = Infer<typeof sharePayloadSchema>;
+export type ScenarioSettings = Infer<typeof settingsSchema>;
+export type VanWestendorpStudy = Infer<typeof vanWestendorpStudySchema>;
+export type ConjointStudyRecord = Infer<typeof conjointStudySchema>;
+export type MaxDiffStudyRecord = Infer<typeof maxDiffStudySchema>;
 
-export function formatValidationIssues(issues: readonly z.core.$ZodIssue[]) {
+export function formatValidationIssues(issues: readonly core.$ZodIssue[]) {
   const first = issues[0];
   if (!first) return "The scenario is not valid.";
   const path = first.path.length > 0 ? ` at ${first.path.join(".")}` : "";
