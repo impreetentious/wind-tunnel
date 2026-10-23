@@ -44,3 +44,82 @@ test("extended surfaces connect Model, Design, Analyze, and Share", async ({ pag
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Export PNG" })).toBeVisible();
 });
+
+test("visual exports contain captured complete decision evidence", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Use this template" }).nth(2).click();
+  await page.getByRole("tab", { name: "Share", exact: true }).click();
+  await page.getByRole("tab", { name: "Decision support", exact: true }).click();
+  const pngPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export PNG", exact: true }).click();
+  const png = await pngPromise;
+  expect(await png.failure()).toBeNull();
+  const pngStream = await png.createReadStream();
+  const pngChunks = [];
+  for await (const chunk of pngStream!) pngChunks.push(chunk);
+  const pngBytes = Buffer.concat(pngChunks);
+  expect(pngBytes.subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+  const bundlePromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export slide bundle", exact: true }).click();
+  const bundle = await bundlePromise;
+  const stream = await bundle.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream!) chunks.push(chunk);
+  const bytes = Buffer.concat(chunks);
+  expect(bytes.readUInt32LE(0)).toBe(0x04034b50);
+  expect(bytes.toString("utf8")).toContain("Complete structured record");
+  expect(bytes.toString("utf8")).toContain("Complete decision evidence");
+});
+
+test("all twenty history snapshots are inspectable and restore is undoable", async ({ page }) => {
+  const current = {
+    schemaVersion: 1,
+    id: "fixture",
+    name: "Current",
+    status: "draft",
+    model: { features: [], segments: [], interactions: [], usageMetrics: [] },
+    designs: [{ id: "design", name: "Design", tiers: [], addOns: [] }],
+    activeDesignId: "design",
+    competitors: [],
+    research: {},
+    settings: { seed: 1, currency: "USD", theme: "system", locale: "en-US" },
+  };
+  await page.addInitScript((scenario) => {
+    localStorage.setItem("wind-tunnel.scenario.v1", JSON.stringify(scenario));
+    localStorage.setItem(
+      "wind-tunnel.scenario-history.v1",
+      JSON.stringify(
+        Array.from({ length: 20 }, (_, i) => ({
+          id: `snapshot-${i}`,
+          label: `Snapshot ${i}`,
+          createdAt: new Date(Date.UTC(2026, 9, 3, 0, 20 - i)).toISOString(),
+          scenario: { ...scenario, name: `Snapshot ${i}` },
+        })),
+      ),
+    );
+  }, current);
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Share", exact: true }).click();
+  await page.getByRole("tab", { name: "Decision support", exact: true }).click();
+  const history = page.getByText("What changed in this browser", { exact: true }).locator("..");
+  await expect(history.locator("summary")).toHaveCount(6);
+  await history.getByRole("button", { name: "Show all saved snapshots", exact: true }).click();
+  await expect(history.locator("summary")).toHaveCount(20);
+  const last = history.locator("summary").last();
+  await last.focus();
+  await page.keyboard.press("Enter");
+  await expect(last.locator("..").locator("dl")).toContainText("Current");
+  const before = await page.evaluate(() => localStorage.getItem("wind-tunnel.scenario.v1"));
+  expect(before).toBe(JSON.stringify(current));
+  await last.locator("..").getByRole("button", { name: "Restore snapshot", exact: true }).click();
+  await expect(
+    history.getByRole("button", { name: "Export pre-restore scenario", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await page.waitForTimeout(400);
+  const after = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("wind-tunnel.scenario.v1")!),
+  );
+  expect(after.name).toBe("Current");
+  expect(after.model).toEqual(current.model);
+});

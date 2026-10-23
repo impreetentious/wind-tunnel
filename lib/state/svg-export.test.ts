@@ -1,5 +1,12 @@
+import { buildPricingDecisionRecord } from "./decision-record";
+import { plgCollaborationTemplate } from "./templates/plg-collaboration";
 import { describe, expect, it } from "vitest";
-import { buildStoredZip, renderSlideBundle, serializeSvgElement } from "./svg-export";
+import {
+  buildStoredZip,
+  renderSlideBundle,
+  serializeSvgElement,
+  decisionSnapshot,
+} from "./svg-export";
 
 function makeSvg(): SVGSVGElement {
   const namespace = "http://www.w3.org/2000/svg";
@@ -64,4 +71,41 @@ describe("SVG export helpers", () => {
     expect(binaryText).toContain("slide-01.png");
     expect(binaryText).toContain("index.html");
   });
+});
+
+it("captured graphics and printable evidence escape authored text and refuse clipping", () => {
+  const record = buildPricingDecisionRecord(
+    { ...plgCollaborationTemplate, name: "<script>alert(1)</script>" },
+    "2026-10-03",
+    200,
+  );
+  const snapshot = decisionSnapshot(record, [
+    {
+      id: "required",
+      title: "Blocking evidence",
+      detail: "All of this warning must appear",
+      level: "blocker",
+    },
+  ]);
+  expect(snapshot.markup).toContain("&lt;script&gt;");
+  expect(snapshot.markup).not.toContain("<script>");
+  expect(snapshot.markup).toContain("All of this warning must appear");
+  expect(snapshot.height).toBeGreaterThan(240);
+  const huge = decisionSnapshot(record, [
+    {
+      id: "long",
+      title: "Blocking evidence",
+      detail: "Required ".repeat(50_000),
+      level: "blocker",
+    },
+  ]);
+  expect(huge.canPng).toBe(false);
+  const html = renderSlideBundle({
+    title: record.scenario.name,
+    slides: [],
+    evidence: record.markdown,
+    structuredEvidence: record,
+  });
+  expect(html).toContain("Complete structured record");
+  expect(html).not.toContain("<script>alert");
 });

@@ -102,4 +102,4 @@ Apache-2.0 © 2025-2026 Sidakpreet Singh — see [LICENSE](LICENSE).
 
 ---
 
-**Version:** v0.25.3
+**Version:** v0.25.4

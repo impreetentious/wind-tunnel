@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { exportScenario } from "@/lib/state/codec";
+import { buildPricingDecisionRecord } from "@/lib/state/decision-record";
 import { MODEL_LIMITS, evaluateScenarioReadiness, summarizeReadiness } from "@/lib/state/readiness";
 import { diffScenarios, type ScenarioSnapshot } from "@/lib/state/scenario-diff";
 import {
@@ -9,6 +11,7 @@ import {
   downloadBlob,
   renderSlideBundle,
   svgElementToPngBlob,
+  decisionSnapshot,
 } from "@/lib/state/svg-export";
 import { loadScenarioHistory, useScenarioStore } from "@/lib/state/scenario-store";
 import { scenarioTemplates } from "@/lib/state/templates";
@@ -16,8 +19,23 @@ import { scenarioTemplates } from "@/lib/state/templates";
 function VersionHistory() {
   const scenario = useScenarioStore((state) => state.scenario);
   const [history, setHistory] = useState<readonly ScenarioSnapshot[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const restore = useScenarioStore((state) => state.restoreSnapshot);
+  const recovery = useScenarioStore((state) => state.recoveryScenario);
   useEffect(() => {
-    const refresh = () => setHistory(loadScenarioHistory(window.localStorage));
+    const refresh = () => {
+      try {
+        setHistory(loadScenarioHistory(window.localStorage));
+        setHistoryError(null);
+      } catch (error) {
+        setHistoryError(
+          error instanceof Error
+            ? error.message
+            : "Browser history is unavailable. Current data can still be exported.",
+        );
+      }
+    };
     refresh();
     window.addEventListener("wind-tunnel:history", refresh);
     return () => window.removeEventListener("wind-tunnel:history", refresh);
@@ -32,30 +50,70 @@ function VersionHistory() {
         Autosave keeps the last 20 changed scenario snapshots locally. Nothing is uploaded. Select a
         snapshot to read the structural difference from the current scenario.
       </p>
+      {historyError && <p role="alert">{historyError}</p>}
+      {recovery && (
+        <p role="status">
+          The scenario from before restore remains available in memory. Undo restores it; export is
+          available if browser storage fails.
+          <button
+            type="button"
+            onClick={() =>
+              downloadBlob(
+                new Blob([exportScenario(recovery)], { type: "application/json" }),
+                "wind-tunnel-scenario.json",
+              )
+            }
+          >
+            Export pre-restore scenario
+          </button>
+        </p>
+      )}
+      {history.length > 6 && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
+        >
+          {expanded ? "Show six recent snapshots" : "Show all saved snapshots"}
+        </button>
+      )}
       {history.length === 0 ? (
         <p className="mt-4 text-sm text-muted">
           No saved snapshots yet. Make a valid edit and wait for autosave.
         </p>
       ) : (
         <ol className="mt-4 grid gap-3">
-          {history.slice(0, 6).map((snapshot) => {
+          {history.slice(0, expanded ? history.length : 6).map((snapshot) => {
             const changes = diffScenarios(snapshot.scenario, scenario);
             return (
               <li className="rounded-xl border border-line bg-canvas-raised p-3" key={snapshot.id}>
-                <div className="flex flex-wrap justify-between gap-2">
-                  <strong className="text-sm text-ink">{snapshot.label}</strong>
-                  <time className="text-xs text-muted">
-                    {new Date(snapshot.createdAt).toLocaleString(scenario.settings.locale)}
-                  </time>
-                </div>
-                <p className="mt-1 text-xs text-muted">
-                  {changes.length === 0
-                    ? "Matches the current scenario."
-                    : `${changes.length} changed field${changes.length === 1 ? "" : "s"}: ${changes
-                        .slice(0, 3)
-                        .map((change) => change.path)
-                        .join(", ")}${changes.length > 3 ? "…" : ""}`}
-                </p>
+                <details>
+                  <summary>
+                    <strong>{snapshot.label}</strong> ·{" "}
+                    <time>
+                      {new Date(snapshot.createdAt).toLocaleString(scenario.settings.locale)}
+                    </time>{" "}
+                    · {changes.length} changed fields
+                  </summary>
+                  {changes.length === 0 ? (
+                    <p>Matches the current scenario.</p>
+                  ) : (
+                    <dl>
+                      {changes.map((change) => (
+                        <div key={change.path}>
+                          <dt>{change.path}</dt>
+                          <dd>
+                            <code>{change.before ?? "absent"}</code> →{" "}
+                            <code>{change.after ?? "absent"}</code>
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                  <button type="button" onClick={() => restore(snapshot)}>
+                    Restore snapshot
+                  </button>
+                </details>
               </li>
             );
           })}
@@ -108,53 +166,86 @@ function ReadinessCard() {
 
 function ExportActions() {
   const scenario = useScenarioStore((state) => state.scenario);
-  const svgRef = useRef<SVGSVGElement>(null);
+  const challenger = useScenarioStore((state) => state.selectedComparisonId);
   const [error, setError] = useState<string | null>(null);
-  const title = `${scenario.name} decision snapshot`;
+  const [busy, setBusy] = useState(false);
+  const preview = useMemo(
+    () =>
+      decisionSnapshot(
+        buildPricingDecisionRecord(scenario, "Current scenario", undefined, challenger),
+        evaluateScenarioReadiness(scenario),
+      ),
+    [scenario, challenger],
+  );
+  const capture = () => {
+    const frozen = structuredClone(scenario);
+    const record = buildPricingDecisionRecord(
+      frozen,
+      new Date().toISOString(),
+      undefined,
+      challenger,
+    );
+    const graphic = decisionSnapshot(record, evaluateScenarioReadiness(frozen));
+    return {
+      record,
+      graphic,
+      svg: new DOMParser().parseFromString(graphic.markup, "image/svg+xml")
+        .documentElement as unknown as SVGSVGElement,
+    };
+  };
   const savePng = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
-      const svg = svgRef.current;
-      if (!svg) return;
-      downloadBlob(
-        await svgElementToPngBlob(svg, { background: "#ffffff" }),
-        "wind-tunnel-decision-snapshot.png",
-      );
+      const frozen = capture();
+      if (!frozen.graphic.canPng)
+        throw new Error(
+          "Complete evidence exceeds PNG size limits. Export the complete slide bundle or existing JSON instead.",
+        );
+      const png = await svgElementToPngBlob(frozen.svg, { background: "#ffffff" });
+      downloadBlob(png, "wind-tunnel-decision-snapshot.png");
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "PNG export failed.");
+    } finally {
+      setBusy(false);
     }
   };
   const saveSlides = async () => {
+    if (busy) return;
+    setBusy(true);
     try {
-      const svg = svgRef.current;
-      if (!svg) return;
-      const png = await svgElementToPngBlob(svg, { background: "#ffffff" });
+      const frozen = capture();
+      const entries = [];
+      if (frozen.graphic.canPng) {
+        const png = await svgElementToPngBlob(frozen.svg, { background: "#ffffff" });
+        entries.push({ name: "slide-01.png", data: new Uint8Array(await png.arrayBuffer()) });
+      }
       const index = renderSlideBundle({
-        title,
-        caption: "Static decision snapshot exported locally from Wind Tunnel.",
-        slides: [
-          {
-            heading: "Pricing decision snapshot",
-            svgMarkup: '<img alt="Pricing decision snapshot" src="slide-01.png" />',
-            note: "Review assumptions and model limits before circulation.",
-          },
-        ],
+        title: `${frozen.record.scenario.name} decision snapshot`,
+        caption: "Modeled decision evidence captured locally.",
+        slides: frozen.graphic.canPng
+          ? [
+              {
+                heading: "Pricing decision snapshot",
+                svgMarkup: '<img alt="Pricing decision snapshot" src="slide-01.png" />',
+              },
+            ]
+          : [],
+        evidence: frozen.record.markdown,
+        structuredEvidence: frozen.record,
       });
-      const bundle = buildStoredZip([
-        {
-          name: "slide-01.png",
-          data: new Uint8Array(await png.arrayBuffer()),
-        },
-        { name: "index.html", data: new TextEncoder().encode(index) },
-      ]);
-      const bundleBytes = Uint8Array.from(bundle);
+      entries.push({ name: "index.html", data: new TextEncoder().encode(index) });
+      const bundle = Uint8Array.from(buildStoredZip(entries));
       downloadBlob(
-        new Blob([bundleBytes.buffer], { type: "application/zip" }),
+        new Blob([bundle.buffer], { type: "application/zip" }),
         "wind-tunnel-decision-slides.zip",
       );
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Slide export failed.");
+    } finally {
+      setBusy(false);
     }
   };
   return (
@@ -164,66 +255,36 @@ function ExportActions() {
       </p>
       <h3 className="mt-1 text-xl font-semibold text-ink">Take the decision record with you</h3>
       <p className="mt-2 text-sm leading-6 text-muted">
-        PNG creates a crisp image; the slide bundle is a ZIP containing the PNG and a self-contained
-        printable index. Both stay on this device.
+        PNG and the complete printable slide bundle capture the same decision evidence. Both stay on
+        this device.
       </p>
-      <svg
-        aria-label="Decision snapshot graphic"
-        className="mt-4 w-full rounded-xl border border-line bg-canvas-raised"
-        ref={svgRef}
-        role="img"
-        viewBox="0 0 720 240"
-      >
-        <rect fill="#f8fafc" height="240" width="720" />
-        <text fill="#17201d" fontFamily="system-ui" fontSize="24" fontWeight="700" x="32" y="52">
-          {title}
-        </text>
-        <text fill="#51605a" fontFamily="system-ui" fontSize="16" x="32" y="86">
-          Scenario evidence, not a pricing recommendation
-        </text>
-        <rect fill="#e2f3ee" height="92" rx="12" width="200" x="32" y="116" />
-        <text fill="#17201d" fontFamily="system-ui" fontSize="14" x="52" y="148">
-          Currency
-        </text>
-        <text fill="#17201d" fontFamily="system-ui" fontSize="26" fontWeight="700" x="52" y="184">
-          {scenario.settings.currency}
-        </text>
-        <rect fill="#e2f3ee" height="92" rx="12" width="200" x="260" y="116" />
-        <text fill="#17201d" fontFamily="system-ui" fontSize="14" x="280" y="148">
-          Segments
-        </text>
-        <text fill="#17201d" fontFamily="system-ui" fontSize="26" fontWeight="700" x="280" y="184">
-          {scenario.model.segments.length}
-        </text>
-        <rect fill="#e2f3ee" height="92" rx="12" width="200" x="488" y="116" />
-        <text fill="#17201d" fontFamily="system-ui" fontSize="14" x="508" y="148">
-          Active design
-        </text>
-        <text fill="#17201d" fontFamily="system-ui" fontSize="18" fontWeight="700" x="508" y="184">
-          {scenario.designs.find((design) => design.id === scenario.activeDesignId)?.name ?? "—"}
-        </text>
-      </svg>
+      {preview.canPng ? (
+        <div className="mt-4 w-full" dangerouslySetInnerHTML={{ __html: preview.markup }} />
+      ) : (
+        <p>
+          Complete evidence is available in the printable bundle; the PNG would exceed its size
+          limit.
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap gap-3">
         <button
-          className="min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent hover:bg-accent-strong"
-          onClick={savePng}
           type="button"
+          disabled={busy}
+          onClick={savePng}
+          className="min-h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent"
         >
           Export PNG
         </button>
         <button
-          className="min-h-10 rounded-lg border border-line bg-canvas-raised px-4 text-sm font-semibold text-ink hover:border-accent"
-          onClick={saveSlides}
           type="button"
+          disabled={busy}
+          onClick={saveSlides}
+          className="min-h-10 rounded-lg border border-line px-4 text-sm font-semibold"
         >
           Export slide bundle
         </button>
       </div>
-      {error ? (
-        <p className="mt-3 text-sm text-amber" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error && <p role="alert">{error}</p>}
     </section>
   );
 }

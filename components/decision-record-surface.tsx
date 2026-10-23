@@ -353,11 +353,15 @@ function PricingRecord({ record }: { record: PricingDecisionRecord }) {
 
 export function DecisionRecordSurface() {
   const scenario = useScenarioStore((state) => state.scenario);
+  const selectedComparisonId = useScenarioStore((state) => state.selectedComparisonId);
   const setMessage = useScenarioStore((state) => state.setMessage);
   const [generatedOn, setGeneratedOn] = useState<string | null>(null);
   const record = useMemo(
-    () => (generatedOn ? buildPricingDecisionRecord(scenario, generatedOn) : null),
-    [generatedOn, scenario],
+    () =>
+      generatedOn
+        ? buildPricingDecisionRecord(scenario, generatedOn, undefined, selectedComparisonId)
+        : null,
+    [generatedOn, scenario, selectedComparisonId],
   );
 
   return (

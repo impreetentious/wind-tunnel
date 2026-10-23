@@ -33,6 +33,14 @@ export interface DecisionRecordDriver {
 
 export interface PricingDecisionRecord {
   generatedOn: string;
+  pairedComparison:
+    | ({
+        referenceName: string;
+        challengerName: string;
+        seed: number;
+        drawCount: number;
+      } & import("@/lib/engine/types").MonteCarloComparison)
+    | undefined;
   scenario: Scenario;
   activeDesign: Scenario["designs"][number];
   economics: ReturnType<typeof simulateScenarioDesign>;
@@ -245,6 +253,17 @@ function recordMarkdown(record: Omit<PricingDecisionRecord, "markdown">) {
     lines.push("");
   }
 
+  if (record.pairedComparison) {
+    const paired = record.pairedComparison;
+    lines.push(
+      "## Modeled paired revenue differences",
+      "",
+      `${tableCell(paired.challengerName)} minus ${tableCell(paired.referenceName)}; ${paired.drawCount} paired draws; seed ${paired.seed}.`,
+      "",
+      `Mean ${formatRecordMoney(paired.meanDelta, currency)}; P10/P50/P90 ${formatRecordMoney(paired.p10Delta, currency)} / ${formatRecordMoney(paired.p50Delta, currency)} / ${formatRecordMoney(paired.p90Delta, currency)}; expected downside ${formatRecordMoney(paired.expectedDownside, currency)}. Scenario percentiles, not confidence intervals or causal uplift.`,
+      "",
+    );
+  } else lines.push("Paired comparison unavailable: select a challenger design.", "");
   lines.push("## Simulated economics", "");
   if (!economics) {
     lines.push(
@@ -531,6 +550,7 @@ export function buildPricingDecisionRecord(
   scenario: Scenario,
   generatedOn: string,
   drawCount = DECISION_RECORD_DRAW_COUNT,
+  challengerDesignId: string | null = null,
 ): PricingDecisionRecord {
   if (!generatedOn.trim()) throw new RangeError("A decision record needs a generation date.");
   const design = activeDesign(scenario);
@@ -598,6 +618,21 @@ export function buildPricingDecisionRecord(
 
   const withoutMarkdown: Omit<PricingDecisionRecord, "markdown"> = {
     generatedOn,
+    pairedComparison: (() => {
+      const comparison = monteCarlo?.comparisons.find(
+        (entry) => entry.challengerDesignId === challengerDesignId,
+      );
+      const challenger = scenario.designs.find((entry) => entry.id === challengerDesignId);
+      return comparison && challenger
+        ? {
+            ...comparison,
+            referenceName: design.name,
+            challengerName: challenger.name,
+            seed: scenario.settings.seed,
+            drawCount,
+          }
+        : undefined;
+    })(),
     scenario,
     activeDesign: design,
     economics,

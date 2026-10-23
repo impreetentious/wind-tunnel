@@ -1,3 +1,6 @@
+import type { PricingDecisionRecord } from "./decision-record";
+import { formatRecordMoney, formatRecordPercent } from "./decision-record";
+import { MODEL_LIMITS, type ReadinessCheck } from "./readiness";
 /**
  * A tiny helper that serializes an inline `<svg>` element to a Blob suitable
  * for download. Renders via an Image → Canvas pipeline so the output stays
@@ -78,15 +81,44 @@ export function svgElementToPngBlob(
     const width = options.width ?? fallbackW;
     const height = options.height ?? fallbackH;
 
+    const pixelsW = Math.round(width * scale),
+      pixelsH = Math.round(height * scale);
+    if (
+      ![pixelsW, pixelsH].every((value) => Number.isFinite(value) && value > 0 && value <= 8192) ||
+      pixelsW * pixelsH > 16_000_000
+    ) {
+      reject(
+        new Error(
+          "Complete evidence exceeds PNG size limits. Use the printable bundle or JSON export.",
+        ),
+      );
+      return;
+    }
+    const markup = serializeSvgElement(svg);
     const image = new Image();
+    let canvas: HTMLCanvasElement | undefined;
+    const release = () => {
+      image.onload = null;
+      image.onerror = null;
+      image.src = "";
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+        canvas = undefined;
+      }
+    };
+    const fail = (error: unknown) => {
+      release();
+      reject(error);
+    };
     image.onload = () => {
       try {
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.round(width * scale);
-        canvas.height = Math.round(height * scale);
+        canvas = document.createElement("canvas");
+        canvas.width = pixelsW;
+        canvas.height = pixelsH;
         const context = canvas.getContext("2d");
         if (!context) {
-          reject(new Error("2D canvas context is unavailable."));
+          fail(new Error("2D canvas context is unavailable."));
           return;
         }
         if (options.background) {
@@ -96,19 +128,20 @@ export function svgElementToPngBlob(
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((result) => {
           if (!result) {
-            reject(new Error("Canvas failed to encode a PNG."));
+            fail(new Error("Canvas failed to encode a PNG."));
             return;
           }
+          release();
           resolve(result);
         }, "image/png");
       } catch (error) {
-        reject(error);
+        fail(error);
       }
     };
     image.onerror = () => {
-      reject(new Error("Browser could not decode the SVG for PNG export."));
+      fail(new Error("Browser could not decode the SVG for PNG export."));
     };
-    image.src = svgDataUrl(serializeSvgElement(svg));
+    image.src = svgDataUrl(markup);
   });
 }
 
@@ -127,10 +160,13 @@ export function downloadBlob(blob: Blob, filename: string): void {
   anchor.download = filename;
   anchor.rel = "noopener";
   document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
+  try {
+    anchor.click();
+  } finally {
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 250);
+  }
   // Delay the revoke so slower browsers actually flush the download.
-  setTimeout(() => URL.revokeObjectURL(url), 250);
 }
 
 export interface StoredZipEntry {
@@ -236,6 +272,8 @@ export function buildStoredZip(entries: readonly StoredZipEntry[]): Uint8Array {
 export function renderSlideBundle(input: {
   title: string;
   caption?: string;
+  evidence?: string;
+  structuredEvidence?: unknown;
   slides: readonly { heading: string; svgMarkup: string; note?: string }[];
 }): string {
   const escape = (value: string) =>
@@ -271,6 +309,9 @@ export function renderSlideBundle(input: {
   .slide { padding: 32px; page-break-after: always; }
   .slide h2 { margin: 0 0 16px; font-size: 20px; }
   .slide .art { max-width: 100%; }
+  .evidence { padding: 32px; overflow-wrap: anywhere; }
+  .evidence p { white-space: pre-wrap; break-inside: auto; }
+  .evidence pre { white-space: pre-wrap; overflow-wrap: anywhere; break-inside: auto; }
   .slide .note { font-size: 14px; color: #555; margin-top: 16px; }
   @media print { header { page-break-after: always; } }
 </style>
@@ -281,6 +322,67 @@ export function renderSlideBundle(input: {
   ${input.caption ? `<p>${escape(input.caption)}</p>` : ""}
 </header>
 ${slides}
+${
+  input.evidence
+    ? `<section class="evidence"><h2>Complete decision evidence</h2>${input.evidence
+        .split("\n")
+        .map((line) => `<p>${escape(line)}</p>`)
+        .join("")}</section>`
+    : ""
+}
+${input.structuredEvidence ? `<section class="evidence"><h2>Complete structured record</h2><pre>${escape(JSON.stringify(input.structuredEvidence, null, 2))}</pre></section>` : ""}
 </body>
 </html>`;
+}
+
+export function decisionSnapshot(record: PricingDecisionRecord, checks: readonly ReadinessCheck[]) {
+  const escape = (value: string) =>
+    value.replace(
+      /[&<>"']/g,
+      (character) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!,
+    );
+  const currency = record.scenario.settings.currency;
+  const lines = [
+    `${record.scenario.name} decision snapshot`,
+    `Active design: ${record.activeDesign.name}`,
+    `Currency: ${currency}; seed: ${record.scenario.settings.seed}; captured: ${record.generatedOn}`,
+    "Modeled monthly revenue under stated assumptions",
+    record.economics
+      ? `MRR: ${formatRecordMoney(record.economics.mrr, currency)}; paid conversion: ${formatRecordPercent(record.economics.paidConversion)}; value capture: ${formatRecordPercent(record.economics.captureRate)}`
+      : "Economics unavailable until buyer segments are supplied.",
+    record.uncertainty
+      ? `MRR P10/P50/P90: ${formatRecordMoney(record.uncertainty.p10, currency)} / ${formatRecordMoney(record.uncertainty.p50, currency)} / ${formatRecordMoney(record.uncertainty.p90, currency)}; draws: ${record.uncertainty.drawCount}`
+      : "Uncertainty unavailable.",
+    record.pairedComparison
+      ? `${record.pairedComparison.challengerName} minus ${record.pairedComparison.referenceName}: mean ${formatRecordMoney(record.pairedComparison.meanDelta, currency)}; P10/P50/P90 ${formatRecordMoney(record.pairedComparison.p10Delta, currency)} / ${formatRecordMoney(record.pairedComparison.p50Delta, currency)} / ${formatRecordMoney(record.pairedComparison.p90Delta, currency)}; expected downside ${formatRecordMoney(record.pairedComparison.expectedDownside, currency)}; ${record.pairedComparison.drawCount} paired draws`
+      : "Paired comparison unavailable: select a challenger design.",
+    "Scenario percentiles are not confidence intervals or causal uplift.",
+    `Readiness: ${checks.some((check) => check.level === "blocker") ? "Not ready to defend" : checks.some((check) => check.level === "warning") ? "Usable with caveats" : "Ready to defend"}`,
+    ...checks.map((check) => `${check.level.toUpperCase()}: ${check.title}. ${check.detail}`),
+    ...MODEL_LIMITS.map((limit) => `${limit.title}: ${limit.body}`),
+    "Supporting assumptions/findings are summarized here. The complete structured record and evidence are in the printable slide bundle and existing JSON export.",
+  ];
+  const wrapped: string[] = [];
+  for (const text of lines) {
+    let line = "",
+      width = 0;
+    for (const char of Array.from(text)) {
+      const units = char.codePointAt(0)! > 0x2ff ? 2 : 1;
+      if (width + units > 72 || char === "\n") {
+        wrapped.push(line);
+        line = "";
+        width = 0;
+      }
+      if (char !== "\n") {
+        line += char;
+        width += units;
+      }
+    }
+    wrapped.push(line, "");
+  }
+  const height = 48 + wrapped.length * 20;
+  const canPng = height * 2 <= 8192 && 1440 * height * 2 <= 16_000_000;
+  const markup = `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Decision snapshot graphic" viewBox="0 0 720 ${height}" width="720" height="${height}" style="max-width:100%;height:auto"><rect width="720" height="${height}" fill="#f8fafc"/>${wrapped.map((line, index) => `<text x="32" y="${32 + index * 20}" font-family="monospace" font-size="14" fill="#17201d">${escape(line)}</text>`).join("")}</svg>`;
+  return { lines: wrapped, height, canPng, markup };
 }

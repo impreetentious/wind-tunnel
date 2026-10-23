@@ -85,3 +85,22 @@ describe("pricing decision record", () => {
     }
   });
 });
+
+it("paired record requires an explicit challenger and stores captured identities", () => {
+  const reference = plgCollaborationTemplate.designs[0]!;
+  const scenario = {
+    ...plgCollaborationTemplate,
+    designs: [reference, { ...reference, id: "identical", name: "Captured challenger" }],
+  };
+  expect(buildPricingDecisionRecord(scenario, "2026-10-03", 200).pairedComparison).toBeUndefined();
+  const record = buildPricingDecisionRecord(scenario, "2026-10-03", 200, "identical");
+  expect(record.pairedComparison).toMatchObject({
+    challengerDesignId: "identical",
+    challengerName: "Captured challenger",
+    referenceDesignId: reference.id,
+    referenceName: reference.name,
+    meanDelta: 0,
+    expectedDownside: 0,
+    ties: 200,
+  });
+});
