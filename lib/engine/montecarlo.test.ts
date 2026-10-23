@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { fitLognormalBand } from "./stats";
 import {
+  compareDesigns,
   empiricalPercentile,
   MAX_MONTE_CARLO_DRAWS,
   MIN_MONTE_CARLO_DRAWS,
@@ -166,6 +167,11 @@ describe("seeded Monte Carlo uncertainty", () => {
         challengerWins: 0,
         ties: 1_000,
         challengerWinRate: 0,
+        meanDelta: 0,
+        p10Delta: 0,
+        p50Delta: 0,
+        p90Delta: 0,
+        expectedDownside: 0,
       },
     ]);
   });
@@ -314,4 +320,42 @@ describe("Monte Carlo input validation and degenerate paths", () => {
     expect(Array.from({ length: 64 }, mulberry32(7))).toEqual(stream);
     expect(Array.from({ length: 64 }, mulberry32(8))).not.toEqual(stream);
   });
+});
+
+it("paired revenue difference goldens preserve signs, ties and empirical percentiles", () => {
+  const draws = [80, 100, 120, 140].map((value, index) => ({
+    index,
+    parameterValues: {},
+    mrrByDesign: { reference: 100, challenger: value },
+  }));
+  const result = compareDesigns("reference", "challenger", draws);
+  expect(result).toMatchObject({
+    meanDelta: 10,
+    p10Delta: -14,
+    p50Delta: 10,
+    p90Delta: 34,
+    expectedDownside: 5,
+    challengerWins: 2,
+    referenceWins: 1,
+    ties: 1,
+  });
+  const reversed = compareDesigns("challenger", "reference", draws);
+  expect(reversed).toMatchObject({
+    meanDelta: -10,
+    p10Delta: -34,
+    p50Delta: -10,
+    expectedDownside: 15,
+  });
+  expect(reversed.p90Delta).toBeCloseTo(14, 12);
+  expect(compareDesigns("reference", "challenger", [draws[0]!])).toMatchObject({
+    meanDelta: -20,
+    p10Delta: -20,
+    p90Delta: -20,
+    expectedDownside: 20,
+  });
+  expect(() => compareDesigns("reference", "challenger", [])).toThrow();
+  expect(() => compareDesigns("reference", "challenger", [{ ...draws[0]!, index: 1 }])).toThrow(
+    /indices/,
+  );
+  expect(() => compareDesigns("missing", "challenger", draws)).toThrow();
 });

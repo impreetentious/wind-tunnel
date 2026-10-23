@@ -42,7 +42,7 @@ export interface ScenarioDiffEntry {
 function fmt(value: unknown): string {
   if (value === undefined) return "—";
   if (value === null) return "null";
-  if (typeof value === "number") return Number.isInteger(value) ? String(value) : value.toFixed(4);
+  if (typeof value === "number") return String(value);
   if (typeof value === "string") return value;
   if (typeof value === "boolean") return value ? "true" : "false";
   return JSON.stringify(value);

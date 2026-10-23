@@ -14,6 +14,10 @@ export type PersistenceStatus = "saved" | "saving" | "error";
 
 export interface ScenarioStore {
   scenario: Scenario;
+  selectedComparisonId: string | null;
+  recoveryScenario: Scenario | null;
+  selectComparison: (id: string | null) => void;
+  restoreSnapshot: (snapshot: ScenarioSnapshot) => boolean;
   message: string | null;
   persistenceStatus: PersistenceStatus;
   updateScenario: (updater: (current: Scenario) => Scenario) => void;
@@ -42,17 +46,18 @@ function readScenarioHistory(storage: ScenarioStorage): readonly ScenarioSnapsho
         if (
           typeof candidate.id !== "string" ||
           typeof candidate.label !== "string" ||
-          typeof candidate.createdAt !== "string"
+          typeof candidate.createdAt !== "string" ||
+          !Number.isFinite(Date.parse(candidate.createdAt))
         )
           return [];
-        const scenario = scenarioSchema.safeParse(candidate.scenario);
-        return scenario.success
+        const scenario = importScenario(JSON.stringify(candidate.scenario));
+        return scenario.ok
           ? [
               {
                 id: candidate.id,
                 label: candidate.label,
                 createdAt: candidate.createdAt,
-                scenario: scenario.data,
+                scenario: scenario.value,
               },
             ]
           : [];
@@ -64,10 +69,45 @@ function readScenarioHistory(storage: ScenarioStorage): readonly ScenarioSnapsho
 }
 
 export function loadScenarioHistory(storage: ScenarioStorage): readonly ScenarioSnapshot[] {
+  const raw = storage.getItem(SCENARIO_HISTORY_STORAGE_KEY);
+  if (raw) {
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      !Array.isArray(parsed) ||
+      parsed.some(
+        (entry) =>
+          !entry ||
+          typeof entry !== "object" ||
+          typeof entry.id !== "string" ||
+          typeof entry.label !== "string" ||
+          typeof entry.createdAt !== "string" ||
+          !Number.isFinite(Date.parse(entry.createdAt)) ||
+          !importScenario(JSON.stringify(entry.scenario)).ok,
+      )
+    )
+      throw new Error("Saved history contains unsupported/corrupt data and has been preserved.");
+  }
   return readScenarioHistory(storage);
 }
 
 function persistScenarioSnapshot(storage: ScenarioStorage, scenario: Scenario): void {
+  const raw = storage.getItem(SCENARIO_HISTORY_STORAGE_KEY);
+  if (raw) {
+    const existing: unknown = JSON.parse(raw);
+    if (
+      !Array.isArray(existing) ||
+      existing.some(
+        (entry) =>
+          !entry ||
+          typeof entry.id !== "string" ||
+          typeof entry.label !== "string" ||
+          typeof entry.createdAt !== "string" ||
+          !Number.isFinite(Date.parse(entry.createdAt)) ||
+          !importScenario(JSON.stringify(entry.scenario)).ok,
+      )
+    )
+      throw new Error("Saved history contains unsupported/corrupt data and has been preserved.");
+  }
   const history = appendScenarioSnapshot(readScenarioHistory(storage), {
     id: `snapshot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     label: scenario.name,
@@ -108,6 +148,24 @@ export function createScenarioStore(
     temporal<ScenarioStore, [], [], ScenarioHistory>(
       (set, get) => ({
         scenario: scenarioSchema.parse(initialScenario),
+        selectedComparisonId: null,
+        recoveryScenario: null,
+        selectComparison: (id) => set({ selectedComparisonId: id }),
+        restoreSnapshot: (snapshot) => {
+          const candidate = importScenario(JSON.stringify(snapshot.scenario));
+          if (!candidate.ok) {
+            set({ message: `Snapshot was not restored: ${candidate.error}` });
+            return false;
+          }
+          const recovery = scenarioSchema.parse(get().scenario);
+          set({
+            scenario: candidate.value,
+            recoveryScenario: recovery,
+            message:
+              "Snapshot restored. Undo recovers the previous scenario; export remains available if storage fails.",
+          });
+          return true;
+        },
         message: null,
         persistenceStatus: "saved",
         updateScenario: (updater) => {
@@ -118,7 +176,7 @@ export function createScenarioStore(
             });
             return;
           }
-          set({ scenario: parsed.data, message: null });
+          set({ scenario: parsed.data, recoveryScenario: null, message: null });
         },
         replaceScenario: (scenario, message = null) => {
           const parsed = scenarioSchema.safeParse(scenario);
@@ -128,7 +186,7 @@ export function createScenarioStore(
             });
             return;
           }
-          set({ scenario: parsed.data, message });
+          set({ scenario: parsed.data, recoveryScenario: null, message });
         },
         setSettings: (settings) => {
           get().updateScenario((scenario) => ({

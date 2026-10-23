@@ -153,17 +153,29 @@ function distribution(
   return { designId: design.id, label: design.label, mrr, percentiles };
 }
 
-function compareDesigns(
+export function compareDesigns(
   referenceDesignId: string,
   challengerDesignId: string,
   draws: readonly MonteCarloDraw[],
 ): MonteCarloComparison {
+  if (!Number.isInteger(draws.length) || draws.length < 1 || draws.length > MAX_MONTE_CARLO_DRAWS)
+    throw new RangeError("Paired comparison requires supported positive draws.");
+  const differences: number[] = [];
   let referenceWins = 0;
   let challengerWins = 0;
   let ties = 0;
-  for (const draw of draws) {
+  for (const [index, draw] of draws.entries()) {
+    if (draw.index !== index)
+      throw new RangeError("Paired comparison requires matching ordered draw indices.");
     const reference = draw.mrrByDesign[referenceDesignId];
     const challenger = draw.mrrByDesign[challengerDesignId];
+    if (
+      !Number.isFinite(reference) ||
+      !Number.isFinite(challenger) ||
+      !Number.isFinite(challenger - reference)
+    )
+      throw new RangeError("Paired comparison requires finite indexed draws.");
+    differences.push(challenger - reference);
     if (challenger > reference) challengerWins += 1;
     else if (reference > challenger) referenceWins += 1;
     else ties += 1;
@@ -175,6 +187,14 @@ function compareDesigns(
     challengerWins,
     ties,
     challengerWinRate: challengerWins / draws.length,
+    meanDelta: differences.reduce((sum, value) => sum + value / draws.length, 0),
+    p10Delta: empiricalPercentile(differences, 0.1),
+    p50Delta: empiricalPercentile(differences, 0.5),
+    p90Delta: empiricalPercentile(differences, 0.9),
+    expectedDownside: differences.reduce(
+      (sum, value) => sum + Math.max(0, -value) / draws.length,
+      0,
+    ),
   };
 }
 

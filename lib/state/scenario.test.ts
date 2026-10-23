@@ -333,3 +333,54 @@ describe("scenario state", () => {
     stopAutosave();
   });
 });
+
+it("snapshot restore is one undoable transaction with independent memory recovery", () => {
+  const original = cloneTemplate();
+  const store = createScenarioStore(original);
+  const snapshot = {
+    id: "older",
+    label: "Older",
+    createdAt: "2026-08-01T00:00:00Z",
+    scenario: { ...original, name: "Old snapshot" },
+  };
+  expect(store.getState().restoreSnapshot(snapshot)).toBe(true);
+  expect(store.getState().scenario.name).toBe("Old snapshot");
+  expect(store.getState().recoveryScenario).toEqual(original);
+  expect(store.temporal.getState().pastStates).toHaveLength(1);
+  store.temporal.getState().undo();
+  expect(store.getState().scenario).toEqual(original);
+  expect(
+    store.getState().restoreSnapshot({
+      ...snapshot,
+      scenario: { ...original, schemaVersion: 99 } as unknown as typeof original,
+    }),
+  ).toBe(false);
+  expect(store.getState().scenario).toEqual(original);
+});
+
+it("corrupt serialized history survives autosave and storage failure preserves restore recovery", () => {
+  vi.useFakeTimers();
+  const raw = '[{"unsupported":true}]';
+  const values = new Map([[SCENARIO_HISTORY_STORAGE_KEY, raw]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      if (key === SCENARIO_HISTORY_STORAGE_KEY) throw new Error("blocked");
+      values.set(key, value);
+    },
+  };
+  const original = cloneTemplate();
+  const store = createScenarioStore(original);
+  const stop = attachScenarioAutosave(store, storage);
+  store.getState().restoreSnapshot({
+    id: "old",
+    label: "Old",
+    createdAt: "2026-08-01T00:00:00Z",
+    scenario: { ...original, name: "Restored" },
+  });
+  vi.advanceTimersByTime(300);
+  expect(values.get(SCENARIO_HISTORY_STORAGE_KEY)).toBe(raw);
+  expect(store.getState().recoveryScenario).toEqual(original);
+  stop();
+  vi.useRealTimers();
+});

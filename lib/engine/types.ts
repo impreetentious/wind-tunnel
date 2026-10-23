@@ -297,6 +297,11 @@ export interface MonteCarloDistribution {
 }
 
 export interface MonteCarloComparison {
+  meanDelta: number;
+  p10Delta: number;
+  p50Delta: number;
+  p90Delta: number;
+  expectedDownside: number;
   referenceDesignId: string;
   challengerDesignId: string;
   referenceWins: number;

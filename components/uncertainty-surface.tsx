@@ -170,6 +170,9 @@ function WinRates({
   designs: MonteCarloResult["distributions"];
 }) {
   const labelById = new Map(designs.map((design) => [design.designId, design.label]));
+  const selected = useScenarioStore((state) => state.selectedComparisonId);
+  const select = useScenarioStore((state) => state.selectComparison);
+  const currency = useScenarioStore((state) => state.scenario.settings.currency);
   if (comparisons.length === 0) {
     return (
       <section className="rounded-2xl border border-line bg-canvas p-5">
@@ -199,24 +202,65 @@ function WinRates({
         Which alternative wins more often?
       </h2>
       <div className="mt-5 grid gap-4 md:grid-cols-2">
-        {comparisons.map((comparison) => (
-          <article
-            className="rounded-xl border border-line bg-canvas-raised p-4"
-            key={comparison.challengerDesignId}
+        <label>
+          Challenger design
+          <select
+            aria-label="Challenger design"
+            value={selected ?? ""}
+            onChange={(event) => select(event.target.value || null)}
           >
-            <p className="text-sm font-semibold text-ink">
-              {labelById.get(comparison.challengerDesignId)} vs{" "}
-              {labelById.get(comparison.referenceDesignId)}
-            </p>
-            <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-ink">
-              {formatPercent(comparison.challengerWinRate)}
-            </p>
-            <p className="mt-1 text-sm leading-6 text-muted">
-              challenger wins · {formatCount(comparison.challengerWins)} wins,{" "}
-              {formatCount(comparison.ties)} ties
-            </p>
-          </article>
-        ))}
+            <option value="">Select a challenger</option>
+            {comparisons.map((entry) => (
+              <option key={entry.challengerDesignId} value={entry.challengerDesignId}>
+                {labelById.get(entry.challengerDesignId)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {!comparisons.some((entry) => entry.challengerDesignId === selected) && (
+          <p>Paired revenue differences unavailable until a challenger is selected.</p>
+        )}
+        {comparisons
+          .filter((entry) => entry.challengerDesignId === selected)
+          .map((comparison) => (
+            <article
+              className="rounded-xl border border-line bg-canvas-raised p-4"
+              key={comparison.challengerDesignId}
+            >
+              <p className="text-sm font-semibold text-ink">
+                {labelById.get(comparison.challengerDesignId)} vs{" "}
+                {labelById.get(comparison.referenceDesignId)}
+              </p>
+              <p className="mt-2 text-2xl font-semibold tracking-[-0.04em] text-ink">
+                {formatPercent(comparison.challengerWinRate)}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                challenger wins · {formatCount(comparison.challengerWins)} wins,{" "}
+                {formatCount(comparison.ties)} ties
+              </p>
+              <table>
+                <caption>Modeled paired revenue differences (challenger minus reference)</caption>
+                <tbody>
+                  {[
+                    ["Mean", comparison.meanDelta],
+                    ["P10", comparison.p10Delta],
+                    ["P50", comparison.p50Delta],
+                    ["P90", comparison.p90Delta],
+                    ["Expected downside", comparison.expectedDownside],
+                  ].map(([label, value]) => (
+                    <tr key={label}>
+                      <th scope="row">{label}</th>
+                      <td>{formatCurrency(Number(value), currency, 2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-xs text-muted">
+                Shared scenario draws; these percentiles are not confidence intervals or causal
+                uplift.
+              </p>
+            </article>
+          ))}
       </div>
     </section>
   );

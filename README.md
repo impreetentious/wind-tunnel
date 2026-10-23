@@ -2,13 +2,13 @@
 
 **A tool for SaaS pricing & packaging decisions.** Model your buyers as explicit assumptions, design tiers and fences as a screening mechanism and watch segments self-select — revealing revenue, conversion and the surplus you're leaving on the table, before you ship a price.
 
-## The idea
+## The IDEA
 
 Most SaaS packaging is decided by gut and competitor-copying. But Good/Better/Best isn't decoration — it's a _screening mechanism_ (second-degree price discrimination): a menu designed so buyers with different willingness-to-pay sort themselves into the right tier. Once you write your assumptions down — who the segments are, what they'd pay, which features they value — the menu's consequences stop being opinions. They can be computed.
 
 Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a billing tool and not an optimizer that needs live revenue data. It's useful before your first customer exists: a think-before-you-ship reasoning layer for the highest-leverage decision most SaaS teams make on vibes.
 
-## What it does
+## What It Does
 
 - **Model** — buyer segments with P50-centred size and willingness-to-pay bands, within-segment buyer spread, a keyboard-navigable segment × feature value matrix, usage metrics and bands, provenance tags and immediate engine-backed KPIs. Three template scenarios give you a practical first run.
 - **Design** — editable tiers, feature fences, free tier, add-ons, flat, per-seat, metered or prepaid-credit pricing, trial and retention assumptions, permitted discount floors and multiple design alternatives. The built-in linter flags dominated tiers, fence inversions, free-tier leakage (in dollars), cannibalization, competitor loss, overage cliffs, dead allowances, stranded legacy cohorts, un-fenced discounts and directional behavioral considerations without inventing numeric effects.
@@ -24,7 +24,7 @@ Wind Tunnel runs entirely on **your assumptions, made explicit**. It is not a bi
 
 The economics is the point: the engine concentrates correctness in one primitive (utility upper-envelope selection over an offer menu). Every formula is tested against closed-form results and a value-conservation identity must hold on every simulation. `docs/MODEL-SPEC.md` states the math in full.
 
-## What it is not
+## What It Is NOT
 
 No accounts, no server, no telemetry, no data connectors. Fully client-side: your assumptions stay in your browser; compact model/design configurations can share as URLs, while full survey data travels only in an explicit JSON export.
 
@@ -41,7 +41,7 @@ No accounts, no server, no telemetry, no data connectors. Fully client-side: you
 
 Next.js (App Router, static export) · React · TypeScript (strict) · Tailwind CSS · Zustand · Zod · hand-rolled SVG visualization · Vitest + fast-check · Playwright. Fully client-side, with no server. The static bundle is portable to any static host.
 
-## Project docs
+## Project Docs
 
 - `docs/MODEL-SPEC.md` — the normative math specification the engine implements.
 - `docs/STATIC-HOST-HEADERS.md` — CSP and equivalent static-host security headers.
@@ -82,7 +82,7 @@ The production dependency audit used by CI is `npm audit --omit=dev --audit-leve
 
 `npm run perf:conjoint` times the canonical 500-respondent conjoint fit in its own uninstrumented process and fails on an order-of-magnitude slowdown. It runs in CI ahead of `npm run coverage`, because coverage instrumentation would distort the measurement.
 
-## Build and deploy
+## Build and Deploy
 
 ```sh
 npm run build
@@ -102,4 +102,4 @@ Apache-2.0 © 2025-2026 Sidakpreet Singh — see [LICENSE](LICENSE).
 
 ---
 
-**Version:** v0.25.2
+**Version:** v0.25.3
